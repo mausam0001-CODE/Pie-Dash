@@ -4,6 +4,7 @@ import {
     Trash2, Loader2, Info, CheckCircle2, AlertCircle,
     Twitter, Linkedin, Globe
 } from 'lucide-react';
+import { useSessionContext } from '@supabase/auth-helpers-react';
 import { supabase } from '../lib/supabase';
 
 interface Account {
@@ -21,6 +22,7 @@ const PLATFORMS = [
 ];
 
 export const Connections = () => {
+    const { session } = useSessionContext();
     const [accounts, setAccounts] = useState<Account[]>([]);
     const [loading, setLoading] = useState(true);
     const [showNotesModal, setShowNotesModal] = useState<string | null>(null);
@@ -63,9 +65,13 @@ export const Connections = () => {
         }
     };
 
-    const confirmConnect = () => {
-        // In a real app, this redirects to our backend OAuth route
-        window.location.href = `http://localhost:3000/api/auth/facebook`;
+    const confirmConnect = async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        const appId = 'PASTE_YOUR_ID_HERE'; // Update this in .env.local
+        const redirectUri = `https://ivsytkzemjludwzhrdsu.supabase.co/functions/v1/ig-oauth`;
+        const state = session?.user?.id || 'team-user';
+
+        window.location.href = `https://www.facebook.com/v18.0/dialog/oauth?client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=instagram_basic,instagram_content_publish,pages_read_engagement,pages_show_list&state=${state}`;
     };
 
     const handleDelete = async (id: string) => {
@@ -153,53 +159,54 @@ export const Connections = () => {
                 <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                     <div className="bg-white w-full max-w-xl rounded-[40px] p-10 shadow-2xl relative animate-in zoom-in-95 duration-300">
                         <div className="space-y-6">
-                            <h3 className="text-2xl font-bold text-slate-900 leading-tight">Important Notes:</h3>
+                            <div className="bg-slate-50 rounded-3xl p-8 border border-slate-100 space-y-6">
+                                <div className="flex flex-col items-center gap-4 py-4">
+                                    <div className="w-16 h-16 rounded-2xl bg-white shadow-xl shadow-pink-500/10 flex items-center justify-center border border-slate-100">
+                                        <Instagram className="w-8 h-8 text-pink-600" />
+                                    </div>
+                                    <div className="text-center">
+                                        <h4 className="text-xl font-bold text-slate-900">Instagram <span className="text-[10px] bg-slate-200 text-slate-500 px-2 py-0.5 rounded-full ml-1 vertical-middle uppercase tracking-tighter">Beta</span></h4>
+                                        <p className="text-sm text-slate-400 mt-1 max-w-xs">Connect your Instagram account to ideate, plan, and automatically publish content.</p>
+                                    </div>
+                                </div>
 
-                            <ul className="space-y-4">
-                                <li className="flex gap-4">
-                                    <div className="w-2 h-2 rounded-full bg-slate-900 mt-2 shrink-0" />
-                                    <p className="text-slate-600 text-[15px] leading-relaxed">
-                                        Instagram Direct Publishing requires an <strong>Instagram Business or Creator Account</strong>.
-                                    </p>
-                                </li>
-                                <li className="flex gap-4">
-                                    <div className="w-2 h-2 rounded-full bg-slate-900 mt-2 shrink-0" />
-                                    <p className="text-slate-600 text-[15px] leading-relaxed">
-                                        Your Instagram Account needs to be <strong>connected to a Facebook Page</strong> and you need to be an administrator of that Facebook Page.
-                                    </p>
-                                </li>
-                                <li className="flex gap-4">
-                                    <div className="w-2 h-2 rounded-full bg-slate-900 mt-2 shrink-0" />
-                                    <p className="text-slate-600 text-[15px] leading-relaxed">
-                                        Once you click the Connect button below, you will be redirected to Facebook: make sure you accept all permissions requested by Facebook.
-                                    </p>
-                                </li>
-                                <li className="flex gap-4">
-                                    <div className="w-2 h-2 rounded-full bg-slate-900 mt-2 shrink-0" />
-                                    <p className="text-slate-600 text-[15px] leading-relaxed">
-                                        Once you have accepted all permissions, you will be redirected back to Pie Pro, where you will be able to select the Facebook Page associated with your Instagram.
-                                    </p>
-                                </li>
-                            </ul>
+                                <div className="bg-white/60 p-4 rounded-xl border border-amber-100 flex gap-3 items-start">
+                                    <Info className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                                    <p className="text-[13px] text-amber-800 font-medium">You must have an <strong>Instagram Professional account</strong> to post directly.</p>
+                                </div>
 
-                            <p className="text-slate-400 text-sm">
-                                If you don't have a Facebook Page associated with your account, please click here instead.
-                            </p>
-
-                            <div className="pt-4 flex gap-4">
-                                <button
-                                    onClick={() => setShowNotesModal(null)}
-                                    className="flex-1 py-4 text-xs font-black uppercase tracking-widest text-slate-400 hover:text-slate-600 transition-colors"
-                                >
-                                    Cancel
-                                </button>
                                 <button
                                     onClick={confirmConnect}
-                                    className="flex-1 py-4 bg-emerald-500 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-emerald-600 transition-all shadow-xl shadow-emerald-500/20"
+                                    className="w-full py-4 bg-slate-950 text-white rounded-2xl text-[13px] font-bold flex items-center justify-center gap-2 hover:bg-black transition-all shadow-xl shadow-slate-900/10"
                                 >
-                                    Connect
+                                    <Plus className="w-4 h-4" /> Connect
                                 </button>
+
+                                <div className="space-y-4 pt-4 border-t border-slate-200/50">
+                                    {[
+                                        { label: 'Connector Type', value: 'App' },
+                                        { label: 'Author', value: 'Pie Pro' },
+                                        { label: 'UUID', value: 'PIE-PRO-OAUTH-V1', copyable: true },
+                                        { label: 'Privacy Policy', value: 'View Policy', link: '#' },
+                                    ].map((item) => (
+                                        <div key={item.label} className="flex justify-between items-center text-[13px]">
+                                            <span className="text-slate-400 font-medium">{item.label}</span>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-slate-700 font-bold">{item.value}</span>
+                                                {item.copyable && <Share2 className="w-3.5 h-3.5 text-slate-300" />}
+                                                {item.link && <Globe className="w-3.5 h-3.5 text-slate-300" />}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
+
+                            <button
+                                onClick={() => setShowNotesModal(null)}
+                                className="w-full text-xs font-black uppercase tracking-widest text-slate-300 hover:text-slate-500 transition-colors py-2"
+                            >
+                                Close Settings
+                            </button>
                         </div>
                     </div>
                 </div>

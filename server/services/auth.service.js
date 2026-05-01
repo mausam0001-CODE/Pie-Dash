@@ -59,9 +59,54 @@ const getSocialAccount = async (userId, platform) => {
     return data;
 };
 
+const axios = require('axios');
+
+const exchangeFacebookCode = async (code, redirectUri) => {
+    const appId = process.env.FB_APP_ID;
+    const appSecret = process.env.FB_APP_SECRET;
+
+    // 1. Exchange code for short-lived token
+    const shortTokenResponse = await axios.get('https://graph.facebook.com/v18.0/oauth/access_token', {
+        params: {
+            client_id: appId,
+            client_secret: appSecret,
+            redirect_uri: redirectUri,
+            code: code
+        }
+    });
+
+    const shortToken = shortTokenResponse.data.access_token;
+
+    // 2. Exchange for long-lived token (60 days)
+    const longTokenResponse = await axios.get('https://graph.facebook.com/v18.0/oauth/access_token', {
+        params: {
+            grant_type: 'fb_exchange_token',
+            client_id: appId,
+            client_secret: appSecret,
+            fb_exchange_token: shortToken
+        }
+    });
+
+    const longToken = longTokenResponse.data.access_token;
+
+    // 3. Get user profile
+    const profileResponse = await axios.get('https://graph.facebook.com/v18.0/me', {
+        params: {
+            fields: 'id,name',
+            access_token: longToken
+        }
+    });
+
+    return {
+        accessToken: longToken,
+        account: profileResponse.data
+    };
+};
+
 module.exports = {
     saveSocialAccount,
     getSocialAccount,
     encrypt,
-    decrypt
+    decrypt,
+    exchangeFacebookCode
 };
