@@ -1,15 +1,17 @@
 import React, { useState } from 'react';
 import { ExternalLink, Download, Search, LayoutList } from 'lucide-react';
 import { Reel } from '../hooks/useReelsData';
+import { useAuth } from '../hooks/useAuth';
 
 export const ReelsTable = ({ data, onRowClick }: { data: Reel[], onRowClick: (reel: Reel) => void }) => {
+    const { session } = useAuth();
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 8;
 
     const filteredData = data.filter(r =>
         r.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        r.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (r.category || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
         r.id.toLowerCase().includes(searchTerm.toLowerCase())
     );
 

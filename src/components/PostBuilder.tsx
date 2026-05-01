@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, ChevronRight, ChevronLeft, Globe, FileText, Image as ImageIcon, Smartphone, Settings, CheckCircle, Instagram, Twitter, Facebook, Youtube, Plus, Save, Send, Eye, Sparkles, Calendar, Clock } from 'lucide-react';
 import { Reel } from '../hooks/useReelsData';
+import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabase';
 
 interface PostBuilderProps {
@@ -19,13 +20,16 @@ const STEPS = [
 ];
 
 export const PostBuilder = ({ onClose, initialReel }: PostBuilderProps) => {
+    const { session } = useAuth();
     const [currentStep, setCurrentStep] = useState(1);
     const [isScheduling, setIsScheduling] = useState(false);
     const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(['instagram']);
     const [postData, setPostData] = useState({
         title: initialReel?.title || '',
-        caption: initialReel?.caption || '',
-        mediaUrl: initialReel?.thumbnail || '',
+        caption: initialReel?.description || '',
+        mediaUrl: initialReel?.media_url || '',
+        category: initialReel?.category || 'Reel',
+        hashtags: Array.isArray(initialReel?.hashtags) ? initialReel?.hashtags : (initialReel?.hashtags ? [initialReel.hashtags] : []),
         scheduledAt: new Date().toISOString().substring(0, 16), // Format for datetime-local
     });
 
@@ -33,9 +37,11 @@ export const PostBuilder = ({ onClose, initialReel }: PostBuilderProps) => {
     const prevStep = () => setCurrentStep(prev => Math.max(prev - 1, 1));
 
     const handleSchedule = async () => {
+        if (!session?.user) return;
         setIsScheduling(true);
         try {
             const { error } = await supabase.from('posts').insert([{
+                user_id: session.user.id,
                 title: postData.title,
                 caption: postData.caption,
                 media_url: postData.mediaUrl,

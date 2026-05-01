@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Settings as SettingsIcon, Bell, Shield, Smartphone, Globe, Save, Loader2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { useSession } from '@supabase/auth-helpers-react';
+import { useAuth } from '../hooks/useAuth';
 
 export const Settings = () => {
-    const session = useSession();
+    const { session, isLoading: authLoading } = useAuth();
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
     const [settings, setSettings] = useState({

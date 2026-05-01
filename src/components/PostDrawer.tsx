@@ -1,6 +1,7 @@
 import React from 'react';
 import { X, Play, Calendar, Hash, FileText, ExternalLink, Smartphone, MessageCircle, Heart, Share2 } from 'lucide-react';
 import { Reel } from '../hooks/useReelsData';
+import { useAuth } from '../hooks/useAuth';
 
 interface PostDrawerProps {
     reel: Reel;
@@ -8,6 +9,8 @@ interface PostDrawerProps {
 }
 
 export const PostDrawer = ({ reel, onClose }: PostDrawerProps) => {
+    const { session } = useAuth();
+
     return (
         <div className="fixed inset-0 z-50 flex justify-end animate-in fade-in duration-200">
             <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={onClose}></div>
@@ -43,8 +46,8 @@ export const PostDrawer = ({ reel, onClose }: PostDrawerProps) => {
                                         <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-teal-400 to-purple-500 border-2 border-white/20"></div>
                                         <span className="text-xs font-bold">@pie_social</span>
                                     </div>
-                                    <p className="text-[10px] leading-relaxed line-clamp-2 opacity-90">{reel.caption}</p>
-                                    <p className="text-[10px] font-bold text-teal-300">{reel.hashtags}</p>
+                                    <p className="text-[10px] leading-relaxed line-clamp-2 opacity-90">{reel.caption || reel.description}</p>
+                                    <p className="text-[10px] font-bold text-teal-300">{Array.isArray(reel.hashtags) ? reel.hashtags.join(' ') : reel.hashtags}</p>
                                 </div>
 
                                 {/* Interaction Buttons */}
@@ -109,9 +112,25 @@ export const PostDrawer = ({ reel, onClose }: PostDrawerProps) => {
                             </div>
                         </div>
 
-                        <a href={reel.script || '#'} target="_blank" className="flex items-center justify-center gap-2 w-full py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-slate-800 transition-all shadow-lg active:scale-[0.98]">
-                            Full Script <ExternalLink className="w-4 h-4" />
-                        </a>
+                        <div className="flex items-center gap-4">
+                            <a
+                                href={reel.videoLink || reel.media_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex-1 flex items-center justify-center gap-2 bg-slate-900 text-white rounded-2xl py-4 font-bold hover:bg-slate-800 transition-all shadow-lg active:scale-[0.98]"
+                            >
+                                <Play className="w-4 h-4 fill-white" />
+                                Watch Preview
+                            </a>
+                            <a
+                                href={reel.script || '#'}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="p-4 bg-slate-100 text-slate-900 rounded-2xl hover:bg-slate-200 transition-colors"
+                            >
+                                <FileText className="w-5 h-5" />
+                            </a>
+                        </div>
                     </div>
                 </div>
             </div>

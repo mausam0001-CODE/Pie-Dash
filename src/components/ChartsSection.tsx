@@ -1,8 +1,10 @@
 import React from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell } from 'recharts';
 import { Reel } from '../hooks/useReelsData';
+import { useAuth } from '../hooks/useAuth';
 
 export const ChartsSection = ({ data }: { data: Reel[] }) => {
+    const { session } = useAuth();
     // Aggregate publishing velocity by month
     const velocityData = [
         { name: 'Jan', posts: 54 },
@@ -13,11 +15,12 @@ export const ChartsSection = ({ data }: { data: Reel[] }) => {
         { name: 'Jun', posts: 74 },
     ]; // Still slightly mock-ish without complex date parsing, but good for base
 
-    // Real category breakdown
-    const categoryCounts = data.reduce((acc: any, reel) => {
-        acc[reel.category] = (acc[reel.category] || 0) + 1;
+    const categoryCounts = data.reduce((acc, reel) => {
+        const cat = reel.category || 'Other';
+        const current = acc[cat] || 0;
+        acc[cat] = current + 1;
         return acc;
-    }, {});
+    }, {} as Record<string, number>);
 
     const categoryData = Object.keys(categoryCounts)
         .map((name, i) => ({

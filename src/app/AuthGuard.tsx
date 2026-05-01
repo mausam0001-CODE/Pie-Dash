@@ -1,12 +1,12 @@
 import React from 'react';
-import { useSession } from '@supabase/auth-helpers-react';
+import { useAuth } from '../hooks/useAuth';
 import { LoginPage } from '../features/auth/LoginPage';
 
 export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
-    const session = useSession();
+    const { session, isLoading } = useAuth();
 
     // session === undefined means session is still loading
-    if (session === undefined) {
+    if (isLoading) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-slate-50">
                 <div className="flex flex-col items-center gap-4">

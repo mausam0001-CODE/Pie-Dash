@@ -1,7 +1,5 @@
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { SessionContextProvider } from '@supabase/auth-helpers-react';
-import { supabase } from '../lib/supabase';
 
 const queryClient = new QueryClient({
     defaultOptions: {
@@ -14,10 +12,8 @@ const queryClient = new QueryClient({
 
 export const AppProviders = ({ children }: { children: React.ReactNode }) => {
     return (
-        <SessionContextProvider supabaseClient={supabase}>
-            <QueryClientProvider client={queryClient}>
-                {children}
-            </QueryClientProvider>
-        </SessionContextProvider>
+        <QueryClientProvider client={queryClient}>
+            {children}
+        </QueryClientProvider>
     );
 };

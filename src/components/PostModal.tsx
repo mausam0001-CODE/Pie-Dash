@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Calendar, Clock, Send, CheckCircle2 } from 'lucide-react';
 import { Reel } from '../hooks/useReelsData';
+import { useAuth } from '../hooks/useAuth';
 
 interface PostModalProps {
     reel: Reel;
@@ -8,6 +9,7 @@ interface PostModalProps {
 }
 
 export const PostModal = ({ reel, onClose }: PostModalProps) => {
+    const { session } = useAuth();
     const [scheduledDate, setScheduledDate] = useState('');
     const [scheduledTime, setScheduledTime] = useState('10:00');
     const [status, setStatus] = useState<'idle' | 'loading' | 'success'>('idle');
@@ -19,7 +21,10 @@ export const PostModal = ({ reel, onClose }: PostModalProps) => {
         try {
             const response = await fetch('http://localhost:3001/api/posts', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session?.access_token}`
+                },
                 body: JSON.stringify({
                     id: reel.id,
                     title: reel.title,
@@ -89,8 +94,8 @@ export const PostModal = ({ reel, onClose }: PostModalProps) => {
                                 onClick={handleSchedule}
                                 disabled={!scheduledDate || status === 'loading'}
                                 className={`w-full py-4 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg active:scale-95 ${!scheduledDate || status === 'loading'
-                                        ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                                        : 'bg-gradient-to-r from-teal-500 to-purple-500 text-white hover:shadow-teal-500/20'
+                                    ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                                    : 'bg-gradient-to-r from-teal-500 to-purple-500 text-white hover:shadow-teal-500/20'
                                     }`}
                             >
                                 {status === 'loading' ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : <Send className="w-4 h-4" />}

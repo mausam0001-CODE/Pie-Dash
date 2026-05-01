@@ -4,7 +4,7 @@ import {
     Trash2, Loader2, Info, CheckCircle2, AlertCircle,
     Twitter, Linkedin, Globe
 } from 'lucide-react';
-import { useSessionContext } from '@supabase/auth-helpers-react';
+import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabase';
 
 interface Account {
@@ -22,12 +22,13 @@ const PLATFORMS = [
 ];
 
 export const Connections = () => {
-    const { session } = useSessionContext();
+    const { session, isLoading: authLoading } = useAuth();
     const [accounts, setAccounts] = useState<Account[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(false);
     const [showNotesModal, setShowNotesModal] = useState<string | null>(null);
 
     const fetchAccounts = async () => {
+        if (!session?.user?.id) return;
         setLoading(true);
         try {
             const { data, error } = await supabase
@@ -66,7 +67,6 @@ export const Connections = () => {
     };
 
     const confirmConnect = async () => {
-        const { data: { session } } = await supabase.auth.getSession();
         const appId = 'PASTE_YOUR_ID_HERE'; // Update this in .env.local
         const redirectUri = `https://ivsytkzemjludwzhrdsu.supabase.co/functions/v1/ig-oauth`;
         const state = session?.user?.id || 'team-user';
@@ -120,7 +120,12 @@ export const Connections = () => {
                                     </div>
                                 </div>
                                 <div className="col-span-4">
-                                    {connected.length > 0 ? (
+                                    {authLoading || loading ? (
+                                        <div className="flex flex-col items-center justify-center p-20 gap-4">
+                                            <Loader2 className="w-8 h-8 text-emerald-500 animate-spin" />
+                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Synchronizing Accounts...</p>
+                                        </div>
+                                    ) : connected.length > 0 ? (
                                         <div className="flex items-center gap-1.5 text-emerald-600">
                                             <CheckCircle2 className="w-4 h-4" />
                                             <span className="text-xs font-bold uppercase tracking-wider">Connected</span>
