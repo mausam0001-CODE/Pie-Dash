@@ -47,7 +47,7 @@ export const Workflow = () => {
         // Check if dropped on a column
         const column = columns.find(c => c.id === overId);
         if (column) {
-            const post = posts.find(p => p.id === postId);
+            const post = posts.find((p: any) => p.id === postId);
             if (post && post.status !== column.id) {
                 // Optimistic update
                 queryClient.setQueryData(['posts'], (old: any) =>
@@ -83,7 +83,7 @@ export const Workflow = () => {
 
                 <div className="flex-1 flex gap-6 overflow-x-auto pb-6 scrollbar-hide">
                     {columns.map((column) => {
-                        const columnPosts = posts.filter(p => p.status === column.id);
+                        const columnPosts = posts.filter((p: any) => p.status === column.id);
                         return (
                             <div key={column.id} className="flex-shrink-0 w-80 flex flex-col">
                                 <div className="flex items-center justify-between mb-4 px-2">
@@ -98,13 +98,13 @@ export const Workflow = () => {
 
                                 <SortableContext
                                     id={column.id}
-                                    items={columnPosts.map(p => p.id)}
+                                    items={columnPosts.map((p: any) => p.id)}
                                     strategy={verticalListSortingStrategy}
                                 >
                                     <div
                                         className="flex-1 bg-slate-100/50 rounded-3xl p-4 gap-4 flex flex-col overflow-y-auto min-h-[100px]"
                                     >
-                                        {columnPosts.map((post) => (
+                                        {columnPosts.map((post: any) => (
                                             <SortablePostCard key={post.id} post={post} />
                                         ))}
 

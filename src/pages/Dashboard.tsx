@@ -17,10 +17,10 @@ export const Dashboard = () => {
     const { data: posts = [], isLoading } = usePosts();
 
     const stats = [
-        { label: 'Published', value: posts.filter(p => p.status === 'Published').length, icon: CheckCircle2, color: 'text-emerald-500', bg: 'bg-emerald-50' },
-        { label: 'Scheduled', value: posts.filter(p => p.status === 'Scheduled').length, icon: Clock, color: 'text-orange-500', bg: 'bg-orange-50' },
-        { label: 'Pending Approval', value: posts.filter(p => p.status === 'Approved').length, icon: TrendingUp, color: 'text-blue-500', bg: 'bg-blue-50' },
-        { label: 'Failed', value: posts.filter(p => p.status === 'Failed').length, icon: AlertCircle, color: 'text-rose-500', bg: 'bg-rose-50' },
+        { label: 'Published', value: posts.filter((p: any) => (p.status === 'Published' || p.piePosted || p.charPosted)).length, icon: CheckCircle2, color: 'text-emerald-500', bg: 'bg-emerald-50' },
+        { label: 'Scheduled', value: posts.filter((p: any) => (p.status === 'Scheduled' || (p.scheduled_at && !p.piePosted))).length, icon: Clock, color: 'text-orange-500', bg: 'bg-orange-50' },
+        { label: 'Pending Approval', value: posts.filter((p: any) => !p.approved).length, icon: TrendingUp, color: 'text-blue-500', bg: 'bg-blue-50' },
+        { label: 'Failed', value: posts.filter((p: any) => p.status === 'Failed').length, icon: AlertCircle, color: 'text-rose-500', bg: 'bg-rose-50' },
     ];
 
     if (isLoading) return <div className="animate-pulse flex flex-col gap-8">
@@ -87,14 +87,14 @@ export const Dashboard = () => {
                     <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-emerald-500/20 transition-all duration-700"></div>
                     <h3 className="text-white font-black text-lg mb-6 relative">Upcoming Queue</h3>
                     <div className="space-y-4 relative">
-                        {posts.filter(p => p.status === 'Scheduled').slice(0, 4).map((post) => (
+                        {posts.filter((p: any) => (p.status === 'Scheduled' || (p.scheduled_at && !p.piePosted))).slice(0, 4).map((post: any) => (
                             <div key={post.id} className="flex items-center gap-4 p-3 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 transition-all cursor-pointer">
                                 <div className="w-12 h-12 rounded-xl bg-slate-800 overflow-hidden shrink-0">
-                                    <img src={post.thumbnail} className="w-full h-full object-cover" />
+                                    <img src={post.thumbnail_url || post.thumbnail} className="w-full h-full object-cover" />
                                 </div>
                                 <div className="min-w-0">
                                     <p className="text-sm font-bold text-white truncate">{post.title}</p>
-                                    <p className="text-[10px] font-medium text-slate-400 mt-0.5">{new Date(post.scheduled_at).toLocaleDateString()}</p>
+                                    <p className="text-[10px] font-medium text-slate-400 mt-0.5">{post.scheduled_at ? new Date(post.scheduled_at).toLocaleDateString() : 'Not set'}</p>
                                 </div>
                             </div>
                         ))}
