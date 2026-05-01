@@ -67,7 +67,7 @@ export const Connections = () => {
     };
 
     const confirmConnect = async () => {
-        const appId = 'PASTE_YOUR_ID_HERE'; // Update this in .env.local
+        const appId = import.meta.env.VITE_FB_APP_ID;
         const redirectUri = `https://ivsytkzemjludwzhrdsu.supabase.co/functions/v1/ig-oauth`;
         const state = session?.user?.id || 'team-user';
 
