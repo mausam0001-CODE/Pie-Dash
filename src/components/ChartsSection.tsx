@@ -6,14 +6,13 @@ import { useAuth } from '../hooks/useAuth';
 export const ChartsSection = ({ data }: { data: Reel[] }) => {
     const { session } = useAuth();
     // Aggregate publishing velocity by month
-    const velocityData = [
-        { name: 'Jan', posts: 54 },
-        { name: 'Feb', posts: 68 },
-        { name: 'Mar', posts: 45 },
-        { name: 'Apr', posts: 82 },
-        { name: 'May', posts: 59 },
-        { name: 'Jun', posts: 74 },
-    ]; // Still slightly mock-ish without complex date parsing, but good for base
+    const velocityData = React.useMemo(() => {
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
+        return months.map((month, i) => ({
+            name: month,
+            posts: data.filter(r => new Date(r.scheduled_at || r.created_at).getMonth() === i).length
+        }));
+    }, [data]);
 
     const categoryCounts = data.reduce((acc, reel) => {
         const cat = reel.category || 'Other';

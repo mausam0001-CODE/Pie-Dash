@@ -18,6 +18,28 @@ export const ReelsTable = ({ data, onRowClick }: { data: Reel[], onRowClick: (re
     const totalPages = Math.ceil(filteredData.length / itemsPerPage) || 1;
     const currentItems = filteredData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
+    const handleExportCSV = () => {
+        const headers = ['Post ID', 'Title', 'Category', 'Status', 'Scheduled At'];
+        const rows = filteredData.map(r => [
+            r.id,
+            `"${r.title.replace(/"/g, '""')}"`,
+            r.category || 'Uncategorized',
+            r.piePosted || r.charPosted ? 'Published' : (r.approved ? 'Approved' : 'Draft'),
+            r.scheduled_at || 'N/A'
+        ]);
+
+        const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        link.setAttribute("href", url);
+        link.setAttribute("download", `pie_pro_pipeline_${new Date().toISOString().split('T')[0]}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
     return (
         <div className="bg-white border border-slate-100 rounded-[2.5rem] shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] overflow-hidden transition-all duration-300">
             <div className="p-8 border-b border-slate-100 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 bg-slate-50/30">
@@ -41,7 +63,10 @@ export const ReelsTable = ({ data, onRowClick }: { data: Reel[], onRowClick: (re
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
                     </div>
-                    <button className="flex items-center gap-2 px-5 py-3 bg-white border border-slate-200 rounded-[1rem] text-sm font-bold text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm active:scale-95">
+                    <button
+                        onClick={handleExportCSV}
+                        className="flex items-center gap-2 px-5 py-3 bg-white border border-slate-200 rounded-[1rem] text-sm font-bold text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm active:scale-95"
+                    >
                         <Download className="w-4 h-4" /> <span className="hidden sm:inline">Export CSV</span>
                     </button>
                 </div>

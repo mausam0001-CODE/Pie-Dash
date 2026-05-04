@@ -7,6 +7,7 @@ export const Settings = () => {
     const { session, isLoading: authLoading } = useAuth();
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
+    const [activeTab, setActiveTab] = useState('general');
     const [settings, setSettings] = useState({
         dashboard_title: 'Pie Social Pro',
         primary_color: 'teal',
@@ -65,97 +66,156 @@ export const Settings = () => {
                 <div className="grid grid-cols-1 md:grid-cols-3">
                     {/* Sidebar */}
                     <div className="p-6 bg-slate-50/50 border-r border-slate-100 space-y-2">
-                        <button className="w-full flex items-center justify-between px-5 py-3.5 bg-white shadow-sm border border-slate-100 rounded-2xl text-xs font-black text-emerald-600 uppercase tracking-widest">
+                        <button
+                            onClick={() => setActiveTab('general')}
+                            className={`w-full flex items-center justify-between px-5 py-3.5 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'general' ? 'bg-white shadow-sm border border-slate-100 text-emerald-600' : 'text-slate-400 hover:bg-white/50'}`}
+                        >
                             <span className="flex items-center gap-3"><Globe className="w-4 h-4" /> General</span>
-                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
+                            {activeTab === 'general' && <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>}
                         </button>
-                        <button className="w-full flex items-center gap-3 px-5 py-3.5 text-slate-400 hover:bg-white/50 rounded-2xl text-xs font-bold uppercase tracking-widest transition-all">
-                            <Bell className="w-4 h-4" /> Notifications
+                        <button
+                            onClick={() => setActiveTab('notifications')}
+                            className={`w-full flex items-center justify-between px-5 py-3.5 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'notifications' ? 'bg-white shadow-sm border border-slate-100 text-emerald-600' : 'text-slate-400 hover:bg-white/50'}`}
+                        >
+                            <span className="flex items-center gap-3"><Bell className="w-4 h-4" /> Notifications</span>
+                            {activeTab === 'notifications' && <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>}
                         </button>
-                        <button className="w-full flex items-center gap-3 px-5 py-3.5 text-slate-400 hover:bg-white/50 rounded-2xl text-xs font-bold uppercase tracking-widest transition-all">
-                            <Smartphone className="w-4 h-4" /> Devices
+                        <button
+                            onClick={() => setActiveTab('devices')}
+                            className={`w-full flex items-center justify-between px-5 py-3.5 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'devices' ? 'bg-white shadow-sm border border-slate-100 text-emerald-600' : 'text-slate-400 hover:bg-white/50'}`}
+                        >
+                            <span className="flex items-center gap-3"><Smartphone className="w-4 h-4" /> Devices</span>
+                            {activeTab === 'devices' && <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>}
                         </button>
                         <div className="pt-4 mt-4 border-t border-slate-100">
-                            <button className="w-full flex items-center gap-3 px-5 py-3.5 text-rose-500 hover:bg-rose-50 rounded-2xl text-xs font-bold uppercase tracking-widest transition-all">
-                                <Shield className="w-4 h-4" /> Danger Zone
+                            <button
+                                onClick={() => setActiveTab('danger')}
+                                className={`w-full flex items-center justify-between px-5 py-3.5 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'danger' ? 'bg-rose-50 text-rose-600' : 'text-rose-400 hover:bg-rose-50/50'}`}
+                            >
+                                <span className="flex items-center gap-3"><Shield className="w-4 h-4" /> Danger Zone</span>
                             </button>
                         </div>
                     </div>
 
                     {/* Form */}
                     <div className="md:col-span-2 p-10 space-y-10">
-                        <div className="space-y-8">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+                        {activeTab === 'general' && (
+                            <div className="space-y-8">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+                                    <div className="space-y-3">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] pl-1">Dashboard Title</label>
+                                        <input
+                                            type="text"
+                                            value={settings.dashboard_title}
+                                            onChange={(e) => setSettings({ ...settings, dashboard_title: e.target.value })}
+                                            className="w-full bg-slate-50 border-2 border-transparent focus:bg-white focus:border-emerald-500/20 rounded-2xl px-5 py-4 text-sm outline-none font-bold text-slate-700 transition-all shadow-inner"
+                                        />
+                                    </div>
+                                    <div className="space-y-3">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] pl-1">Design Accent</label>
+                                        <div className="flex items-center gap-4 pt-1">
+                                            <button
+                                                onClick={() => setSettings({ ...settings, primary_color: 'emerald' })}
+                                                className={`w-10 h-10 rounded-full bg-emerald-500 cursor-pointer transition-all ${settings.primary_color === 'emerald' ? 'ring-4 ring-emerald-100 scale-110' : 'opacity-40 hover:opacity-100'}`}
+                                            ></button>
+                                            <button
+                                                onClick={() => setSettings({ ...settings, primary_color: 'purple' })}
+                                                className={`w-10 h-10 rounded-full bg-purple-500 cursor-pointer transition-all ${settings.primary_color === 'purple' ? 'ring-4 ring-purple-100 scale-110' : 'opacity-40 hover:opacity-100'}`}
+                                            ></button>
+                                            <button
+                                                onClick={() => setSettings({ ...settings, primary_color: 'rose' })}
+                                                className={`w-10 h-10 rounded-full bg-rose-500 cursor-pointer transition-all ${settings.primary_color === 'rose' ? 'ring-4 ring-rose-100 scale-110' : 'opacity-40 hover:opacity-100'}`}
+                                            ></button>
+                                        </div>
+                                    </div>
+                                </div>
+
                                 <div className="space-y-3">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] pl-1">Dashboard Title</label>
-                                    <input
-                                        type="text"
-                                        value={settings.dashboard_title}
-                                        onChange={(e) => setSettings({ ...settings, dashboard_title: e.target.value })}
-                                        className="w-full bg-slate-50 border-2 border-transparent focus:bg-white focus:border-emerald-500/20 rounded-2xl px-5 py-4 text-sm outline-none font-bold text-slate-700 transition-all shadow-inner"
-                                    />
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] pl-1">Organization URL</label>
+                                    <div className="relative group">
+                                        <Globe className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 group-focus-within:text-emerald-500 transition-colors" />
+                                        <input
+                                            type="text"
+                                            value={settings.organization_website}
+                                            onChange={(e) => setSettings({ ...settings, organization_website: e.target.value })}
+                                            className="w-full bg-slate-50 border-2 border-transparent focus:bg-white focus:border-emerald-500/20 rounded-2xl pl-12 pr-5 py-4 text-sm outline-none font-bold text-slate-700 transition-all shadow-inner"
+                                        />
+                                    </div>
                                 </div>
-                                <div className="space-y-3">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] pl-1">Design Accent</label>
-                                    <div className="flex items-center gap-4 pt-1">
-                                        <button
-                                            onClick={() => setSettings({ ...settings, primary_color: 'emerald' })}
-                                            className={`w-10 h-10 rounded-full bg-emerald-500 cursor-pointer transition-all ${settings.primary_color === 'emerald' ? 'ring-4 ring-emerald-100 scale-110' : 'opacity-40 hover:opacity-100'}`}
-                                        ></button>
-                                        <button
-                                            onClick={() => setSettings({ ...settings, primary_color: 'purple' })}
-                                            className={`w-10 h-10 rounded-full bg-purple-500 cursor-pointer transition-all ${settings.primary_color === 'purple' ? 'ring-4 ring-purple-100 scale-110' : 'opacity-40 hover:opacity-100'}`}
-                                        ></button>
-                                        <button
-                                            onClick={() => setSettings({ ...settings, primary_color: 'rose' })}
-                                            className={`w-10 h-10 rounded-full bg-rose-500 cursor-pointer transition-all ${settings.primary_color === 'rose' ? 'ring-4 ring-rose-100 scale-110' : 'opacity-40 hover:opacity-100'}`}
-                                        ></button>
+
+                                <div
+                                    className={`flex items-center justify-between p-6 rounded-[2rem] border-2 transition-all cursor-pointer ${settings.auto_posting ? 'bg-emerald-50/30 border-emerald-500/10' : 'bg-slate-50 border-transparent opacity-60'}`}
+                                    onClick={() => setSettings({ ...settings, auto_posting: !settings.auto_posting })}
+                                >
+                                    <div className="flex items-center gap-4">
+                                        <div className={`p-3 rounded-2xl ${settings.auto_posting ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200' : 'bg-slate-200 text-slate-400'}`}>
+                                            <Smartphone className="w-5 h-5" />
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-black text-slate-900 uppercase tracking-tight">Auto-Posting Engine</p>
+                                            <p className="text-xs text-slate-500 font-medium">{settings.auto_posting ? 'Core background tasks are active' : 'All scheduled tasks are paused'}</p>
+                                        </div>
+                                    </div>
+                                    <div className={`w-12 h-7 rounded-full relative transition-all ${settings.auto_posting ? 'bg-emerald-500' : 'bg-slate-300'}`}>
+                                        <div className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow-sm transition-all ${settings.auto_posting ? 'right-1' : 'left-1'}`}></div>
                                     </div>
                                 </div>
                             </div>
+                        )}
 
-                            <div className="space-y-3">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] pl-1">Organization URL</label>
-                                <div className="relative group">
-                                    <Globe className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 group-focus-within:text-emerald-500 transition-colors" />
-                                    <input
-                                        type="text"
-                                        value={settings.organization_website}
-                                        onChange={(e) => setSettings({ ...settings, organization_website: e.target.value })}
-                                        className="w-full bg-slate-50 border-2 border-transparent focus:bg-white focus:border-emerald-500/20 rounded-2xl pl-12 pr-5 py-4 text-sm outline-none font-bold text-slate-700 transition-all shadow-inner"
-                                    />
+                        {activeTab === 'notifications' && (
+                            <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
+                                <h4 className="font-bold text-slate-900">Email Notifications</h4>
+                                <p className="text-sm text-slate-500">Choose when you want to be alerted about post status changes.</p>
+                                <div className="space-y-4">
+                                    {['Post Approved', 'Post Published', 'Post Failed', 'New Team Member'].map(event => (
+                                        <div key={event} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl">
+                                            <span className="text-sm font-bold text-slate-700">{event}</span>
+                                            <div className="w-10 h-6 bg-emerald-500 rounded-full relative">
+                                                <div className="absolute top-1 right-1 w-4 h-4 bg-white rounded-full"></div>
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
+                        )}
 
-                            <div
-                                className={`flex items-center justify-between p-6 rounded-[2rem] border-2 transition-all cursor-pointer ${settings.auto_posting ? 'bg-emerald-50/30 border-emerald-500/10' : 'bg-slate-50 border-transparent opacity-60'}`}
-                                onClick={() => setSettings({ ...settings, auto_posting: !settings.auto_posting })}
-                            >
-                                <div className="flex items-center gap-4">
-                                    <div className={`p-3 rounded-2xl ${settings.auto_posting ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200' : 'bg-slate-200 text-slate-400'}`}>
-                                        <Smartphone className="w-5 h-5" />
+                        {activeTab === 'devices' && (
+                            <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
+                                <h4 className="font-bold text-slate-900">Linked Devices</h4>
+                                <p className="text-sm text-slate-500">Manage mobile devices authorized for manual posting alerts.</p>
+                                <div className="p-8 border-2 border-dashed border-slate-200 rounded-3xl text-center">
+                                    <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                                        <Smartphone className="w-6 h-6 text-slate-300" />
                                     </div>
-                                    <div>
-                                        <p className="text-sm font-black text-slate-900 uppercase tracking-tight">Auto-Posting Engine</p>
-                                        <p className="text-xs text-slate-500 font-medium">{settings.auto_posting ? 'Core background tasks are active' : 'All scheduled tasks are paused'}</p>
-                                    </div>
-                                </div>
-                                <div className={`w-12 h-7 rounded-full relative transition-all ${settings.auto_posting ? 'bg-emerald-500' : 'bg-slate-300'}`}>
-                                    <div className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow-sm transition-all ${settings.auto_posting ? 'right-1' : 'left-1'}`}></div>
+                                    <p className="text-xs font-black text-slate-400 uppercase tracking-widest">No devices linked</p>
+                                    <button className="mt-4 text-xs font-bold text-teal-600 hover:underline">Download Mobile App</button>
                                 </div>
                             </div>
-                        </div>
+                        )}
 
-                        <div className="pt-8 border-t border-slate-50 flex justify-end">
-                            <button
-                                onClick={handleSave}
-                                disabled={saving}
-                                className="bg-slate-900 text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center gap-3 hover:bg-slate-800 transition-all shadow-2xl shadow-slate-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed group"
-                            >
-                                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 group-hover:scale-110 transition-transform" />}
-                                Commit Preferences
-                            </button>
-                        </div>
+                        {activeTab === 'danger' && (
+                            <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
+                                <div className="p-6 bg-rose-50 border border-rose-100 rounded-3xl">
+                                    <h4 className="font-bold text-rose-900">Delete Project Data</h4>
+                                    <p className="text-sm text-rose-700/70 mt-1">This will permanently delete all posts, connections, and settings. This action cannot be undone.</p>
+                                    <button className="mt-6 px-6 py-3 bg-rose-500 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-rose-500/20 hover:bg-rose-600 transition-all">Delete Everything</button>
+                                </div>
+                            </div>
+                        )}
+
+                        {activeTab === 'general' && (
+                            <div className="pt-8 border-t border-slate-50 flex justify-end">
+                                <button
+                                    onClick={handleSave}
+                                    disabled={saving}
+                                    className="bg-slate-900 text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center gap-3 hover:bg-slate-800 transition-all shadow-2xl shadow-slate-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed group"
+                                >
+                                    {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 group-hover:scale-110 transition-transform" />}
+                                    Commit Preferences
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
@@ -176,6 +236,6 @@ export const Settings = () => {
                     Audit Logs
                 </button>
             </div>
-        </div>
+        </div >
     );
 };

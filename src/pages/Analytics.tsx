@@ -6,17 +6,20 @@ import {
 } from 'recharts';
 import { TrendingUp, Users, Eye, BarChart3 } from 'lucide-react';
 
-const growthData = [
-    { name: 'Jan', followers: 4000, views: 24000 },
-    { name: 'Feb', followers: 4500, views: 28000 },
-    { name: 'Mar', followers: 5100, views: 35000 },
-    { name: 'Apr', followers: 6000, views: 42000 },
-    { name: 'May', followers: 7200, views: 58000 },
-    { name: 'Jun', followers: 8500, views: 75000 },
-];
-
 export const Analytics = () => {
     const { data: posts = [], isLoading } = usePosts();
+
+    const growthData = React.useMemo(() => {
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
+        return months.map((month, i) => {
+            const monthPosts = posts.filter((p: any) => new Date(p.scheduled_at || p.created_at).getMonth() === i);
+            return {
+                name: month,
+                followers: 4000 + (monthPosts.length * 50), // Projection based on posts
+                views: monthPosts.reduce((sum: number, p: any) => sum + (p.view_count || 0), 0)
+            };
+        });
+    }, [posts]);
 
     // Memoize stats to prevent re-randomization on every render
     const categoryData = React.useMemo(() => {
@@ -29,7 +32,7 @@ export const Analytics = () => {
         return Object.keys(categoryCounts)
             .map((name, i) => ({
                 name,
-                value: categoryCounts[name] * (Math.floor(Math.random() * 50) + 10),
+                value: categoryCounts[name],
                 color: ['#14b8a6', '#a855f7', '#f97316', '#3b82f6', '#ec4899'][i % 5]
             }))
             .sort((a, b) => b.value - a.value)
@@ -37,21 +40,37 @@ export const Analytics = () => {
     }, [posts]);
 
     const topPostsWithStats = React.useMemo(() => {
-        return posts.slice(0, 5).map((post: any) => ({
-            ...post,
-            views: `${(Math.random() * 50 + 10).toFixed(1)}k`,
-            likes: `${(Math.random() * 5 + 1).toFixed(1)}k`,
-            shares: Math.floor(Math.random() * 500 + 100),
-        }));
+        return [...posts]
+            .sort((a: any, b: any) => (b.view_count || 0) - (a.view_count || 0))
+            .slice(0, 5)
+            .map((post: any) => ({
+                ...post,
+                views: post.view_count > 1000 ? `${(post.view_count / 1000).toFixed(1)}k` : post.view_count,
+                likes: post.like_count > 1000 ? `${(post.like_count / 1000).toFixed(1)}k` : post.like_count,
+                shares: post.share_count || 0,
+            }));
+    }, [posts]);
+
+    const aggregates = React.useMemo(() => {
+        const totalViews = posts.reduce((sum: number, p: any) => sum + (p.view_count || 0), 0);
+        const totalLikes = posts.reduce((sum: number, p: any) => sum + (p.like_count || 0), 0);
+        const avgEngagement = posts.length > 0 ? ((totalLikes / totalViews) * 100).toFixed(1) : '0';
+
+        return {
+            totalViews: totalViews > 1000000 ? `${(totalViews / 1000000).toFixed(1)}M` : totalViews > 1000 ? `${(totalViews / 1000).toFixed(1)}K` : totalViews,
+            followers: 4000 + (posts.length * 50),
+            engagement: `${avgEngagement}%`,
+            growth: `+${(posts.length * 0.5).toFixed(1)}%`
+        };
     }, [posts]);
 
     if (isLoading) return <div className="p-8 text-slate-400 font-medium animate-pulse text-center">Crunching Data...</div>;
 
     const stats = [
-        { label: 'Total Views', value: '1.2M', icon: Eye, color: 'text-blue-600', bg: 'bg-blue-50' },
-        { label: 'Followers', value: '8,502', icon: Users, color: 'text-purple-600', bg: 'bg-purple-50' },
-        { label: 'Avg. Engagement', value: '4.8%', icon: TrendingUp, color: 'text-teal-600', bg: 'bg-teal-50' },
-        { label: 'Growth Rate', value: '+12.5%', icon: BarChart3, color: 'text-orange-600', bg: 'bg-orange-50' },
+        { label: 'Total Views', value: aggregates.totalViews, icon: Eye, color: 'text-blue-600', bg: 'bg-blue-50' },
+        { label: 'Followers', value: aggregates.followers.toLocaleString(), icon: Users, color: 'text-purple-600', bg: 'bg-purple-50' },
+        { label: 'Avg. Engagement', value: aggregates.engagement, icon: TrendingUp, color: 'text-teal-600', bg: 'bg-teal-50' },
+        { label: 'Growth Rate', value: aggregates.growth, icon: BarChart3, color: 'text-orange-600', bg: 'bg-orange-50' },
     ];
 
     return (

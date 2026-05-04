@@ -14,7 +14,8 @@ export function usePosts(statusFilter?: string) {
                 .order('scheduled_at', { ascending: false });
 
             if (statusFilter && statusFilter !== 'All') {
-                q = q.eq('status', statusFilter);
+                const dbStatus = statusFilter === 'Drafts' ? 'Draft' : statusFilter;
+                q = q.eq('status', dbStatus);
             }
 
             const { data, error } = await q;

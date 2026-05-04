@@ -3,18 +3,26 @@ import { usePosts } from '../features/posts/usePosts';
 import { TrendingUp, Clock, CheckCircle2, AlertCircle } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
-const chartData = [
-    { name: 'Mon', posts: 4, engagement: 2400 },
-    { name: 'Tue', posts: 3, engagement: 1398 },
-    { name: 'Wed', posts: 5, engagement: 9800 },
-    { name: 'Thu', posts: 2, engagement: 3908 },
-    { name: 'Fri', posts: 4, engagement: 4800 },
-    { name: 'Sat', posts: 6, engagement: 3800 },
-    { name: 'Sun', posts: 4, engagement: 4300 },
-];
-
 export const Dashboard = () => {
     const { data: posts = [], isLoading } = usePosts();
+
+    const chartData = React.useMemo(() => {
+        const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        const data = days.map(day => ({ name: day, posts: 0, engagement: 0 }));
+
+        posts.forEach((post: any) => {
+            const date = new Date(post.scheduled_at || post.created_at);
+            const dayName = days[date.getDay()];
+            const dayData = data.find(d => d.name === dayName);
+            if (dayData) {
+                dayData.posts += 1;
+                dayData.engagement += (post.view_count || 0) + (post.like_count || 0) + (post.share_count || 0);
+            }
+        });
+
+        // Ensure consistent order starting from current day or fixed Mon-Sun
+        return data;
+    }, [posts]);
 
     const stats = [
         { label: 'Published', value: posts.filter((p: any) => (p.status === 'Published' || p.piePosted || p.charPosted)).length, icon: CheckCircle2, color: 'text-emerald-500', bg: 'bg-emerald-50' },

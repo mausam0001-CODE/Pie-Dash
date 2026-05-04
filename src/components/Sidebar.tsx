@@ -64,17 +64,25 @@ export const Sidebar = () => {
 
                 <div>
                     <p className="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Pipeline Stages</p>
-                    {contentItems.map((item) => (
-                        <button
-                            key={item.label}
-                            className={cn(
-                                "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all text-slate-500 hover:bg-slate-50 hover:text-slate-900"
-                            )}
-                        >
-                            <div className={cn("w-2 h-2 rounded-full", item.color.replace('text-', 'bg-'))} />
-                            {item.label}
-                        </button>
-                    ))}
+                    {contentItems.map((item) => {
+                        const searchParams = new URLSearchParams(location.search);
+                        const currentStatus = searchParams.get('status') || 'All';
+                        const active = location.pathname === '/library' && currentStatus === item.label;
+
+                        return (
+                            <button
+                                key={item.label}
+                                onClick={() => navigate(`/library?status=${item.label}`)}
+                                className={cn(
+                                    "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all",
+                                    active ? "bg-slate-100 text-slate-900" : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
+                                )}
+                            >
+                                <div className={cn("w-2 h-2 rounded-full", item.color.replace('text-', 'bg-'))} />
+                                {item.label}
+                            </button>
+                        );
+                    })}
                 </div>
             </nav>
 

@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { usePosts } from '../features/posts/usePosts';
 import { PostCard } from '../components/PostCard';
 import { PostDrawer } from '../components/PostDrawer';
 import { PostBuilder } from '../components/PostBuilder';
 import { Film } from 'lucide-react';
 
-export const Library = ({ filter = 'All' }: { filter?: string }) => {
+export const Library = () => {
+    const [searchParams] = useSearchParams();
+    const filter = searchParams.get('status') || 'All';
     const { data: posts = [], isLoading } = usePosts(filter);
     const [selectedPost, setSelectedPost] = useState<any>(null);
     const [isBuilderOpen, setIsBuilderOpen] = useState(false);
