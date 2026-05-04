@@ -46,16 +46,17 @@ export const Connections = () => {
     };
 
     useEffect(() => {
-        fetchAccounts();
-
-        // Handle clean redirect from OAuth
-        const params = new URLSearchParams(window.location.search);
-        if (params.get('status') === 'connected') {
+        if (session?.user?.id) {
             fetchAccounts();
-            // Clean the URL without reloading
-            window.history.replaceState({}, '', window.location.pathname);
+
+            // Handle clean redirect from OAuth
+            const params = new URLSearchParams(window.location.search);
+            if (params.get('status') === 'connected') {
+                // Clean the URL without reloading
+                window.history.replaceState({}, '', window.location.pathname);
+            }
         }
-    }, []);
+    }, [session?.user?.id]);
 
     const handleConnectClick = (platformId: string) => {
         if (platformId === 'instagram' || platformId === 'facebook') {

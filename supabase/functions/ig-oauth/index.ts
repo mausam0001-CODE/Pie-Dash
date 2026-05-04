@@ -21,10 +21,10 @@ serve(async (req) => {
 
         const FB_APP_ID = Deno.env.get('FB_APP_ID')
         const FB_APP_SECRET = Deno.env.get('FB_APP_SECRET')
-        const REDIRECT_URI = `${url.origin}${url.pathname}`
+        const REDIRECT_URI = "https://ivsytkzemjludwzhrdsu.supabase.co/functions/v1/ig-oauth"
 
         // 1. Exchange for Short Token
-        const shortResp = await fetch(`https://graph.facebook.com/v18.0/oauth/access_token?client_id=${FB_APP_ID}&client_secret=${FB_APP_SECRET}&redirect_uri=${REDIRECT_URI}&code=${code}`)
+        const shortResp = await fetch(`https://graph.facebook.com/v18.0/oauth/access_token?client_id=${FB_APP_ID}&client_secret=${FB_APP_SECRET}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&code=${code}`)
         const shortData = await shortResp.json()
         if (shortData.error) throw new Error(shortData.error.message)
 
@@ -49,7 +49,7 @@ serve(async (req) => {
                 platform: 'facebook',
                 access_token: longData.access_token, // In a real production setup, encrypt this here using ENCRYPTION_KEY secret
                 account_id: profile.id,
-                account_name: profile.name,
+                username: profile.name,
                 expires_at: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString()
             })
 
@@ -58,7 +58,7 @@ serve(async (req) => {
         // 5. Redirect back to Frontend
         return new Response(null, {
             status: 302,
-            headers: { ...corsHeaders, 'Location': 'http://localhost:5173/connections?status=connected' }
+            headers: { ...corsHeaders, 'Location': 'https://pie-dash.vercel.app/connections?status=connected' }
         })
 
     } catch (error) {
