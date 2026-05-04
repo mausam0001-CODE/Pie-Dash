@@ -49,7 +49,7 @@ export const Library = ({ filter = 'All' }: { filter?: string }) => {
                 <PostDrawer
                     post={selectedPost}
                     onClose={() => setSelectedPost(null)}
-                    onEdit={(post) => {
+                    onEdit={(post: any) => {
                         setSelectedPost(null);
                         setIsBuilderOpen(true);
                     }}

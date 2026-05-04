@@ -49,12 +49,12 @@ export const Workflow = () => {
         const overId = over.id as string;
 
         // Check if dropped on a column
-        const column = columns.find(c => c.id === overId);
+        const column = columns.find((c: any) => c.id === overId);
         if (column) {
             const post = posts.find((p: any) => p.id === postId);
             if (post && post.status !== column.id) {
                 // Optimistic update
-                queryClient.setQueryData(['posts'], (old: any) =>
+                queryClient.setQueryData(['posts'], (old: any[]) =>
                     old.map((p: any) => p.id === postId ? { ...p, status: column.id } : p)
                 );
 
@@ -137,7 +137,7 @@ export const Workflow = () => {
                 <PostDrawer
                     post={selectedPost}
                     onClose={() => setSelectedPost(null)}
-                    onEdit={(post) => {
+                    onEdit={(post: any) => {
                         setIsBuildingPost(true);
                     }}
                 />

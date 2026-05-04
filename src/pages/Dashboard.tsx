@@ -32,7 +32,7 @@ export const Dashboard = () => {
         <div className="space-y-8 animate-in fade-in duration-700">
             {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {stats.map((stat) => (
+                {stats.map((stat: any) => (
                     <div key={stat.label} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm hover:shadow-md transition-all group">
                         <div className="flex items-center justify-between mb-4">
                             <div className={`p-3 rounded-2xl ${stat.bg} ${stat.color}`}>

@@ -73,7 +73,7 @@ export const CalendarView = () => {
                 </div>
                 <div className="grid grid-cols-7">
                     {calendarDays.map((day, i) => {
-                        const dayPosts = posts.filter(p => p.scheduled_at && isSameDay(new Date(p.scheduled_at), day));
+                        const dayPosts = posts.filter((p: any) => p.scheduled_at && isSameDay(new Date(p.scheduled_at), day));
                         const isCurrentMonth = isSameMonth(day, monthStart);
 
                         return (
@@ -92,7 +92,7 @@ export const CalendarView = () => {
                                     )}
                                 </div>
                                 <div className="space-y-1.5 overflow-y-auto max-h-[100px] scrollbar-hide">
-                                    {dayPosts.map((post, idx) => (
+                                    {dayPosts.map((post: any, idx: number) => (
                                         <div
                                             key={post.id}
                                             onClick={() => setSelectedReel(post)}
