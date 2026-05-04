@@ -69,7 +69,11 @@ export const Connections = () => {
 
     const confirmConnect = async () => {
         const appId = import.meta.env.VITE_FB_APP_ID;
-        const redirectUri = `https://ivsytkzemjludwzhrdsu.supabase.co/functions/v1/ig-oauth`;
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+        const projectRef = supabaseUrl.split('//')[1]?.split('.')[0];
+        const redirectUri = projectRef
+            ? `https://${projectRef}.supabase.co/functions/v1/ig-oauth`
+            : '';
         const state = session?.user?.id || 'team-user';
 
         window.location.href = `https://www.facebook.com/v18.0/dialog/oauth?client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=instagram_basic,instagram_content_publish,pages_read_engagement,pages_show_list&state=${state}`;
