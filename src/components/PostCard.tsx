@@ -1,5 +1,5 @@
 import React from 'react';
-import { Share2, Heart, MessageCircle, BarChart2, Calendar, CheckCircle2 } from 'lucide-react';
+import { Share2, Heart, MessageCircle, BarChart2, Calendar, CheckCircle2, Instagram, Facebook, Smartphone, Youtube, Globe } from 'lucide-react';
 
 interface PostCardProps {
     post: any;
@@ -69,12 +69,18 @@ export const PostCard = ({ post, onClick }: PostCardProps) => {
                 </h3>
 
                 <div className="flex items-center justify-between pt-4 border-t border-slate-50 mt-auto">
-                    <div className="flex -space-x-1.5">
+                    <div className="flex -space-x-1.5 items-center">
+                        {post.social_accounts && (
+                            <div className="w-6 h-6 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-center overflow-hidden mr-2">
+                                {post.social_accounts.platform === 'instagram' && <Instagram className="w-3.5 h-3.5 text-pink-500" />}
+                                {post.social_accounts.platform === 'facebook' && <Facebook className="w-3.5 h-3.5 text-blue-600" />}
+                                {post.social_accounts.platform === 'tiktok' && <Smartphone className="w-3.5 h-3.5 text-slate-900" />}
+                                {post.social_accounts.platform === 'youtube' && <Youtube className="w-3.5 h-3.5 text-red-500" />}
+                                {!['instagram', 'facebook', 'tiktok', 'youtube'].includes(post.social_accounts.platform) && <Globe className="w-3.5 h-3.5 text-slate-400" />}
+                            </div>
+                        )}
                         <div className="w-5 h-5 rounded-full border-2 border-white bg-slate-900 flex items-center justify-center overflow-hidden">
                             <Share2 className="w-2.5 h-2.5 text-white" />
-                        </div>
-                        <div className="w-5 h-5 rounded-full border-2 border-white bg-emerald-500 flex items-center justify-center">
-                            <CheckCircle2 className="w-2.5 h-2.5 text-white" />
                         </div>
                     </div>
                     <button className="text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-emerald-500 transition-colors">

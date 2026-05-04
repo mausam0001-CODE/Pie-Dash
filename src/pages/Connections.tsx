@@ -93,70 +93,66 @@ export const Connections = () => {
     return (
         <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in duration-500 pb-20">
             <div className="flex flex-col items-center text-center space-y-2 py-8">
-                <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">Publishing to your Social Accounts</h2>
+                <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">Social Account Manager</h2>
                 <p className="text-slate-500 max-w-2xl text-sm leading-relaxed">
-                    Connect one account for each social media platform to this calendar. If you need to connect multiple accounts for the same network, you can create another calendar.
+                    Connect and manage multiple accounts for each platform. Data for each account is kept strictly separate to prevent mixing content.
                 </p>
             </div>
 
             {/* Platform List Table */}
             <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
                 <div className="grid grid-cols-12 bg-slate-50 border-b border-slate-200 px-8 py-4 text-[11px] font-black uppercase tracking-widest text-slate-400">
-                    <div className="col-span-5">Social Accounts</div>
-                    <div className="col-span-4">Status</div>
+                    <div className="col-span-4">Platform</div>
+                    <div className="col-span-5">Connected Accounts</div>
                     <div className="col-span-3 text-right">Actions</div>
                 </div>
 
                 <div className="divide-y divide-slate-100">
                     {PLATFORMS.map((platform) => {
-                        const connected = accounts.filter(a => a.platform.toLowerCase() === platform.id);
+                        const connectedAccounts = accounts.filter(a => a.platform.toLowerCase() === platform.id);
 
                         return (
-                            <div key={platform.id} className="grid grid-cols-12 px-8 py-5 items-center hover:bg-slate-50/50 transition-colors">
-                                <div className="col-span-5 flex items-center gap-4">
+                            <div key={platform.id} className="grid grid-cols-12 px-8 py-6 items-start hover:bg-slate-50/50 transition-colors">
+                                <div className="col-span-4 flex items-center gap-4">
                                     <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center border border-slate-100 shadow-sm">
                                         {platform.icon}
                                     </div>
                                     <div>
-                                        <h4 className="font-bold text-slate-900 text-sm">
-                                            {platform.name}
-                                            {connected.length > 0 && <span className="ml-2 text-xs font-medium text-slate-400 italic">({connected[0].username})</span>}
-                                        </h4>
+                                        <h4 className="font-bold text-slate-900 text-sm">{platform.name}</h4>
+                                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">
+                                            {connectedAccounts.length} Account{connectedAccounts.length !== 1 ? 's' : ''}
+                                        </p>
                                     </div>
                                 </div>
-                                <div className="col-span-4">
-                                    {authLoading || loading ? (
-                                        <div className="flex flex-col items-center justify-center p-20 gap-4">
-                                            <Loader2 className="w-8 h-8 text-emerald-500 animate-spin" />
-                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Synchronizing Accounts...</p>
-                                        </div>
-                                    ) : connected.length > 0 ? (
-                                        <div className="flex items-center gap-1.5 text-emerald-600">
-                                            <CheckCircle2 className="w-4 h-4" />
-                                            <span className="text-xs font-bold uppercase tracking-wider">Connected</span>
-                                        </div>
+                                <div className="col-span-5 space-y-3">
+                                    {connectedAccounts.length > 0 ? (
+                                        connectedAccounts.map(acc => (
+                                            <div key={acc.id} className="flex items-center justify-between bg-white border border-slate-100 p-3 rounded-xl shadow-sm group">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-6 h-6 rounded-md bg-teal-50 text-teal-600 flex items-center justify-center text-[10px] font-bold">
+                                                        {acc.username.charAt(0).toUpperCase()}
+                                                    </div>
+                                                    <span className="text-sm font-bold text-slate-700">{acc.username}</span>
+                                                </div>
+                                                <button
+                                                    onClick={() => handleDelete(acc.id)}
+                                                    className="p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                                                >
+                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                </button>
+                                            </div>
+                                        ))
                                     ) : (
-                                        <span className="text-xs font-medium text-slate-300 italic">No account connected</span>
+                                        <span className="text-xs font-medium text-slate-300 italic">No accounts linked</span>
                                     )}
                                 </div>
                                 <div className="col-span-3 text-right">
-                                    {connected.length > 0 ? (
-                                        <div className="flex justify-end gap-2">
-                                            <button className="p-2 text-slate-300 hover:text-slate-600 transition-colors">
-                                                <Plus className="w-5 h-5 rotate-45" />
-                                            </button>
-                                            <button onClick={() => handleDelete(connected[0].id)} className="p-2 text-slate-300 hover:text-red-500 transition-colors">
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
-                                        </div>
-                                    ) : (
-                                        <button
-                                            onClick={() => handleConnectClick(platform.id)}
-                                            className="px-6 py-2 bg-emerald-500 text-white text-[10px] font-black uppercase tracking-wider rounded-lg hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-500/20"
-                                        >
-                                            Connect
-                                        </button>
-                                    )}
+                                    <button
+                                        onClick={() => handleConnectClick(platform.id)}
+                                        className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 text-white text-[10px] font-black uppercase tracking-wider rounded-lg hover:bg-slate-800 transition-all shadow-lg active:scale-95"
+                                    >
+                                        <Plus className="w-3 h-3" /> Connect{connectedAccounts.length > 0 ? ' Another' : ''}
+                                    </button>
                                 </div>
                             </div>
                         );

@@ -1,22 +1,24 @@
 import React from 'react';
-import { LayoutDashboard, Film, BarChart3, Calendar, Layers, CheckCircle, FileEdit, Clock, Send, Share2, Settings as SettingsIcon, MessageSquare } from 'lucide-react';
+import { Home, Layout, Calendar, Library, Settings, Inbox, Plus, ChevronRight, LogOut, Search, Command, Users, TrendingUp, Zap, HelpCircle, UserCircle } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useAccountContext } from '../features/accounts/AccountContext';
+import { useUser } from '../features/auth/UserContext';
 
 function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs));
 }
 
 const navItems = [
-    { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
-    { icon: Film, label: 'Library', path: '/library' },
-    { icon: MessageSquare, label: 'Interactions', path: '/interactions' },
-    { icon: BarChart3, label: 'Analytics', path: '/analytics' },
+    { icon: Home, label: 'Dashboard', path: '/' },
+    { icon: Library, label: 'Library', path: '/library' },
+    { icon: Inbox, label: 'Interactions', path: '/interactions' },
+    { icon: TrendingUp, label: 'Analytics', path: '/analytics' },
     { icon: Calendar, label: 'Calendar', path: '/calendar' },
-    { icon: Layers, label: 'Workflow', path: '/workflow' },
-    { icon: Share2, label: 'Connections', path: '/connections' },
-    { icon: SettingsIcon, label: 'Settings', path: '/settings' },
+    { icon: Zap, label: 'Workflow', path: '/workflow' },
+    { icon: Users, label: 'Connections', path: '/connections' },
+    { icon: Settings, label: 'Settings', path: '/settings' },
 ];
 
 const contentItems = [
@@ -27,13 +29,17 @@ const contentItems = [
     { label: 'Drafts', color: 'text-slate-400' },
 ];
 
+import { AccountSwitcher } from './AccountSwitcher';
+
 export const Sidebar = () => {
+    const { activeAccount } = useAccountContext();
+    const { profile } = useUser();
     const navigate = useNavigate();
     const location = useLocation();
 
     return (
         <aside className="w-64 bg-white border-r border-slate-200 flex flex-col sticky top-0 h-screen z-20">
-            <div className="p-6 flex items-center gap-3 border-b border-slate-100">
+            <div className="p-6 flex items-center gap-3 border-b border-slate-100 mb-2">
                 <div className="w-9 h-9 bg-gradient-to-br from-teal-500 to-purple-500 rounded-xl flex items-center justify-center text-white font-bold">P</div>
                 <div>
                     <h1 className="font-bold text-slate-900 leading-none">Pie</h1>
@@ -41,7 +47,9 @@ export const Sidebar = () => {
                 </div>
             </div>
 
-            <nav className="flex-1 p-4 space-y-8 mt-4">
+            <AccountSwitcher />
+
+            <nav className="flex-1 p-4 pt-0 space-y-8 mt-4 overflow-y-auto">
                 <div>
                     <p className="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Main Menu</p>
                     {navItems.map((item) => {
@@ -86,13 +94,21 @@ export const Sidebar = () => {
                 </div>
             </nav>
 
-            <div className="p-4 border-t border-slate-100">
-                <div className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-50 transition-all cursor-pointer">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-purple-500 to-teal-400 flex items-center justify-center text-white font-semibold text-xs">P</div>
-                    <div className="min-w-0">
-                        <p className="text-xs font-bold text-slate-900 truncate">Pie Team</p>
-                        <p className="text-[10px] text-slate-400 font-medium">Pro Manager</p>
+            {/* Bottom Section - Profile */}
+            <div className="p-4 mt-auto border-t border-slate-100/50 bg-white/50 backdrop-blur-xl">
+                <div className="group flex items-center gap-3 p-3 rounded-2xl hover:bg-slate-50 transition-all cursor-pointer border border-transparent hover:border-slate-100">
+                    <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-lg overflow-hidden border border-white">
+                        {profile?.avatar_url ? (
+                            <img src={profile.avatar_url} className="w-full h-full object-cover" />
+                        ) : (
+                            <UserCircle className="w-6 h-6" />
+                        )}
                     </div>
+                    <div className="flex-1 min-w-0">
+                        <p className="text-xs font-black text-slate-900 truncate uppercase tracking-tight">{profile?.full_name || 'Pie Team'}</p>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{profile?.role || 'Pro Manager'}</p>
+                    </div>
+                    <Settings className="w-4 h-4 text-slate-300 group-hover:text-slate-900 group-hover:rotate-90 transition-all duration-300" />
                 </div>
             </div>
         </aside>

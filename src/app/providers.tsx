@@ -1,5 +1,7 @@
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { AccountProvider } from '../features/accounts/AccountContext';
+import { UserProvider } from '../features/auth/UserContext';
 
 const queryClient = new QueryClient({
     defaultOptions: {
@@ -13,7 +15,11 @@ const queryClient = new QueryClient({
 export const AppProviders = ({ children }: { children: React.ReactNode }) => {
     return (
         <QueryClientProvider client={queryClient}>
-            {children}
+            <UserProvider>
+                <AccountProvider>
+                    {children}
+                </AccountProvider>
+            </UserProvider>
         </QueryClientProvider>
     );
 };

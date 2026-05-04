@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Calendar, Hash, FileText, Smartphone, MessageCircle, Heart, Share2, Trash2, Edit } from 'lucide-react';
+import { X, Calendar, Hash, FileText, Smartphone, MessageCircle, Heart, Share2, Trash2, Edit, Instagram, Facebook, Youtube, Globe } from 'lucide-react';
 import { usePostMutations } from '../features/posts/usePostMutations';
 
 interface PostDrawerProps {
@@ -63,8 +63,14 @@ export const PostDrawer = ({ post, onClose, onEdit }: PostDrawerProps) => {
 
                                 <div className="absolute bottom-16 left-4 right-12 text-white space-y-2">
                                     <div className="flex items-center gap-2">
-                                        <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-teal-400 to-purple-500 border-2 border-white/20"></div>
-                                        <span className="text-xs font-bold font-['Outfit']">@pie_social_pro</span>
+                                        <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-teal-400 to-purple-500 border-2 border-white/20 flex items-center justify-center overflow-hidden">
+                                            {post.social_accounts?.platform === 'instagram' && <Instagram className="w-4 h-4 text-white" />}
+                                            {post.social_accounts?.platform === 'facebook' && <Facebook className="w-4 h-4 text-white" />}
+                                            {post.social_accounts?.platform === 'tiktok' && <Smartphone className="w-4 h-4 text-white" />}
+                                            {post.social_accounts?.platform === 'youtube' && <Youtube className="w-4 h-4 text-white" />}
+                                            {!['instagram', 'facebook', 'tiktok', 'youtube'].includes(post.social_accounts?.platform) && <Globe className="w-4 h-4 text-white" />}
+                                        </div>
+                                        <span className="text-xs font-bold font-['Outfit']">@{post.social_accounts?.username || 'pie_social'}</span>
                                     </div>
                                     <p className="text-[10px] leading-relaxed line-clamp-2 opacity-90 font-medium">{post.caption || 'No caption available'}</p>
                                     <p className="text-[10px] font-bold text-teal-300">{post.hashtags}</p>

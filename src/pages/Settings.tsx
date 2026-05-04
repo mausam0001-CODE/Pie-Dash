@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, Bell, Shield, Smartphone, Globe, Save, Loader2 } from 'lucide-react';
+import { Settings as SettingsIcon, Bell, Shield, Smartphone, Globe, Save, Loader2, User, UserCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
+import { useUser } from '../features/auth/UserContext';
 
 export const Settings = () => {
     const { session, isLoading: authLoading } = useAuth();
+    const { refreshProfile } = useUser();
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
     const [activeTab, setActiveTab] = useState('general');
@@ -12,7 +14,12 @@ export const Settings = () => {
         dashboard_title: 'Pie Social Pro',
         primary_color: 'teal',
         organization_website: 'https://pie.social',
-        auto_posting: true
+        auto_posting: true,
+        user_profile: {
+            full_name: 'Pie Team',
+            role: 'Pro Manager',
+            avatar_url: ''
+        }
     });
 
     useEffect(() => {
@@ -72,6 +79,13 @@ export const Settings = () => {
                         >
                             <span className="flex items-center gap-3"><Globe className="w-4 h-4" /> General</span>
                             {activeTab === 'general' && <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>}
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('profile')}
+                            className={`w-full flex items-center justify-between px-5 py-3.5 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'profile' ? 'bg-white shadow-sm border border-slate-100 text-emerald-600' : 'text-slate-400 hover:bg-white/50'}`}
+                        >
+                            <span className="flex items-center gap-3"><User className="w-4 h-4" /> Profile</span>
+                            {activeTab === 'profile' && <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>}
                         </button>
                         <button
                             onClick={() => setActiveTab('notifications')}
@@ -160,6 +174,89 @@ export const Settings = () => {
                                         <div className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow-sm transition-all ${settings.auto_posting ? 'right-1' : 'left-1'}`}></div>
                                     </div>
                                 </div>
+
+                                <div className="pt-8 border-t border-slate-50 flex justify-end">
+                                    <button
+                                        onClick={handleSave}
+                                        disabled={saving}
+                                        className="bg-slate-900 text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center gap-3 hover:bg-slate-800 transition-all shadow-2xl shadow-slate-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed group"
+                                    >
+                                        {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 group-hover:scale-110 transition-transform" />}
+                                        Commit Preferences
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        {activeTab === 'profile' && (
+                            <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
+                                <div className="flex items-center gap-6 p-8 bg-slate-50 rounded-[2.5rem] border border-slate-100 mb-8">
+                                    <div className="w-20 h-20 rounded-full bg-slate-200 flex items-center justify-center overflow-hidden border-4 border-white shadow-lg">
+                                        {settings.user_profile?.avatar_url ? (
+                                            <img src={settings.user_profile.avatar_url} className="w-full h-full object-cover" />
+                                        ) : (
+                                            <UserCircle className="w-12 h-12 text-slate-400" />
+                                        )}
+                                    </div>
+                                    <div>
+                                        <h4 className="text-xl font-black text-slate-900">{settings.user_profile?.full_name || 'Set Name'}</h4>
+                                        <p className="text-sm text-slate-500 font-medium">{settings.user_profile?.role || 'Set Role'}</p>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+                                    <div className="space-y-3">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] pl-1">Full Name</label>
+                                        <input
+                                            type="text"
+                                            value={settings.user_profile?.full_name || ''}
+                                            onChange={(e) => setSettings({
+                                                ...settings,
+                                                user_profile: { ...settings.user_profile, full_name: e.target.value }
+                                            })}
+                                            placeholder="e.g. John Doe"
+                                            className="w-full bg-slate-50 border-2 border-transparent focus:bg-white focus:border-emerald-500/20 rounded-2xl px-5 py-4 text-sm outline-none font-bold text-slate-700 transition-all shadow-inner"
+                                        />
+                                    </div>
+                                    <div className="space-y-3">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] pl-1">Professional Role</label>
+                                        <input
+                                            type="text"
+                                            value={settings.user_profile?.role || ''}
+                                            onChange={(e) => setSettings({
+                                                ...settings,
+                                                user_profile: { ...settings.user_profile, role: e.target.value }
+                                            })}
+                                            placeholder="e.g. Pro Manager"
+                                            className="w-full bg-slate-50 border-2 border-transparent focus:bg-white focus:border-emerald-500/20 rounded-2xl px-5 py-4 text-sm outline-none font-bold text-slate-700 transition-all shadow-inner"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="space-y-3">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] pl-1">Avatar URL</label>
+                                    <input
+                                        type="text"
+                                        value={settings.user_profile?.avatar_url || ''}
+                                        onChange={(e) => setSettings({
+                                            ...settings,
+                                            user_profile: { ...settings.user_profile, avatar_url: e.target.value }
+                                        })}
+                                        placeholder="https://images.unsplash.com/..."
+                                        className="w-full bg-slate-50 border-2 border-transparent focus:bg-white focus:border-emerald-500/20 rounded-2xl px-5 py-4 text-sm outline-none font-bold text-slate-700 transition-all shadow-inner"
+                                    />
+                                </div>
+
+                                <div className="pt-8 border-t border-slate-50 flex justify-end">
+                                    <button
+                                        onClick={handleSave}
+                                        disabled={saving}
+                                        className="bg-slate-900 text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center gap-3 hover:bg-slate-800 transition-all shadow-2xl shadow-slate-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed group"
+                                    >
+                                        {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 group-hover:scale-110 transition-transform" />}
+                                        Commit Preferences
+                                    </button>
+                                </div>
                             </div>
                         )}
 
@@ -201,19 +298,6 @@ export const Settings = () => {
                                     <p className="text-sm text-rose-700/70 mt-1">This will permanently delete all posts, connections, and settings. This action cannot be undone.</p>
                                     <button className="mt-6 px-6 py-3 bg-rose-500 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-rose-500/20 hover:bg-rose-600 transition-all">Delete Everything</button>
                                 </div>
-                            </div>
-                        )}
-
-                        {activeTab === 'general' && (
-                            <div className="pt-8 border-t border-slate-50 flex justify-end">
-                                <button
-                                    onClick={handleSave}
-                                    disabled={saving}
-                                    className="bg-slate-900 text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center gap-3 hover:bg-slate-800 transition-all shadow-2xl shadow-slate-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed group"
-                                >
-                                    {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 group-hover:scale-110 transition-transform" />}
-                                    Commit Preferences
-                                </button>
                             </div>
                         )}
                     </div>
