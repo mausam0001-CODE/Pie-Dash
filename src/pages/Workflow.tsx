@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { usePosts } from '../features/posts/usePosts';
 import {
     DndContext,
@@ -13,6 +13,8 @@ import {
     verticalListSortingStrategy
 } from '@dnd-kit/sortable';
 import { SortablePostCard } from '../components/SortablePostCard';
+import { PostDrawer } from '../components/PostDrawer';
+import { PostBuilder } from '../components/PostBuilder';
 import { FileText, CheckCircle2, Clock, Send, AlertCircle, Plus } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useQueryClient } from '@tanstack/react-query';
@@ -28,6 +30,8 @@ const columns = [
 export const Workflow = () => {
     const { data: posts = [], isLoading } = usePosts();
     const queryClient = useQueryClient();
+    const [selectedPost, setSelectedPost] = useState<any>(null);
+    const [isBuildingPost, setIsBuildingPost] = useState(false);
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
@@ -105,11 +109,18 @@ export const Workflow = () => {
                                         className="flex-1 bg-slate-100/50 rounded-3xl p-4 gap-4 flex flex-col overflow-y-auto min-h-[100px]"
                                     >
                                         {columnPosts.map((post: any) => (
-                                            <SortablePostCard key={post.id} post={post} />
+                                            <SortablePostCard
+                                                key={post.id}
+                                                post={post}
+                                                onClick={() => setSelectedPost(post)}
+                                            />
                                         ))}
 
                                         {column.id === 'Draft' && (
-                                            <button className="w-full py-4 rounded-2xl border-2 border-dashed border-slate-200 text-slate-400 hover:text-slate-600 hover:bg-white hover:border-slate-300 transition-all flex items-center justify-center gap-2 group">
+                                            <button
+                                                onClick={() => setIsBuildingPost(true)}
+                                                className="w-full py-4 rounded-2xl border-2 border-dashed border-slate-200 text-slate-400 hover:text-slate-600 hover:bg-white hover:border-slate-300 transition-all flex items-center justify-center gap-2 group"
+                                            >
                                                 <Plus className="w-4 h-4 group-hover:scale-110 transition-transform" />
                                                 <span className="text-xs font-bold uppercase tracking-widest">New Post</span>
                                             </button>
@@ -121,6 +132,26 @@ export const Workflow = () => {
                     })}
                 </div>
             </div>
+
+            {selectedPost && (
+                <PostDrawer
+                    post={selectedPost}
+                    onClose={() => setSelectedPost(null)}
+                    onEdit={(post) => {
+                        setIsBuildingPost(true);
+                    }}
+                />
+            )}
+
+            {isBuildingPost && (
+                <PostBuilder
+                    onClose={() => {
+                        setIsBuildingPost(false);
+                        setSelectedPost(null);
+                    }}
+                    initialReel={selectedPost}
+                />
+            )}
         </DndContext>
     );
 };

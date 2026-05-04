@@ -1,12 +1,12 @@
-import React, { useState } from 'react';
-import { X, ChevronRight, ChevronLeft, Globe, FileText, Image as ImageIcon, Smartphone, Settings, CheckCircle, Instagram, Twitter, Facebook, Youtube, Plus, Save, Send, Eye, Sparkles, Calendar, Clock } from 'lucide-react';
-import { Reel } from '../hooks/useReelsData';
+import React, { useState, useEffect } from 'react';
+import { X, ChevronRight, ChevronLeft, Globe, FileText, Image as ImageIcon, Smartphone, Settings, CheckCircle, Instagram, Twitter, Facebook, Youtube, Plus, Save, Send, Eye, Sparkles, Calendar, Clock, Upload } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabase';
+import { usePostMutations } from '../features/posts/usePostMutations';
 
 interface PostBuilderProps {
     onClose: () => void;
-    initialReel?: Reel;
+    initialReel?: any;
 }
 
 const STEPS = [
@@ -21,17 +21,43 @@ const STEPS = [
 
 export const PostBuilder = ({ onClose, initialReel }: PostBuilderProps) => {
     const { session } = useAuth();
+    const { createPost, updatePost } = usePostMutations();
     const [currentStep, setCurrentStep] = useState(1);
     const [isScheduling, setIsScheduling] = useState(false);
-    const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(['instagram']);
+    const [connectedAccounts, setConnectedAccounts] = useState<any[]>([]);
+    const [selectedAccounts, setSelectedAccounts] = useState<string[]>([]);
     const [postData, setPostData] = useState({
         title: initialReel?.title || '',
-        caption: initialReel?.description || '',
+        caption: initialReel?.caption || '',
         mediaUrl: initialReel?.media_url || '',
-        category: initialReel?.category || 'Reel',
-        hashtags: Array.isArray(initialReel?.hashtags) ? initialReel?.hashtags : (initialReel?.hashtags ? [initialReel.hashtags] : []),
-        scheduledAt: new Date().toISOString().substring(0, 16), // Format for datetime-local
+        thumbnailUrl: initialReel?.thumbnail_url || '',
+        category: initialReel?.category || 'Post',
+        hashtags: initialReel?.hashtags || '',
+        scheduledAt: initialReel?.scheduled_at ? new Date(initialReel.scheduled_at).toISOString().substring(0, 16) : new Date().toISOString().substring(0, 16),
+        status: initialReel?.status || 'Draft'
     });
+
+    useEffect(() => {
+        const fetchAccounts = async () => {
+            if (!session?.user) return;
+            const { data, error } = await supabase
+                .from('social_accounts')
+                .select('*')
+                .eq('user_id', session.user.id);
+
+            if (!error && data) {
+                setConnectedAccounts(data);
+
+                if (initialReel?.platforms) {
+                    setSelectedAccounts(initialReel.platforms.split(','));
+                } else {
+                    // Pre-select by default for new posts
+                    setSelectedAccounts(data.map((acc: any) => acc.id));
+                }
+            }
+        };
+        fetchAccounts();
+    }, [session?.user]);
 
     const nextStep = () => setCurrentStep(prev => Math.min(prev + 1, 7));
     const prevStep = () => setCurrentStep(prev => Math.max(prev - 1, 1));
@@ -40,23 +66,31 @@ export const PostBuilder = ({ onClose, initialReel }: PostBuilderProps) => {
         if (!session?.user) return;
         setIsScheduling(true);
         try {
-            const { error } = await supabase.from('posts').insert([{
+            const postPayload = {
                 user_id: session.user.id,
                 title: postData.title,
                 caption: postData.caption,
                 media_url: postData.mediaUrl,
-                platforms: selectedPlatforms.join(','),
+                thumbnail_url: postData.thumbnailUrl,
+                platforms: selectedAccounts.join(','),
                 scheduled_at: new Date(postData.scheduledAt).toISOString(),
-                status: 'Scheduled'
-            }]);
+                status: 'Scheduled',
+                category: postData.category,
+                hashtags: postData.hashtags
+            };
 
-            if (error) throw error;
+            if (initialReel?.id) {
+                await updatePost.mutateAsync({ id: initialReel.id, updates: postPayload });
+                alert('Post updated successfully!');
+            } else {
+                await createPost.mutateAsync(postPayload);
+                alert('Post scheduled successfully!');
+            }
 
-            alert('Post scheduled successfully via Supabase!');
             onClose();
         } catch (error: any) {
-            console.error('Error scheduling post:', error);
-            alert('Error scheduling post: ' + error.message);
+            console.error('Error saving post:', error);
+            alert('Error saving post: ' + error.message);
         } finally {
             setIsScheduling(false);
         }
@@ -64,12 +98,12 @@ export const PostBuilder = ({ onClose, initialReel }: PostBuilderProps) => {
 
     const renderStep = () => {
         switch (currentStep) {
-            case 1: return <StepAccounts selected={selectedPlatforms} onToggle={(p) => setSelectedPlatforms(prev => prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p])} />;
+            case 1: return <StepAccounts accounts={connectedAccounts} selected={selectedAccounts} onToggle={(id) => setSelectedAccounts(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])} />;
             case 2: return <StepBasicInfo value={postData.title} onChange={(v) => setPostData(d => ({ ...d, title: v }))} />;
-            case 3: return <StepGenericContent caption={postData.caption} onCaptionChange={(v) => setPostData(d => ({ ...d, caption: v }))} initialMedia={postData.mediaUrl} />;
-            case 4: return <StepFineTune platforms={selectedPlatforms} />;
-            case 5: return <StepSettings />;
-            case 6: return <StepReview data={postData} platforms={selectedPlatforms} />;
+            case 3: return <StepGenericContent caption={postData.caption} onCaptionChange={(v) => setPostData(d => ({ ...d, caption: v }))} mediaUrl={postData.mediaUrl} onMediaUpload={(url) => setPostData(d => ({ ...d, mediaUrl: url, thumbnailUrl: url }))} />;
+            case 4: return <StepFineTune accounts={connectedAccounts.filter(a => selectedAccounts.includes(a.id))} />;
+            case 5: return <StepSettings hashtags={postData.hashtags} onHashtagsChange={(v) => setPostData(d => ({ ...d, hashtags: v }))} />;
+            case 6: return <StepReview data={postData} accounts={connectedAccounts.filter(a => selectedAccounts.includes(a.id))} />;
             case 7: return <StepSchedule value={postData.scheduledAt} onChange={(v) => setPostData(d => ({ ...d, scheduledAt: v }))} />;
             default: return null;
         }
@@ -77,14 +111,14 @@ export const PostBuilder = ({ onClose, initialReel }: PostBuilderProps) => {
 
     return (
         <div className="fixed inset-0 z-[70] flex items-center justify-center p-2 sm:p-6 md:p-8 animate-in fade-in zoom-in-95 duration-500">
-            <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-xl" onClick={onClose}></div>
+            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-xl" onClick={onClose}></div>
 
-            <div className="bg-slate-50 border border-slate-200/50 w-full h-full max-w-[1400px] max-h-[92vh] rounded-[3rem] shadow-[0_0_80px_rgba(0,0,0,0.15)] relative flex flex-col overflow-hidden">
+            <div className="bg-slate-50 w-full h-full max-w-[1200px] max-h-[92vh] rounded-[3rem] shadow-[0_0_80px_rgba(0,0,0,0.15)] relative flex flex-col overflow-hidden ring-1 ring-slate-200">
                 {/* Header with Progress Bar */}
-                <div className="p-8 border-b border-slate-100 bg-white sticky top-0 z-10">
+                <div className="p-8 border-b border-slate-200/60 bg-white sticky top-0 z-10">
                     <div className="flex items-center justify-between mb-8">
                         <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 bg-green-500 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-green-200">
+                            <div className="w-12 h-12 bg-teal-500 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-teal-200">
                                 <Plus className="w-6 h-6" />
                             </div>
                             <div>
@@ -92,7 +126,7 @@ export const PostBuilder = ({ onClose, initialReel }: PostBuilderProps) => {
                                 <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">Multi-Channel Distribution</p>
                             </div>
                         </div>
-                        <button onClick={onClose} className="p-3 hover:bg-slate-50 rounded-2xl transition-all text-slate-400">
+                        <button onClick={onClose} className="p-3 hover:bg-slate-50 rounded-2xl transition-all text-slate-400 hover:text-slate-600">
                             <X className="w-6 h-6" />
                         </button>
                     </div>
@@ -102,7 +136,7 @@ export const PostBuilder = ({ onClose, initialReel }: PostBuilderProps) => {
                         <div className="absolute top-[18px] left-0 right-0 h-1 bg-slate-100 -z-10 rounded-full mx-12"></div>
                         {/* Progress Line Active */}
                         <div
-                            className="absolute top-[18px] left-0 h-1 bg-green-500 -z-10 transition-all duration-500 ease-out rounded-full mx-12"
+                            className="absolute top-[18px] left-0 h-1 bg-teal-500 -z-10 transition-all duration-500 ease-out rounded-full mx-12"
                             style={{ width: `${((currentStep - 1) / (STEPS.length - 1)) * 100}%` }}
                         ></div>
 
@@ -113,13 +147,13 @@ export const PostBuilder = ({ onClose, initialReel }: PostBuilderProps) => {
 
                             return (
                                 <div key={step} className="flex flex-col items-center gap-3 relative">
-                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-black transition-all duration-300 ${isActive ? 'bg-green-500 text-white shadow-xl shadow-green-200 scale-110 ring-4 ring-green-50' :
-                                        isPast ? 'bg-green-100 text-green-600' :
+                                    <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-sm font-black transition-all duration-300 ${isActive ? 'bg-teal-500 text-white shadow-xl shadow-teal-200 scale-110 ring-4 ring-teal-50' :
+                                        isPast ? 'bg-teal-50 text-teal-600' :
                                             'bg-white text-slate-300 border-2 border-slate-100'
                                         }`}>
                                         {isPast ? <CheckCircle className="w-5 h-5" /> : stepNum}
                                     </div>
-                                    <span className={`text-[10px] font-bold uppercase tracking-tighter ${isActive ? 'text-green-600' : 'text-slate-400'}`}>{step}</span>
+                                    <span className={`text-[10px] font-bold uppercase tracking-tighter ${isActive ? 'text-teal-600' : 'text-slate-400'}`}>{step}</span>
                                 </div>
                             );
                         })}
@@ -127,7 +161,7 @@ export const PostBuilder = ({ onClose, initialReel }: PostBuilderProps) => {
                 </div>
 
                 {/* Content Area */}
-                <div className="flex-1 overflow-y-auto bg-slate-50/30 p-12">
+                <div className="flex-1 overflow-y-auto bg-slate-50/50 p-12">
                     {renderStep()}
                 </div>
 
@@ -152,7 +186,7 @@ export const PostBuilder = ({ onClose, initialReel }: PostBuilderProps) => {
                         <button
                             onClick={currentStep === 7 ? handleSchedule : nextStep}
                             disabled={isScheduling}
-                            className={`flex items-center gap-2 px-10 py-4 bg-gradient-to-r from-teal-500 to-emerald-400 text-white rounded-[1.5rem] font-black hover:from-teal-600 hover:to-emerald-500 transition-all shadow-[0_8px_30px_-4px_rgba(20,184,166,0.25)] active:scale-95 ${isScheduling ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            className={`flex items-center gap-2 px-10 py-4 bg-teal-500 text-white rounded-[1.5rem] font-black hover:bg-teal-600 transition-all shadow-[0_8px_30px_-4px_rgba(20,184,166,0.25)] active:scale-95 ${isScheduling ? 'opacity-50 cursor-not-allowed' : ''}`}
                         >
                             {isScheduling ? 'Scheduling...' : currentStep === 7 ? 'Schedule Post' : `Next: ${STEPS[currentStep] || 'Finish'}`} <ChevronRight className="w-5 h-5" />
                         </button>
@@ -163,36 +197,43 @@ export const PostBuilder = ({ onClose, initialReel }: PostBuilderProps) => {
     );
 };
 
-const StepAccounts = ({ selected, onToggle }: { selected: string[], onToggle: (p: string) => void }) => (
+const StepAccounts = ({ accounts, selected, onToggle }: { accounts: any[], selected: string[], onToggle: (id: string) => void }) => (
     <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-500">
         <div className="text-center space-y-2">
             <h3 className="text-3xl font-black text-slate-900">Select Accounts</h3>
             <p className="text-slate-500 font-medium">Choose where you want to publish this content.</p>
         </div>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 max-w-4xl mx-auto">
-            {['instagram', 'tiktok', 'facebook', 'youtube'].map(p => (
-                <button
-                    key={p}
-                    onClick={() => onToggle(p)}
-                    className={`p-8 rounded-[2rem] border-2 transition-all flex flex-col items-center gap-4 group ${selected.includes(p) ? 'border-green-500 bg-green-50 ring-4 ring-green-500/5 shadow-xl' : 'border-slate-100 bg-white hover:border-slate-300'
-                        }`}
-                >
-                    <div className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-all ${selected.includes(p) ? 'bg-green-500 text-white shadow-lg' : 'bg-slate-50 text-slate-300 group-hover:text-slate-400'
-                        }`}>
-                        {p === 'instagram' && <Instagram className="w-8 h-8" />}
-                        {p === 'tiktok' && <Smartphone className="w-8 h-8" />}
-                        {p === 'facebook' && <Facebook className="w-8 h-8" />}
-                        {p === 'youtube' && <Youtube className="w-8 h-8" />}
-                    </div>
-                    <span className={`font-black text-sm uppercase tracking-widest ${selected.includes(p) ? 'text-green-700' : 'text-slate-400'}`}>
-                        {p.toUpperCase()}
-                    </span>
-                    <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${selected.includes(p) ? 'border-green-500 bg-green-500 text-white' : 'border-slate-100'
-                        }`}>
-                        {selected.includes(p) && <CheckCircle className="w-4 h-4" />}
-                    </div>
-                </button>
-            ))}
+            {accounts.length === 0 ? (
+                <div className="col-span-full py-12 text-center text-slate-400 italic">No social accounts connected yet. Please connect an account in the Connections tab.</div>
+            ) : accounts.map(acc => {
+                const isSelected = selected.includes(acc.id);
+                return (
+                    <button
+                        key={acc.id}
+                        onClick={() => onToggle(acc.id)}
+                        className={`p-8 rounded-[2rem] border-2 transition-all flex flex-col items-center gap-4 group ${isSelected ? 'border-teal-500 bg-teal-50 ring-4 ring-teal-500/10 shadow-xl' : 'border-slate-100 bg-white hover:border-slate-300 hover:shadow-md'
+                            }`}
+                    >
+                        <div className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-all ${isSelected ? 'bg-teal-500 text-white shadow-lg' : 'bg-slate-50 text-slate-300 group-hover:text-slate-400'
+                            }`}>
+                            {acc.platform === 'instagram' && <Instagram className="w-8 h-8" />}
+                            {acc.platform === 'facebook' && <Facebook className="w-8 h-8" />}
+                            {acc.platform === 'tiktok' && <Smartphone className="w-8 h-8" />}
+                            {acc.platform === 'youtube' && <Youtube className="w-8 h-8" />}
+                            {/* Fallback if platform unknown */}
+                            {!['instagram', 'facebook', 'tiktok', 'youtube'].includes(acc.platform) && <Globe className="w-8 h-8" />}
+                        </div>
+                        <span className={`font-black text-sm uppercase tracking-widest ${isSelected ? 'text-teal-700' : 'text-slate-400'}`}>
+                            {acc.username || acc.platform}
+                        </span>
+                        <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${isSelected ? 'border-teal-500 bg-teal-500 text-white' : 'border-slate-100'
+                            }`}>
+                            {isSelected && <CheckCircle className="w-4 h-4" />}
+                        </div>
+                    </button>
+                )
+            })}
         </div>
     </div>
 );
@@ -227,62 +268,108 @@ const StepBasicInfo = ({ value, onChange }: { value: string, onChange: (v: strin
     </div>
 );
 
-const StepGenericContent = ({ caption, onCaptionChange, initialMedia }: { caption: string, onCaptionChange: (v: string) => void, initialMedia?: string }) => (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 animate-in slide-in-from-bottom-4 duration-500">
-        <div className="space-y-8">
-            <div className="space-y-2">
-                <h3 className="text-3xl font-black text-slate-900">Core Content</h3>
-                <p className="text-slate-500 font-medium">This will be the default copy for all selected platforms.</p>
-            </div>
-            <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100 space-y-6">
-                <div className="space-y-3">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                        <FileText className="w-4 h-4 text-green-500" /> Master Caption
-                    </label>
-                    <textarea
-                        value={caption}
-                        onChange={(e) => onCaptionChange(e.target.value)}
-                        placeholder="Write your primary message here..."
-                        className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-6 text-sm outline-none focus:ring-4 focus:ring-green-500/5 min-h-[200px] leading-relaxed font-medium"
-                    />
-                </div>
-                <div className="flex items-center justify-between text-[11px] font-bold text-slate-400">
-                    <span className="flex items-center gap-2 text-green-600 bg-green-50 px-3 py-1.5 rounded-lg"><Sparkles className="w-3 h-3" /> Optimize for engagement</span>
-                    <span>120 / 2200 characters</span>
-                </div>
-            </div>
-        </div>
-        <div className="space-y-8">
-            <div className="space-y-2">
-                <h3 className="text-3xl font-black text-slate-900">Main Assets</h3>
-                <p className="text-slate-500 font-medium">Upload the primary video or images.</p>
-            </div>
-            <div className="bg-white border-4 border-dashed border-slate-100 rounded-[2.5rem] p-12 flex flex-col items-center justify-center text-center space-y-6 h-[400px] group hover:border-green-200 transition-all">
-                {initialMedia ? (
-                    <div className="relative w-full h-full rounded-2xl overflow-hidden shadow-xl">
-                        <img src={initialMedia} className="w-full h-full object-cover" />
-                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button className="bg-white text-slate-900 px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-xl"><ImageIcon className="w-4 h-4" /> Change Asset</button>
-                        </div>
-                    </div>
-                ) : (
-                    <>
-                        <div className="w-20 h-20 bg-slate-50 rounded-3xl flex items-center justify-center text-slate-300 group-hover:scale-110 group-hover:bg-green-50 group-hover:text-green-500 transition-all">
-                            <ImageIcon className="w-10 h-10" />
-                        </div>
-                        <div>
-                            <p className="text-lg font-black text-slate-900">Drag & Drop Media</p>
-                            <p className="text-sm text-slate-400 mt-1">Videos up to 2GB or high-res images.</p>
-                        </div>
-                        <button className="bg-slate-900 text-white px-8 py-4 rounded-2xl font-black hover:bg-slate-800 transition-all shadow-xl">Browse Files</button>
-                    </>
-                )}
-            </div>
-        </div>
-    </div>
-);
+const StepGenericContent = ({ caption, onCaptionChange, mediaUrl, onMediaUpload }: { caption: string, onCaptionChange: (v: string) => void, mediaUrl: string, onMediaUpload: (url: string) => void }) => {
+    const [isUploading, setIsUploading] = useState(false);
 
-const StepFineTune = ({ platforms }: { platforms: string[] }) => (
+    const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setIsUploading(true);
+        try {
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${Math.random()}.${fileExt}`;
+            const filePath = `post_media/${fileName}`;
+
+            const { error: uploadError } = await supabase.storage
+                .from('media') // Assuming 'media' bucket exists
+                .upload(filePath, file);
+
+            if (uploadError) throw uploadError;
+
+            const { data } = supabase.storage.from('media').getPublicUrl(filePath);
+            onMediaUpload(data.publicUrl);
+        } catch (error: any) {
+            console.error('Error uploading media:', error);
+            alert('Upload failed: ' + error.message);
+        } finally {
+            setIsUploading(false);
+        }
+    };
+
+    return (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 animate-in slide-in-from-bottom-4 duration-500">
+            <div className="space-y-8">
+                <div className="space-y-2">
+                    <h3 className="text-3xl font-black text-slate-900">Core Content</h3>
+                    <p className="text-slate-500 font-medium">This will be the default copy for all selected platforms.</p>
+                </div>
+                <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100 space-y-6">
+                    <div className="space-y-3">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                            <FileText className="w-4 h-4 text-teal-500" /> Master Caption
+                        </label>
+                        <textarea
+                            value={caption}
+                            onChange={(e) => onCaptionChange(e.target.value)}
+                            placeholder="Write your primary message here..."
+                            className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-6 text-sm outline-none focus:ring-4 focus:ring-teal-500/5 min-h-[200px] leading-relaxed font-medium"
+                        />
+                    </div>
+                    <div className="flex items-center justify-between text-[11px] font-bold text-slate-400">
+                        <span className="flex items-center gap-2 text-teal-600 bg-teal-50 px-3 py-1.5 rounded-lg"><Sparkles className="w-3 h-3" /> Optimize for engagement</span>
+                        <span>{caption.length} / 2200 characters</span>
+                    </div>
+                </div>
+            </div>
+            <div className="space-y-8">
+                <div className="space-y-2">
+                    <h3 className="text-3xl font-black text-slate-900">Main Assets</h3>
+                    <p className="text-slate-500 font-medium">Upload the primary video or images.</p>
+                </div>
+                <div className="bg-white border-4 border-dashed border-slate-100 rounded-[2.5rem] p-12 flex flex-col items-center justify-center text-center space-y-6 h-[400px] group hover:border-teal-200 transition-all relative overflow-hidden">
+                    {mediaUrl ? (
+                        <div className="relative w-full h-full rounded-2xl overflow-hidden shadow-xl">
+                            <img src={mediaUrl} className="w-full h-full object-cover" />
+                            <label className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                                <span className="bg-white text-slate-900 px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-xl"><ImageIcon className="w-4 h-4" /> Change Asset</span>
+                                <input type="file" className="hidden" accept="image/*,video/*" onChange={handleUpload} disabled={isUploading} />
+                            </label>
+                            {isUploading && (
+                                <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center">
+                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-500"></div>
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        <label className="w-full h-full flex flex-col items-center justify-center cursor-pointer relative z-10">
+                            {isUploading ? (
+                                <div className="space-y-4 flex flex-col items-center">
+                                    <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-teal-500"></div>
+                                    <p className="text-slate-500 font-bold animate-pulse">Uploading Media...</p>
+                                </div>
+                            ) : (
+                                <>
+                                    <div className="w-20 h-20 bg-slate-50 rounded-3xl flex items-center justify-center text-slate-300 group-hover:scale-110 group-hover:bg-teal-50 group-hover:text-teal-500 transition-all mb-4 mt-8">
+                                        <Upload className="w-10 h-10" />
+                                    </div>
+                                    <div className="mb-6">
+                                        <p className="text-lg font-black text-slate-900">Drag & Drop Media</p>
+                                        <p className="text-sm text-slate-400 mt-1">Videos up to 2GB or high-res images.</p>
+                                    </div>
+                                    <span className="bg-slate-900 text-white px-8 py-4 rounded-2xl font-black hover:bg-slate-800 transition-all shadow-xl">Browse Files</span>
+                                </>
+                            )}
+                            <input type="file" className="hidden" accept="image/*,video/*" onChange={handleUpload} disabled={isUploading} />
+                        </label>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const StepFineTune = ({ accounts }: { accounts: any[] }) => (
     <div className="space-y-10 animate-in slide-in-from-bottom-4 duration-500">
         <div className="text-center space-y-2">
             <h3 className="text-3xl font-black text-slate-900">Fine-Tune by Channel</h3>
@@ -292,14 +379,18 @@ const StepFineTune = ({ platforms }: { platforms: string[] }) => (
         <div className="flex gap-8">
             {/* Platform Selector Sidebar */}
             <div className="w-64 space-y-2">
-                {platforms.map(p => (
-                    <button key={p} className="w-full flex items-center justify-between p-4 bg-white border border-slate-100 rounded-[1.5rem] shadow-sm hover:shadow-md transition-all text-left group">
+                {accounts.length === 0 ? (
+                    <div className="p-4 text-center text-slate-400 italic font-medium text-sm">Please select accounts first.</div>
+                ) : accounts.map(a => (
+                    <button key={a.id} className="w-full flex items-center justify-between p-4 bg-white border border-slate-100 rounded-[1.5rem] shadow-sm hover:shadow-md transition-all text-left group">
                         <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-xl bg-slate-50 flex items-center justify-center group-hover:bg-green-50 group-hover:text-green-600">
-                                {p === 'instagram' && <Instagram className="w-4 h-4" />}
-                                {p === 'facebook' && <Facebook className="w-4 h-4" />}
+                            <div className="w-8 h-8 rounded-xl bg-slate-50 flex items-center justify-center group-hover:bg-teal-50 group-hover:text-teal-600">
+                                {a.platform === 'instagram' && <Instagram className="w-4 h-4" />}
+                                {a.platform === 'facebook' && <Facebook className="w-4 h-4" />}
+                                {a.platform === 'tiktok' && <Smartphone className="w-4 h-4" />}
+                                {a.platform === 'youtube' && <Youtube className="w-4 h-4" />}
                             </div>
-                            <span className="text-sm font-black text-slate-700 capitalize">{p}</span>
+                            <span className="text-sm font-black text-slate-700 capitalize">{a.username || a.platform}</span>
                         </div>
                         <ChevronRight className="w-4 h-4 text-slate-300" />
                     </button>
@@ -308,49 +399,53 @@ const StepFineTune = ({ platforms }: { platforms: string[] }) => (
 
             {/* Editor Area */}
             <div className="flex-1 bg-white border border-slate-100 rounded-[2.5rem] shadow-xl overflow-hidden flex flex-col min-h-[500px]">
-                <div className="p-10 flex-1 grid grid-cols-1 xl:grid-cols-2 gap-12">
-                    <div className="space-y-6">
-                        <div className="flex items-center justify-between">
-                            <h4 className="text-lg font-black text-slate-900">Instagram Version</h4>
-                            <div className="flex items-center gap-2 p-1 bg-slate-50 rounded-lg">
-                                <button className="p-2 bg-white shadow-sm rounded-md text-[10px] font-black uppercase text-green-600">Reel</button>
-                                <button className="p-2 text-[10px] font-black uppercase text-slate-400">Post</button>
+                {accounts.length === 0 ? (
+                    <div className="flex items-center justify-center flex-1 text-slate-400 italic">No account selected for fine-tuning.</div>
+                ) : (
+                    <div className="p-10 flex-1 grid grid-cols-1 xl:grid-cols-2 gap-12">
+                        <div className="space-y-6">
+                            <div className="flex items-center justify-between">
+                                <h4 className="text-lg font-black text-slate-900">Version Content</h4>
+                                <div className="flex items-center gap-2 p-1 bg-slate-50 rounded-lg">
+                                    <button className="p-2 bg-white shadow-sm rounded-md text-[10px] font-black uppercase text-teal-600">Reel</button>
+                                    <button className="p-2 text-[10px] font-black uppercase text-slate-400">Post</button>
+                                </div>
+                            </div>
+                            <textarea className="w-full h-[250px] bg-slate-50/50 border border-slate-100 rounded-2xl p-6 text-sm font-medium outline-none focus:ring-4 focus:ring-teal-500/5 shadow-inner" placeholder="Version specific caption..." />
+                            <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 space-y-4">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Platform Specifics</p>
+                                <label className="flex items-center gap-3 cursor-pointer">
+                                    <div className="w-10 h-5 bg-teal-500 rounded-full relative"><div className="absolute right-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow-sm"></div></div>
+                                    <span className="text-xs font-bold text-slate-700">Share to Feed</span>
+                                </label>
+                                <label className="flex items-center gap-3 cursor-pointer">
+                                    <div className="w-10 h-5 bg-slate-200 rounded-full relative"><div className="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow-sm"></div></div>
+                                    <span className="text-xs font-bold text-slate-700">Add to Profile Grid</span>
+                                </label>
                             </div>
                         </div>
-                        <textarea className="w-full h-[250px] bg-slate-50/50 border border-slate-100 rounded-2xl p-6 text-sm font-medium outline-none focus:ring-4 focus:ring-green-500/5 shadow-inner" placeholder="Instagram caption..." />
-                        <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 space-y-4">
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Platform Specifics</p>
-                            <label className="flex items-center gap-3 cursor-pointer">
-                                <div className="w-10 h-5 bg-green-500 rounded-full relative"><div className="absolute right-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow-sm"></div></div>
-                                <span className="text-xs font-bold text-slate-700">Share to Feed</span>
-                            </label>
-                            <label className="flex items-center gap-3 cursor-pointer">
-                                <div className="w-10 h-5 bg-slate-200 rounded-full relative"><div className="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow-sm"></div></div>
-                                <span className="text-xs font-bold text-slate-700">Add to Profile Grid</span>
-                            </label>
-                        </div>
-                    </div>
-                    <div className="flex flex-col items-center justify-center bg-slate-50/50 rounded-[2rem] border border-slate-100 p-8">
-                        <div className="w-[280px] h-[500px] bg-white rounded-[2.5rem] shadow-2xl border-[6px] border-white relative overflow-hidden ring-4 ring-slate-100">
-                            <div className="absolute top-0 left-0 right-0 h-12 bg-gradient-to-b from-black/20 to-transparent z-10 flex items-center justify-between px-6">
-                                <div className="flex items-center gap-2"><div className="w-6 h-6 rounded-full bg-slate-200" /><span className="text-[10px] text-white font-bold">Your Store</span></div>
-                                <Instagram className="w-4 h-4 text-white" />
+                        <div className="flex flex-col items-center justify-center bg-slate-50/50 rounded-[2rem] border border-slate-100 p-8">
+                            <div className="w-[280px] h-[500px] bg-white rounded-[2.5rem] shadow-2xl border-[6px] border-white relative overflow-hidden ring-4 ring-slate-100">
+                                <div className="absolute top-0 left-0 right-0 h-12 bg-gradient-to-b from-black/20 to-transparent z-10 flex items-center justify-between px-6">
+                                    <div className="flex items-center gap-2"><div className="w-6 h-6 rounded-full bg-slate-200" /><span className="text-[10px] text-white font-bold">Your Store</span></div>
+                                    <Instagram className="w-4 h-4 text-white" />
+                                </div>
+                                <div className="w-full h-full bg-slate-200 flex items-center justify-center italic text-slate-400 text-xs">Feed Preview</div>
                             </div>
-                            <div className="w-full h-full bg-slate-200 flex items-center justify-center italic text-slate-400 text-xs">IG Preview</div>
+                            <p className="mt-4 text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><Smartphone className="w-3.5 h-3.5" /> Mobile Feed Preview</p>
                         </div>
-                        <p className="mt-4 text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><Smartphone className="w-3.5 h-3.5" /> Mobile Feed Preview</p>
                     </div>
-                </div>
+                )}
             </div>
         </div>
     </div>
 );
 
-const StepSettings = () => (
+const StepSettings = ({ hashtags, onHashtagsChange }: { hashtags: string, onHashtagsChange: (v: string) => void }) => (
     <div className="max-w-3xl mx-auto space-y-12 animate-in slide-in-from-bottom-4 duration-500">
         <div className="text-center space-y-2">
             <h3 className="text-3xl font-black text-slate-900">Posting Settings</h3>
-            <p className="text-slate-500 font-medium">Fine-tune the technical metadata for your social ports.</p>
+            <p className="text-slate-500 font-medium">Fine-tune the technical metadata for your social posts.</p>
         </div>
         <div className="grid grid-cols-2 gap-8">
             <div className="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-100 space-y-6">
@@ -374,13 +469,18 @@ const StepSettings = () => (
                 <div className="space-y-4">
                     <h4 className="font-black text-slate-900">Optimization</h4>
                     <div className="space-y-4">
-                        <label className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
-                            <span className="text-xs font-bold text-slate-700">Auto-Hashtags</span>
-                            <div className="w-10 h-5 bg-purple-500 rounded-full relative"><div className="absolute right-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow-sm"></div></div>
+                        <label className="flex flex-col gap-2">
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Hashtags</span>
+                            <textarea
+                                value={hashtags}
+                                onChange={(e) => onHashtagsChange(e.target.value)}
+                                placeholder="#socialmedia #marketing"
+                                className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 text-xs font-bold outline-none focus:ring-4 focus:ring-purple-500/5 shadow-inner"
+                            />
                         </label>
-                        <label className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
-                            <span className="text-xs font-bold text-slate-700">AI Hook Analysis</span>
-                            <div className="w-10 h-5 bg-slate-200 rounded-full relative"><div className="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow-sm"></div></div>
+                        <label className="flex items-center justify-between p-4 bg-slate-50 rounded-xl mt-4">
+                            <span className="text-xs font-bold text-slate-700">Auto-Suggest Hashtags</span>
+                            <div className="w-10 h-5 bg-purple-500 rounded-full relative"><div className="absolute right-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow-sm"></div></div>
                         </label>
                     </div>
                 </div>
@@ -389,7 +489,7 @@ const StepSettings = () => (
     </div>
 );
 
-const StepReview = ({ data, platforms }: { data: any, platforms: string[] }) => (
+const StepReview = ({ data, accounts }: { data: any, accounts: any[] }) => (
     <div className="max-w-4xl mx-auto space-y-8 animate-in slide-in-from-bottom-4 duration-500">
         <div className="text-center space-y-2">
             <h3 className="text-3xl font-black text-slate-900">Final Review</h3>
@@ -398,37 +498,45 @@ const StepReview = ({ data, platforms }: { data: any, platforms: string[] }) => 
         <div className="bg-white p-10 rounded-[3rem] shadow-xl border border-slate-100">
             <div className="flex items-center justify-between mb-8 pb-8 border-b border-slate-50">
                 <div className="flex items-center gap-6">
-                    <div className="w-24 h-24 bg-slate-100 rounded-[2rem] overflow-hidden shadow-lg">
-                        {data.mediaUrl ? <img src={data.mediaUrl} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-slate-200 flex items-center justify-center text-slate-400 italic text-[10px]">Asset</div>}
+                    <div className="w-24 h-24 bg-slate-100 rounded-[2rem] overflow-hidden shadow-lg border border-slate-200">
+                        {data.mediaUrl ? <img src={data.mediaUrl} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-slate-50 flex flex-col items-center justify-center text-slate-400 italic text-[10px]"><ImageIcon className="w-6 h-6 mb-1 text-slate-300" />No Asset</div>}
                     </div>
                     <div>
-                        <h4 className="text-2xl font-black text-slate-900">{data.title || 'Untitled Post'}</h4>
-                        <div className="flex gap-2 mt-2">
-                            {platforms.map(p => (
-                                <span key={p} className="px-3 py-1 bg-green-50 text-green-600 text-[10px] font-black rounded-lg uppercase">{p}</span>
-                            ))}
+                        <h4 className="text-2xl font-black text-slate-900 leading-tight">{data.title || 'Untitled Post'}</h4>
+                        <div className="flex flex-wrap gap-2 mt-3">
+                            {accounts.length ? accounts.map(a => (
+                                <span key={a.id} className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 text-slate-600 border border-slate-200 text-[10px] font-black rounded-lg uppercase tracking-widest shadow-sm">
+                                    {a.platform === 'instagram' && <Instagram className="w-3 h-3 text-pink-500" />}
+                                    {a.platform === 'facebook' && <Facebook className="w-3 h-3 text-blue-600" />}
+                                    {a.platform === 'tiktok' && <Smartphone className="w-3 h-3 text-slate-900" />}
+                                    {a.platform === 'youtube' && <Youtube className="w-3 h-3 text-red-500" />}
+                                    {a.username || a.platform}
+                                </span>
+                            )) : <span className="text-slate-400 text-xs italic font-medium">No accounts selected</span>}
                         </div>
                     </div>
                 </div>
                 <div className="text-right">
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Estimated Reach</p>
-                    <p className="text-3xl font-black text-slate-900">~ 12.4k</p>
+                    <p className="text-3xl font-black text-teal-500">~ 12.4k</p>
                 </div>
             </div>
             <div className="space-y-6">
-                <div className="p-6 bg-slate-50/50 rounded-2xl border border-slate-100">
-                    <p className="text-sm text-slate-600 leading-relaxed font-medium line-clamp-3">{data.caption || 'No caption provided.'}</p>
+                <div className="p-6 bg-slate-50/50 rounded-2xl border border-slate-100 relative shadow-sm">
+                    <span className="absolute top-0 right-8 -translate-y-1/2 bg-white px-2 text-[10px] font-black text-slate-400 tracking-widest uppercase">Caption</span>
+                    <p className="text-sm text-slate-600 leading-relaxed font-medium whitespace-pre-wrap">{data.caption || 'No caption provided.'}</p>
+                    {data.hashtags && <p className="mt-4 text-xs font-bold text-teal-600">{data.hashtags}</p>}
                 </div>
                 <div className="grid grid-cols-3 gap-6">
-                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-50 space-y-2">
+                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-2">
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Publish Date</p>
-                        <p className="text-sm font-bold text-slate-900">Oct 12, 2026</p>
+                        <p className="text-sm font-bold text-slate-900">{new Date(data.scheduledAt).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
                     </div>
-                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-50 space-y-2">
+                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-2">
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Time</p>
-                        <p className="text-sm font-bold text-slate-900">09:00 AM (EST)</p>
+                        <p className="text-sm font-bold text-slate-900">{new Date(data.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                     </div>
-                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-50 space-y-2">
+                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-2">
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Approval</p>
                         <p className="text-sm font-bold text-orange-500">Auto-Post Mode</p>
                     </div>

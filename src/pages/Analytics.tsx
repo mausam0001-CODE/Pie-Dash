@@ -148,7 +148,7 @@ export const Analytics = () => {
                                     <td className="px-6 py-4">
                                         <div className="flex items-center gap-3">
                                             <div className="w-10 h-10 rounded bg-slate-200 overflow-hidden">
-                                                <img src={post.thumbnail} className="w-full h-full object-cover" />
+                                                <img src={post.thumbnail_url || post.media_url} className="w-full h-full object-cover" />
                                             </div>
                                             <div>
                                                 <p className="text-xs font-bold text-slate-900">{post.title}</p>

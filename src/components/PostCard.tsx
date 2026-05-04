@@ -1,28 +1,35 @@
 import React from 'react';
 import { Share2, Heart, MessageCircle, BarChart2, Calendar, CheckCircle2 } from 'lucide-react';
-import { Reel } from '../hooks/useReelsData';
 
 interface PostCardProps {
-    post: Reel;
+    post: any;
+    onClick?: () => void;
 }
 
-export const PostCard = ({ post }: PostCardProps) => {
+export const PostCard = ({ post, onClick }: PostCardProps) => {
     return (
-        <div className="group relative bg-white rounded-[2rem] overflow-hidden border border-slate-100 hover:border-emerald-100 hover:shadow-[0_20px_50px_-20px_rgba(16,185,129,0.15)] transition-all duration-500 flex flex-col">
+        <div
+            className="group relative bg-white rounded-[2rem] overflow-hidden border border-slate-100 hover:border-emerald-100 hover:shadow-[0_20px_50px_-20px_rgba(16,185,129,0.15)] transition-all duration-500 flex flex-col cursor-pointer"
+            onClick={onClick}
+        >
             {/* Media Preview */}
-            <div className="relative aspect-[4/5] overflow-hidden">
-                <img
-                    src={post.thumbnail_url || post.media_url}
-                    alt={post.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                />
+            <div className="relative aspect-[4/5] overflow-hidden bg-slate-100">
+                {post.thumbnail_url || post.media_url ? (
+                    <img
+                        src={post.thumbnail_url || post.media_url}
+                        alt={post.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                    />
+                ) : (
+                    <div className="w-full h-full flex items-center justify-center text-slate-300 italic text-xs">No Preview</div>
+                )}
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 via-transparent to-transparent opacity-60"></div>
 
                 {/* Status Badge */}
                 <div className="absolute top-4 right-4">
                     <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest backdrop-blur-md border ${post.status === 'Published'
-                            ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
-                            : 'bg-orange-500/20 text-orange-400 border-orange-500/30'
+                        ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                        : 'bg-orange-500/20 text-orange-400 border-orange-500/30'
                         }`}>
                         {post.status}
                     </span>
@@ -53,7 +60,7 @@ export const PostCard = ({ post }: PostCardProps) => {
                     <span className="text-[10px] font-black text-emerald-500 uppercase tracking-[0.2em]">{post.category || 'Reel'}</span>
                     <div className="flex items-center gap-1 text-slate-400">
                         <Calendar className="w-3 h-3" />
-                        <span className="text-[9px] font-bold uppercase">{new Date(post.created_at).toLocaleDateString()}</span>
+                        <span className="text-[9px] font-bold uppercase">{post.created_at ? new Date(post.created_at).toLocaleDateString() : 'Draft'}</span>
                     </div>
                 </div>
 
@@ -78,3 +85,4 @@ export const PostCard = ({ post }: PostCardProps) => {
         </div>
     );
 };
+

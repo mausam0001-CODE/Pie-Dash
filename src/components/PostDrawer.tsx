@@ -1,15 +1,28 @@
 import React from 'react';
-import { X, Play, Calendar, Hash, FileText, ExternalLink, Smartphone, MessageCircle, Heart, Share2 } from 'lucide-react';
-import { Reel } from '../hooks/useReelsData';
-import { useAuth } from '../hooks/useAuth';
+import { X, Calendar, Hash, FileText, Smartphone, MessageCircle, Heart, Share2, Trash2, Edit } from 'lucide-react';
+import { usePostMutations } from '../features/posts/usePostMutations';
 
 interface PostDrawerProps {
-    reel: Reel;
+    post: any;
     onClose: () => void;
+    onEdit?: (post: any) => void;
 }
 
-export const PostDrawer = ({ reel, onClose }: PostDrawerProps) => {
-    const { session } = useAuth();
+export const PostDrawer = ({ post, onClose, onEdit }: PostDrawerProps) => {
+    const { deletePost } = usePostMutations();
+
+    const handleDelete = async () => {
+        if (window.confirm('Are you sure you want to delete this post?')) {
+            await deletePost.mutateAsync(post.id);
+            onClose();
+        }
+    };
+
+    const statusStyles = post.status === 'Published'
+        ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
+        : post.status === 'Scheduled'
+            ? 'bg-teal-50 text-teal-600 border-teal-100'
+            : 'bg-slate-50 text-slate-400 border-slate-100';
 
     return (
         <div className="fixed inset-0 z-50 flex justify-end animate-in fade-in duration-200">
@@ -17,40 +30,46 @@ export const PostDrawer = ({ reel, onClose }: PostDrawerProps) => {
             <div className="w-[520px] bg-white h-full shadow-2xl relative animate-in slide-in-from-right duration-300 overflow-y-auto">
                 <div className="p-6 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white z-10">
                     <div className="flex items-center gap-3">
-                        <span className="text-xs font-bold text-teal-600 bg-teal-50 px-2.5 py-1 rounded-md">{reel.id}</span>
-                        <h3 className="font-bold text-slate-900 truncate max-w-[280px]">{reel.title}</h3>
+                        <span className="text-[10px] font-black text-teal-600 bg-teal-50 px-2.5 py-1 rounded-lg uppercase tracking-tighter">ID: {post.id?.slice(0, 8)}</span>
+                        <h3 className="font-black text-slate-900 truncate max-w-[280px] tracking-tight">{post.title}</h3>
                     </div>
-                    <button onClick={onClose} className="p-2 hover:bg-slate-50 rounded-lg transition-all text-slate-400">
-                        <X className="w-5 h-5" />
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <button onClick={handleDelete} className="p-2 hover:bg-rose-50 rounded-xl transition-all text-slate-400 hover:text-rose-500">
+                            <Trash2 className="w-5 h-5" />
+                        </button>
+                        <button onClick={onClose} className="p-2 hover:bg-slate-50 rounded-xl transition-all text-slate-400">
+                            <X className="w-5 h-5" />
+                        </button>
+                    </div>
                 </div>
 
                 <div className="p-8 space-y-8">
-                    {/* Enhanced Mobile Preview (Loomly/Randolly Style) */}
+                    {/* Enhanced Mobile Preview */}
                     <div className="flex flex-col items-center">
-                        <div className="relative w-[300px] h-[600px] bg-slate-950 rounded-[3rem] border-[8px] border-slate-900 overflow-hidden shadow-2xl ring-4 ring-slate-100">
-                            {/* iPhone Notch */}
+                        <div className="relative w-[300px] h-[580px] bg-slate-950 rounded-[3rem] border-[8px] border-slate-900 overflow-hidden shadow-2xl ring-4 ring-slate-100">
                             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-6 bg-slate-900 rounded-b-2xl z-20"></div>
 
-                            {/* Content */}
                             <div className="absolute inset-0">
-                                <img
-                                    src={reel.thumbnail || 'https://via.placeholder.com/400x711?text=No+Thumbnail'}
-                                    className="w-full h-full object-cover opacity-90"
-                                />
+                                {post.thumbnail_url || post.media_url ? (
+                                    <img
+                                        src={post.thumbnail_url || post.media_url}
+                                        alt={post.title}
+                                        className="w-full h-full object-cover opacity-90"
+                                    />
+                                ) : (
+                                    <div className="w-full h-full bg-slate-800 flex items-center justify-center text-slate-500 italic text-[10px]">No Media Uploaded</div>
+                                )}
                                 <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/60"></div>
 
-                                {/* UI Overlays */}
                                 <div className="absolute bottom-16 left-4 right-12 text-white space-y-2">
                                     <div className="flex items-center gap-2">
                                         <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-teal-400 to-purple-500 border-2 border-white/20"></div>
-                                        <span className="text-xs font-bold">@pie_social</span>
+                                        <span className="text-xs font-bold font-['Outfit']">@pie_social_pro</span>
                                     </div>
-                                    <p className="text-[10px] leading-relaxed line-clamp-2 opacity-90">{reel.caption || reel.description}</p>
-                                    <p className="text-[10px] font-bold text-teal-300">{Array.isArray(reel.hashtags) ? reel.hashtags.join(' ') : reel.hashtags}</p>
+                                    <p className="text-[10px] leading-relaxed line-clamp-2 opacity-90 font-medium">{post.caption || 'No caption available'}</p>
+                                    <p className="text-[10px] font-bold text-teal-300">{post.hashtags}</p>
                                 </div>
 
-                                {/* Interaction Buttons */}
                                 <div className="absolute bottom-16 right-3 flex flex-col items-center gap-5 text-white">
                                     <div className="flex flex-col items-center gap-1">
                                         <div className="p-1.5 rounded-full bg-white/10 backdrop-blur-md"><Heart className="w-5 h-5" /></div>
@@ -65,71 +84,59 @@ export const PostDrawer = ({ reel, onClose }: PostDrawerProps) => {
                                         <span className="text-[8px] font-bold">Share</span>
                                     </div>
                                 </div>
-
-                                <div className="absolute inset-0 flex items-center justify-center">
-                                    <a href={reel.videoLink} target="_blank" className="w-14 h-14 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white hover:scale-110 transition-all border border-white/20 shadow-xl">
-                                        <Play className="fill-white w-5 h-5 ml-1" />
-                                    </a>
-                                </div>
                             </div>
                         </div>
-                        <p className="mt-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                            <Smartphone className="w-3 h-3" /> Live Mobile Preview
+                        <p className="mt-4 text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                            <Smartphone className="w-3.5 h-3.5" /> Mobile Feed Preview
                         </p>
                     </div>
 
                     <div className="space-y-6 text-sm">
                         <div className="flex items-center justify-between">
-                            <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${reel.approved ? 'bg-green-50 text-green-600' : 'bg-slate-100 text-slate-400'}`}>
-                                {reel.status === 'Published' ? 'Published' : reel.approved ? '✔ Approved' : 'Pending'}
+                            <span className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border ${statusStyles}`}>
+                                {post.status}
                             </span>
-                            <span className="text-slate-400 font-medium">#{reel.category}</span>
+                            <span className="text-slate-400 font-black uppercase text-[10px] tracking-widest">Type: {post.category || 'Post'}</span>
                         </div>
 
-                        <div className="space-y-4 pt-4 border-t border-slate-100">
+                        <div className="space-y-4 pt-6 border-t border-slate-100">
                             <div className="flex items-start gap-4">
-                                <div className="p-2 bg-slate-50 rounded-lg"><Calendar className="w-4 h-4 text-slate-400" /></div>
+                                <div className="p-3 bg-slate-50 rounded-2xl"><Calendar className="w-5 h-5 text-slate-400" /></div>
                                 <div>
-                                    <label className="text-[10px] font-bold text-slate-400 uppercase">Scheduled For</label>
-                                    <p className="font-semibold text-slate-700">{reel.piePosted || reel.charPosted || 'Not Scheduled'}</p>
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Scheduled For</label>
+                                    <p className="font-black text-slate-900 text-lg tracking-tight">
+                                        {post.scheduled_at ? new Date(post.scheduled_at).toLocaleString() : 'As soon as possible'}
+                                    </p>
                                 </div>
                             </div>
 
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-2">
-                                    <FileText className="w-3.5 h-3.5 text-teal-500" /> Hook / Script
+                            <div className="space-y-3">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                    <FileText className="w-3.5 h-3.5 text-teal-500" /> Caption Context
                                 </label>
-                                <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100 text-slate-600 leading-relaxed italic text-xs">
-                                    "{reel.hook}"
+                                <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 text-slate-600 leading-relaxed font-medium text-sm whitespace-pre-wrap">
+                                    {post.caption || 'No caption has been written for this post yet.'}
                                 </div>
                             </div>
 
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-2">
-                                    <Hash className="w-3.5 h-3.5 text-purple-500" /> Hashtags
+                            <div className="space-y-3">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                    <Hash className="w-3.5 h-3.5 text-purple-500" /> Distribution Tags
                                 </label>
-                                <p className="text-teal-600 font-medium text-xs bg-teal-50/50 px-3 py-2 rounded-lg">{reel.hashtags}</p>
+                                <p className="text-teal-600 font-bold text-xs bg-teal-50 px-4 py-2 rounded-xl inline-block">
+                                    {post.hashtags || '#SocialMedia'}
+                                </p>
                             </div>
                         </div>
 
-                        <div className="flex items-center gap-4">
-                            <a
-                                href={reel.videoLink || reel.media_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex-1 flex items-center justify-center gap-2 bg-slate-900 text-white rounded-2xl py-4 font-bold hover:bg-slate-800 transition-all shadow-lg active:scale-[0.98]"
+                        <div className="flex items-center gap-4 pt-4">
+                            <button
+                                onClick={() => onEdit?.(post)}
+                                className="flex-1 flex items-center justify-center gap-2 bg-slate-900 text-white rounded-2xl py-4 font-black transition-all hover:bg-slate-800 shadow-xl active:scale-95"
                             >
-                                <Play className="w-4 h-4 fill-white" />
-                                Watch Preview
-                            </a>
-                            <a
-                                href={reel.script || '#'}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="p-4 bg-slate-100 text-slate-900 rounded-2xl hover:bg-slate-200 transition-colors"
-                            >
-                                <FileText className="w-5 h-5" />
-                            </a>
+                                <Edit className="w-5 h-5" />
+                                Edit Content
+                            </button>
                         </div>
                     </div>
                 </div>

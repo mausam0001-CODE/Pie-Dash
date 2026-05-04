@@ -1,10 +1,14 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { usePosts } from '../features/posts/usePosts';
 import { PostCard } from '../components/PostCard';
+import { PostDrawer } from '../components/PostDrawer';
+import { PostBuilder } from '../components/PostBuilder';
 import { Film } from 'lucide-react';
 
 export const Library = ({ filter = 'All' }: { filter?: string }) => {
     const { data: posts = [], isLoading } = usePosts(filter);
+    const [selectedPost, setSelectedPost] = useState<any>(null);
+    const [isBuilderOpen, setIsBuilderOpen] = useState(false);
 
     if (isLoading) return <div className="p-8 text-center animate-pulse text-slate-400 font-bold uppercase tracking-widest text-[10px]">Accessing Vault...</div>;
 
@@ -23,7 +27,11 @@ export const Library = ({ filter = 'All' }: { filter?: string }) => {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {posts.map((post: any) => (
-                    <PostCard key={post.id || post.post_id} post={post} />
+                    <PostCard
+                        key={post.id || post.post_id}
+                        post={post}
+                        onClick={() => setSelectedPost(post)}
+                    />
                 ))}
             </div>
 
@@ -35,6 +43,24 @@ export const Library = ({ filter = 'All' }: { filter?: string }) => {
                     <h3 className="text-lg font-bold text-slate-900">No content found</h3>
                     <p className="text-sm text-slate-500 font-medium">Try changing your filters or create a new post</p>
                 </div>
+            )}
+
+            {selectedPost && (
+                <PostDrawer
+                    post={selectedPost}
+                    onClose={() => setSelectedPost(null)}
+                    onEdit={(post) => {
+                        setSelectedPost(null);
+                        setIsBuilderOpen(true);
+                    }}
+                />
+            )}
+
+            {isBuilderOpen && (
+                <PostBuilder
+                    onClose={() => setIsBuilderOpen(false)}
+                    initialReel={selectedPost}
+                />
             )}
         </div>
     );
