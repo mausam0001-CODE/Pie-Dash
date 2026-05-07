@@ -71,7 +71,7 @@ export const Connections = () => {
         const platformId = showNotesModal;
         const appId = platformId === 'instagram'
             ? (import.meta.env.VITE_INSTA_APP_ID || import.meta.env.VITE_FB_APP_ID)
-            : import.meta.env.VITE_FB_APP_ID;
+            : (import.meta.env.VITE_FB_APP_ID || import.meta.env.VITE_INSTA_APP_ID);
         const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
         const projectRef = supabaseUrl.split('//')[1]?.split('.')[0];
         const redirectUriBase = projectRef
