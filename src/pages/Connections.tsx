@@ -68,15 +68,27 @@ export const Connections = () => {
     };
 
     const confirmConnect = async () => {
-        const appId = import.meta.env.VITE_FB_APP_ID;
+        const platformId = showNotesModal;
+        const appId = platformId === 'instagram'
+            ? (import.meta.env.VITE_INSTA_APP_ID || import.meta.env.VITE_FB_APP_ID)
+            : import.meta.env.VITE_FB_APP_ID;
         const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
         const projectRef = supabaseUrl.split('//')[1]?.split('.')[0];
-        const redirectUri = projectRef
+        const redirectUriBase = projectRef
             ? `https://${projectRef}.supabase.co/functions/v1/ig-oauth`
-            : '';
-        const state = session?.user?.id || 'team-user';
+            : "https://ivsytkzemjludwzhrdsu.supabase.co/functions/v1/ig-oauth";
 
-        window.location.href = `https://www.facebook.com/v18.0/dialog/oauth?client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=instagram_basic,instagram_content_publish,pages_read_engagement,pages_show_list&state=${state}`;
+        // Add platform as query param to redirectUri for maximum reliability
+        const redirectUri = `${redirectUriBase}?targetPagePlatform=${platformId}`;
+        const state = `${session?.user?.id || 'team-user'}:${platformId}`;
+
+        if (platformId === 'instagram') {
+            const scope = 'instagram_business_basic,instagram_business_manage_messages,instagram_business_manage_comments,instagram_business_content_publish';
+            window.location.href = `https://api.instagram.com/oauth/authorize?client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}&response_type=code&state=${state}`;
+        } else {
+            const scope = 'instagram_basic,instagram_content_publish,pages_read_engagement,pages_show_list';
+            window.location.href = `https://www.facebook.com/v18.0/dialog/oauth?client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}&state=${state}`;
+        }
     };
 
     const handleDelete = async (id: string) => {
@@ -99,9 +111,9 @@ export const Connections = () => {
                 </p>
             </div>
 
-            {/* Platform List Table */}
-            <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
-                <div className="grid grid-cols-12 bg-slate-50 border-b border-slate-200 px-8 py-4 text-[11px] font-black uppercase tracking-widest text-slate-400">
+            {/* Platform List Card */}
+            <div className="bg-white border border-slate-200 rounded-2xl md:rounded-3xl overflow-hidden shadow-sm">
+                <div className="hidden md:grid grid-cols-12 bg-slate-50 border-b border-slate-200 px-8 py-4 text-[11px] font-black uppercase tracking-widest text-slate-400">
                     <div className="col-span-4">Platform</div>
                     <div className="col-span-5">Connected Accounts</div>
                     <div className="col-span-3 text-right">Actions</div>
@@ -112,9 +124,9 @@ export const Connections = () => {
                         const connectedAccounts = accounts.filter(a => a.platform.toLowerCase() === platform.id);
 
                         return (
-                            <div key={platform.id} className="grid grid-cols-12 px-8 py-6 items-start hover:bg-slate-50/50 transition-colors">
-                                <div className="col-span-4 flex items-center gap-4">
-                                    <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center border border-slate-100 shadow-sm">
+                            <div key={platform.id} className="flex flex-col md:grid md:grid-cols-12 px-4 md:px-8 py-6 items-start hover:bg-slate-50/50 transition-colors gap-6 md:gap-0">
+                                <div className="md:col-span-4 flex items-center gap-4">
+                                    <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center border border-slate-100 shadow-sm shrink-0">
                                         {platform.icon}
                                     </div>
                                     <div>
@@ -124,7 +136,8 @@ export const Connections = () => {
                                         </p>
                                     </div>
                                 </div>
-                                <div className="col-span-5 space-y-3">
+                                <div className="md:col-span-5 space-y-3 w-full">
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase md:hidden mb-1">Connected Accounts</p>
                                     {connectedAccounts.length > 0 ? (
                                         connectedAccounts.map(acc => (
                                             <div key={acc.id} className="flex items-center justify-between bg-white border border-slate-100 p-3 rounded-xl shadow-sm group">
@@ -136,7 +149,7 @@ export const Connections = () => {
                                                 </div>
                                                 <button
                                                     onClick={() => handleDelete(acc.id)}
-                                                    className="p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                                                    className="p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all md:opacity-0 md:group-hover:opacity-100 opacity-100"
                                                 >
                                                     <Trash2 className="w-3.5 h-3.5" />
                                                 </button>
@@ -146,10 +159,10 @@ export const Connections = () => {
                                         <span className="text-xs font-medium text-slate-300 italic">No accounts linked</span>
                                     )}
                                 </div>
-                                <div className="col-span-3 text-right">
+                                <div className="md:col-span-3 md:text-right w-full md:w-auto">
                                     <button
                                         onClick={() => handleConnectClick(platform.id)}
-                                        className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 text-white text-[10px] font-black uppercase tracking-wider rounded-lg hover:bg-slate-800 transition-all shadow-lg active:scale-95"
+                                        className="inline-flex items-center justify-center gap-2 w-full md:w-auto px-4 py-2.5 bg-slate-900 text-white text-[10px] font-black uppercase tracking-wider rounded-lg hover:bg-slate-800 transition-all shadow-lg active:scale-95"
                                     >
                                         <Plus className="w-3 h-3" /> Connect{connectedAccounts.length > 0 ? ' Another' : ''}
                                     </button>
@@ -167,12 +180,12 @@ export const Connections = () => {
                         <div className="space-y-6">
                             <div className="bg-slate-50 rounded-3xl p-8 border border-slate-100 space-y-6">
                                 <div className="flex flex-col items-center gap-4 py-4">
-                                    <div className="w-16 h-16 rounded-2xl bg-white shadow-xl shadow-pink-500/10 flex items-center justify-center border border-slate-100">
-                                        <Instagram className="w-8 h-8 text-pink-600" />
+                                    <div className={`w-16 h-16 rounded-2xl bg-white shadow-xl flex items-center justify-center border border-slate-100 ${showNotesModal === 'instagram' ? 'shadow-pink-500/10' : 'shadow-blue-500/10'}`}>
+                                        {PLATFORMS.find(p => p.id === showNotesModal)?.icon}
                                     </div>
                                     <div className="text-center">
-                                        <h4 className="text-xl font-bold text-slate-900">Instagram <span className="text-[10px] bg-slate-200 text-slate-500 px-2 py-0.5 rounded-full ml-1 vertical-middle uppercase tracking-tighter">Beta</span></h4>
-                                        <p className="text-sm text-slate-400 mt-1 max-w-xs">Connect your Instagram account to ideate, plan, and automatically publish content.</p>
+                                        <h4 className="text-xl font-bold text-slate-900">{PLATFORMS.find(p => p.id === showNotesModal)?.name} <span className="text-[10px] bg-slate-200 text-slate-500 px-2 py-0.5 rounded-full ml-1 vertical-middle uppercase tracking-tighter">Beta</span></h4>
+                                        <p className="text-sm text-slate-400 mt-1 max-w-xs">{showNotesModal === 'instagram' ? 'Connect your Instagram account to ideate, plan, and automatically publish content.' : 'Connect your Facebook Page to manage posts and engagement.'}</p>
                                     </div>
                                 </div>
 

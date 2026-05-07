@@ -79,24 +79,24 @@ export const Workflow = () => {
             collisionDetection={closestCorners}
             onDragEnd={handleDragEnd}
         >
-            <div className="space-y-8 animate-in fade-in duration-700 h-[calc(100vh-10rem)] flex flex-col">
+            <div className="space-y-6 md:space-y-8 animate-in fade-in duration-700 h-[calc(100vh-12rem)] md:h-[calc(100vh-10rem)] flex flex-col">
                 <div>
-                    <h2 className="text-3xl font-black text-slate-900 leading-tight">Deployment Pipeline</h2>
-                    <p className="text-sm font-medium text-slate-500 mt-1">Track asset progression from concept to live</p>
+                    <h2 className="text-2xl md:text-3xl font-black text-slate-900 leading-tight">Deployment Pipeline</h2>
+                    <p className="text-[10px] md:text-sm font-medium text-slate-500 mt-1">Track asset progression from concept to live</p>
                 </div>
 
-                <div className="flex-1 flex gap-6 overflow-x-auto pb-6 scrollbar-hide">
+                <div className="flex-1 flex gap-4 md:gap-6 overflow-x-auto pb-6 scrollbar-hide">
                     {columns.map((column) => {
                         const columnPosts = posts.filter((p: any) => p.status === column.id);
                         return (
-                            <div key={column.id} className="flex-shrink-0 w-80 flex flex-col">
-                                <div className="flex items-center justify-between mb-4 px-2">
+                            <div key={column.id} className="flex-shrink-0 w-[280px] md:w-80 flex flex-col">
+                                <div className="flex items-center justify-between mb-3 md:mb-4 px-2">
                                     <div className="flex items-center gap-3">
-                                        <div className={`p-2 rounded-lg ${column.bg} ${column.color}`}>
-                                            <column.icon className="w-4 h-4" />
+                                        <div className={`p-1.5 md:p-2 rounded-lg ${column.bg} ${column.color}`}>
+                                            <column.icon className="w-3.5 h-3.5 md:w-4 md:h-4" />
                                         </div>
-                                        <h3 className="font-bold text-slate-900 text-sm whitespace-nowrap">{column.title}</h3>
-                                        <span className="text-[10px] font-black text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">{columnPosts.length}</span>
+                                        <h3 className="font-bold text-slate-900 text-xs md:text-sm whitespace-nowrap">{column.title}</h3>
+                                        <span className="text-[9px] md:text-[10px] font-black text-slate-400 bg-slate-100 px-1.5 md:px-2 py-0.5 rounded-full">{columnPosts.length}</span>
                                     </div>
                                 </div>
 
@@ -106,7 +106,7 @@ export const Workflow = () => {
                                     strategy={verticalListSortingStrategy}
                                 >
                                     <div
-                                        className="flex-1 bg-slate-100/50 rounded-3xl p-4 gap-4 flex flex-col overflow-y-auto min-h-[100px]"
+                                        className="flex-1 bg-slate-100/50 rounded-[2rem] md:rounded-3xl p-3 md:p-4 gap-3 md:gap-4 flex flex-col overflow-y-auto min-h-[100px] scrollbar-hide"
                                     >
                                         {columnPosts.map((post: any) => (
                                             <SortablePostCard
@@ -119,10 +119,10 @@ export const Workflow = () => {
                                         {column.id === 'Draft' && (
                                             <button
                                                 onClick={() => setIsBuildingPost(true)}
-                                                className="w-full py-4 rounded-2xl border-2 border-dashed border-slate-200 text-slate-400 hover:text-slate-600 hover:bg-white hover:border-slate-300 transition-all flex items-center justify-center gap-2 group"
+                                                className="w-full py-3 md:py-4 rounded-xl md:rounded-2xl border-2 border-dashed border-slate-200 text-slate-400 hover:text-slate-600 hover:bg-white hover:border-slate-300 transition-all flex items-center justify-center gap-2 group shrink-0"
                                             >
-                                                <Plus className="w-4 h-4 group-hover:scale-110 transition-transform" />
-                                                <span className="text-xs font-bold uppercase tracking-widest">New Post</span>
+                                                <Plus className="w-3.5 h-3.5 md:w-4 md:h-4 group-hover:scale-110 transition-transform" />
+                                                <span className="text-[10px] md:text-xs font-bold uppercase tracking-widest">New Post</span>
                                             </button>
                                         )}
                                     </div>

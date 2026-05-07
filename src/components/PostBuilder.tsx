@@ -4,6 +4,12 @@ import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabase';
 import { usePostMutations } from '../features/posts/usePostMutations';
 import { useAccountContext } from '../features/accounts/AccountContext';
+import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+
+function cn(...inputs: ClassValue[]) {
+    return twMerge(clsx(inputs));
+}
 
 interface PostBuilderProps {
     onClose: () => void;
@@ -135,33 +141,33 @@ export const PostBuilder = ({ onClose, initialReel }: PostBuilderProps) => {
     };
 
     return (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-2 sm:p-6 md:p-8 animate-in fade-in zoom-in-95 duration-500">
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-0 sm:p-6 md:p-8 animate-in fade-in zoom-in-95 duration-500 overflow-hidden">
             <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-xl" onClick={onClose}></div>
 
-            <div className="bg-slate-50 w-full h-full max-w-[1200px] max-h-[92vh] rounded-[3rem] shadow-[0_0_80px_rgba(0,0,0,0.15)] relative flex flex-col overflow-hidden ring-1 ring-slate-200">
+            <div className="bg-slate-50 w-full h-full max-w-[1200px] sm:max-h-[92vh] sm:rounded-[3rem] shadow-[0_0_80px_rgba(0,0,0,0.15)] relative flex flex-col overflow-hidden ring-1 ring-slate-200">
                 {/* Header with Progress Bar */}
-                <div className="p-8 border-b border-slate-200/60 bg-white sticky top-0 z-10">
-                    <div className="flex items-center justify-between mb-8">
-                        <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 bg-teal-500 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-teal-200">
-                                <Plus className="w-6 h-6" />
+                <div className="p-4 sm:p-8 border-b border-slate-200/60 bg-white sticky top-0 z-10">
+                    <div className="flex items-center justify-between mb-4 sm:mb-8">
+                        <div className="flex items-center gap-3 md:gap-4">
+                            <div className="w-10 h-10 md:w-12 md:h-12 bg-teal-500 rounded-xl md:rounded-2xl flex items-center justify-center text-white shadow-lg shadow-teal-200 shrink-0">
+                                <Plus className="w-5 h-5 md:w-6 md:h-6" />
                             </div>
-                            <div>
-                                <h2 className="text-2xl font-black text-slate-900 tracking-tight">Build New Post</h2>
-                                <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">Multi-Channel Distribution</p>
+                            <div className="min-w-0">
+                                <h2 className="text-lg md:text-2xl font-black text-slate-900 tracking-tight truncate">Build New Post</h2>
+                                <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mt-0.5 truncate">Multi-Channel Distribution</p>
                             </div>
                         </div>
-                        <button onClick={onClose} className="p-3 hover:bg-slate-50 rounded-2xl transition-all text-slate-400 hover:text-slate-600">
-                            <X className="w-6 h-6" />
+                        <button onClick={onClose} className="p-2 sm:p-3 hover:bg-slate-50 rounded-xl transition-all text-slate-400 hover:text-slate-600">
+                            <X className="w-5 h-5 md:w-6 md:h-6" />
                         </button>
                     </div>
 
-                    <div className="flex items-center justify-between px-2 relative">
+                    <div className="flex items-center justify-between relative px-1 sm:px-2">
                         {/* Progress Line Background */}
-                        <div className="absolute top-[18px] left-0 right-0 h-1 bg-slate-100 -z-10 rounded-full mx-12"></div>
+                        <div className="absolute top-[16px] sm:top-[18px] left-0 right-0 h-1 bg-slate-100 -z-10 rounded-full mx-6 sm:mx-12"></div>
                         {/* Progress Line Active */}
                         <div
-                            className="absolute top-[18px] left-0 h-1 bg-teal-500 -z-10 transition-all duration-500 ease-out rounded-full mx-12"
+                            className="absolute top-[16px] sm:top-[18px] left-0 h-1 bg-teal-500 -z-10 transition-all duration-500 ease-out rounded-full mx-6 sm:mx-12"
                             style={{ width: `${((currentStep - 1) / (STEPS.length - 1)) * 100}%` }}
                         ></div>
 
@@ -171,14 +177,18 @@ export const PostBuilder = ({ onClose, initialReel }: PostBuilderProps) => {
                             const isPast = currentStep > stepNum;
 
                             return (
-                                <div key={step} className="flex flex-col items-center gap-3 relative">
-                                    <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-sm font-black transition-all duration-300 ${isActive ? 'bg-teal-500 text-white shadow-xl shadow-teal-200 scale-110 ring-4 ring-teal-50' :
+                                <div key={step} className="flex flex-col items-center gap-2 sm:gap-3 relative">
+                                    <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl flex items-center justify-center text-[10px] sm:text-sm font-black transition-all duration-300 ${isActive ? 'bg-teal-500 text-white shadow-xl shadow-teal-200 scale-110 ring-4 ring-teal-50' :
                                         isPast ? 'bg-teal-50 text-teal-600' :
                                             'bg-white text-slate-300 border-2 border-slate-100'
                                         }`}>
-                                        {isPast ? <CheckCircle className="w-5 h-5" /> : stepNum}
+                                        {isPast ? <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5" /> : stepNum}
                                     </div>
-                                    <span className={`text-[10px] font-bold uppercase tracking-tighter ${isActive ? 'text-teal-600' : 'text-slate-400'}`}>{step}</span>
+                                    <span className={cn(
+                                        "text-[8px] sm:text-[10px] font-bold uppercase tracking-tighter",
+                                        isActive ? 'text-teal-600' : 'text-slate-400',
+                                        !isActive && "hidden xs:inline-block" // Hide labels for inactive steps on mobile
+                                    )}>{step}</span>
                                 </div>
                             );
                         })}
@@ -186,34 +196,48 @@ export const PostBuilder = ({ onClose, initialReel }: PostBuilderProps) => {
                 </div>
 
                 {/* Content Area */}
-                <div className="flex-1 overflow-y-auto bg-slate-50/50 p-12">
+                <div className="flex-1 overflow-y-auto bg-slate-50/50 p-4 sm:p-8 md:p-12">
                     {renderStep()}
                 </div>
 
                 {/* Footer Navigation */}
-                <div className="p-8 border-t border-slate-200/60 bg-white/80 backdrop-blur-xl flex items-center justify-between sticky bottom-0 z-20">
+                <div className="p-4 sm:p-8 border-t border-slate-200/60 bg-white/80 backdrop-blur-xl flex items-center justify-between sticky bottom-0 z-20">
                     <button
                         onClick={prevStep}
                         disabled={currentStep === 1}
-                        className={`flex items-center gap-2 px-8 py-4 rounded-2xl font-bold transition-all ${currentStep === 1 ? 'opacity-0' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
-                            }`}
+                        className={cn(
+                            "flex items-center gap-2 px-3 sm:px-8 py-3 sm:py-4 rounded-xl sm:rounded-2xl font-bold transition-all text-sm",
+                            currentStep === 1 ? 'opacity-0 pointer-events-none' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
+                        )}
                     >
-                        <ChevronLeft className="w-5 h-5" /> Back to {STEPS[currentStep - 2]}
+                        <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+                        <span className="hidden sm:inline">Back to {STEPS[currentStep - 2]}</span>
+                        <span className="sm:hidden">Back</span>
                     </button>
 
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2 sm:gap-4">
                         <button
                             disabled={isScheduling}
-                            className="px-8 py-4 text-slate-500 font-bold hover:bg-slate-100 rounded-2xl transition-all"
+                            className="px-3 sm:px-8 py-3 sm:py-4 text-slate-500 font-bold hover:bg-slate-100 rounded-xl sm:rounded-2xl transition-all text-xs sm:text-sm"
                         >
-                            Save as Draft
+                            <span className="hidden sm:inline">Save as Draft</span>
+                            <span className="sm:hidden">Draft</span>
                         </button>
                         <button
                             onClick={currentStep === 7 ? handleSchedule : nextStep}
                             disabled={isScheduling}
-                            className={`flex items-center gap-2 px-10 py-4 bg-teal-500 text-white rounded-[1.5rem] font-black hover:bg-teal-600 transition-all shadow-[0_8px_30px_-4px_rgba(20,184,166,0.25)] active:scale-95 ${isScheduling ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            className={cn(
+                                "flex items-center gap-2 px-5 sm:px-10 py-3 sm:py-4 bg-teal-500 text-white rounded-xl sm:rounded-[1.5rem] font-black hover:bg-teal-600 transition-all shadow-lg active:scale-95 text-xs sm:text-base shrink-0",
+                                isScheduling ? 'opacity-50 cursor-not-allowed' : ''
+                            )}
                         >
-                            {isScheduling ? 'Scheduling...' : currentStep === 7 ? 'Schedule Post' : `Next: ${STEPS[currentStep] || 'Finish'}`} <ChevronRight className="w-5 h-5" />
+                            {isScheduling ? '...' : currentStep === 7 ? 'Schedule' : (
+                                <>
+                                    <span className="hidden sm:inline">Next: {STEPS[currentStep]}</span>
+                                    <span className="sm:hidden">Next</span>
+                                </>
+                            )}
+                            <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
                         </button>
                     </div>
                 </div>
@@ -223,12 +247,12 @@ export const PostBuilder = ({ onClose, initialReel }: PostBuilderProps) => {
 };
 
 const StepAccounts = ({ accounts, selected, onToggle }: { accounts: any[], selected: string[], onToggle: (id: string) => void }) => (
-    <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-500">
+    <div className="space-y-6 md:space-y-8 animate-in slide-in-from-bottom-4 duration-500">
         <div className="text-center space-y-2">
-            <h3 className="text-3xl font-black text-slate-900">Select Accounts</h3>
-            <p className="text-slate-500 font-medium">Choose where you want to publish this content.</p>
+            <h3 className="text-xl md:text-3xl font-black text-slate-900">Select Accounts</h3>
+            <p className="text-sm text-slate-500 font-medium">Choose where you want to publish this content.</p>
         </div>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 max-w-4xl mx-auto">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6 max-w-4xl mx-auto pb-4">
             {accounts.length === 0 ? (
                 <div className="col-span-full py-12 text-center text-slate-400 italic">No social accounts connected yet. Please connect an account in the Connections tab.</div>
             ) : accounts.map(acc => {
@@ -237,23 +261,23 @@ const StepAccounts = ({ accounts, selected, onToggle }: { accounts: any[], selec
                     <button
                         key={acc.id}
                         onClick={() => onToggle(acc.id)}
-                        className={`p-8 rounded-[2rem] border-2 transition-all flex flex-col items-center gap-4 group ${isSelected ? 'border-teal-500 bg-teal-50 ring-4 ring-teal-500/10 shadow-xl' : 'border-slate-100 bg-white hover:border-slate-300 hover:shadow-md'
+                        className={`p-4 sm:p-8 rounded-[1.5rem] md:rounded-[2rem] border-2 transition-all flex flex-col items-center gap-2 sm:gap-4 group ${isSelected ? 'border-teal-500 bg-teal-50 ring-4 ring-teal-500/10 shadow-xl' : 'border-slate-100 bg-white hover:border-slate-300 hover:shadow-md'
                             }`}
                     >
-                        <div className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-all ${isSelected ? 'bg-teal-500 text-white shadow-lg' : 'bg-slate-50 text-slate-300 group-hover:text-slate-400'
+                        <div className={`w-10 h-10 sm:w-16 sm:h-16 rounded-xl md:rounded-2xl flex items-center justify-center transition-all ${isSelected ? 'bg-teal-500 text-white shadow-lg' : 'bg-slate-50 text-slate-300 group-hover:text-slate-400'
                             }`}>
-                            {acc.platform === 'instagram' && <Instagram className="w-8 h-8" />}
-                            {acc.platform === 'facebook' && <Facebook className="w-8 h-8" />}
-                            {acc.platform === 'tiktok' && <Smartphone className="w-8 h-8" />}
-                            {acc.platform === 'youtube' && <Youtube className="w-8 h-8" />}
-                            {!['instagram', 'facebook', 'tiktok', 'youtube'].includes(acc.platform) && <Globe className="w-8 h-8" />}
+                            {acc.platform === 'instagram' && <Instagram className="w-5 h-5 sm:w-8 sm:h-8" />}
+                            {acc.platform === 'facebook' && <Facebook className="w-5 h-5 sm:w-8 sm:h-8" />}
+                            {acc.platform === 'tiktok' && <Smartphone className="w-5 h-5 sm:w-8 sm:h-8" />}
+                            {acc.platform === 'youtube' && <Youtube className="w-5 h-5 sm:w-8 sm:h-8" />}
+                            {!['instagram', 'facebook', 'tiktok', 'youtube'].includes(acc.platform) && <Globe className="w-5 h-5 sm:w-8 sm:h-8" />}
                         </div>
-                        <span className={`font-black text-sm uppercase tracking-widest ${isSelected ? 'text-teal-700' : 'text-slate-400'}`}>
+                        <span className={`font-black text-[10px] sm:text-sm uppercase tracking-widest truncate w-full ${isSelected ? 'text-teal-700' : 'text-slate-400'}`}>
                             {acc.username || acc.platform}
                         </span>
-                        <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${isSelected ? 'border-teal-500 bg-teal-500 text-white' : 'border-slate-100'
+                        <div className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full border-2 flex items-center justify-center shrink-0 ${isSelected ? 'border-teal-500 bg-teal-500 text-white' : 'border-slate-100'
                             }`}>
-                            {isSelected && <CheckCircle className="w-4 h-4" />}
+                            {isSelected && <CheckCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
                         </div>
                     </button>
                 )
@@ -322,13 +346,13 @@ const StepGenericContent = ({ caption, onCaptionChange, mediaUrl, onMediaUpload 
     };
 
     return (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 animate-in slide-in-from-bottom-4 duration-500">
-            <div className="space-y-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-12 animate-in slide-in-from-bottom-4 duration-500">
+            <div className="space-y-6 md:space-y-8">
                 <div className="space-y-2">
-                    <h3 className="text-3xl font-black text-slate-900">Core Content</h3>
-                    <p className="text-slate-500 font-medium">This will be the default copy for all selected platforms.</p>
+                    <h3 className="text-xl md:text-3xl font-black text-slate-900">Core Content</h3>
+                    <p className="text-sm text-slate-500 font-medium">This will be the default copy for all selected platforms.</p>
                 </div>
-                <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100 space-y-6">
+                <div className="bg-white p-6 md:p-8 rounded-[1.5rem] md:rounded-[2.5rem] shadow-sm border border-slate-100 space-y-4 md:space-y-6">
                     <div className="space-y-3">
                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                             <FileText className="w-4 h-4 text-teal-500" /> Master Caption
@@ -337,26 +361,26 @@ const StepGenericContent = ({ caption, onCaptionChange, mediaUrl, onMediaUpload 
                             value={caption}
                             onChange={(e) => onCaptionChange(e.target.value)}
                             placeholder="Write your primary message here..."
-                            className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-6 text-sm outline-none focus:ring-4 focus:ring-teal-500/5 min-h-[200px] leading-relaxed font-medium"
+                            className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 md:p-6 text-sm outline-none focus:ring-4 focus:ring-teal-500/5 min-h-[150px] md:min-h-[200px] leading-relaxed font-medium"
                         />
                     </div>
-                    <div className="flex items-center justify-between text-[11px] font-bold text-slate-400">
-                        <span className="flex items-center gap-2 text-teal-600 bg-teal-50 px-3 py-1.5 rounded-lg"><Sparkles className="w-3 h-3" /> Optimize for engagement</span>
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-[10px] md:text-[11px] font-bold text-slate-400">
+                        <span className="flex items-center gap-2 text-teal-600 bg-teal-50 px-3 py-1.5 rounded-lg"><Sparkles className="w-3 h-3" /> AI Optimized</span>
                         <span>{caption.length} / 2200 characters</span>
                     </div>
                 </div>
             </div>
-            <div className="space-y-8">
+            <div className="space-y-6 md:space-y-8">
                 <div className="space-y-2">
-                    <h3 className="text-3xl font-black text-slate-900">Main Assets</h3>
-                    <p className="text-slate-500 font-medium">Upload the primary video or images.</p>
+                    <h3 className="text-xl md:text-3xl font-black text-slate-900">Main Assets</h3>
+                    <p className="text-sm text-slate-500 font-medium">Upload the primary video or images.</p>
                 </div>
-                <div className="bg-white border-4 border-dashed border-slate-100 rounded-[2.5rem] p-12 flex flex-col items-center justify-center text-center space-y-6 h-[400px] group hover:border-teal-200 transition-all relative overflow-hidden">
+                <div className="bg-white border-4 border-dashed border-slate-100 rounded-[1.5rem] md:rounded-[2.5rem] p-6 md:p-12 flex flex-col items-center justify-center text-center space-y-4 md:space-y-6 h-[300px] md:h-[400px] group hover:border-teal-200 transition-all relative overflow-hidden">
                     {mediaUrl ? (
                         <div className="relative w-full h-full rounded-2xl overflow-hidden shadow-xl">
                             <img src={mediaUrl} className="w-full h-full object-cover" />
                             <label className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
-                                <span className="bg-white text-slate-900 px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-xl"><ImageIcon className="w-4 h-4" /> Change Asset</span>
+                                <span className="bg-white text-slate-900 px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-xl"><ImageIcon className="w-4 h-4" /> Change</span>
                                 <input type="file" className="hidden" accept="image/*,video/*" onChange={handleUpload} disabled={isUploading} />
                             </label>
                             {isUploading && (
@@ -374,14 +398,14 @@ const StepGenericContent = ({ caption, onCaptionChange, mediaUrl, onMediaUpload 
                                 </div>
                             ) : (
                                 <>
-                                    <div className="w-20 h-20 bg-slate-50 rounded-3xl flex items-center justify-center text-slate-300 group-hover:scale-110 group-hover:bg-teal-50 group-hover:text-teal-500 transition-all mb-4 mt-8">
-                                        <Upload className="w-10 h-10" />
+                                    <div className="w-16 h-16 md:w-20 md:h-20 bg-slate-50 rounded-2xl md:rounded-3xl flex items-center justify-center text-slate-300 group-hover:scale-110 group-hover:bg-teal-50 group-hover:text-teal-500 transition-all mb-4 mt-4">
+                                        <Upload className="w-8 h-8 md:w-10 md:h-10" />
                                     </div>
-                                    <div className="mb-6">
-                                        <p className="text-lg font-black text-slate-900">Drag & Drop Media</p>
-                                        <p className="text-sm text-slate-400 mt-1">Videos up to 2GB or high-res images.</p>
+                                    <div className="mb-6 px-4">
+                                        <p className="text-base md:text-lg font-black text-slate-900">Drag & Drop Media</p>
+                                        <p className="text-xs text-slate-400 mt-1">Videos up to 2GB or high-res images.</p>
                                     </div>
-                                    <span className="bg-slate-900 text-white px-8 py-4 rounded-2xl font-black hover:bg-slate-800 transition-all shadow-xl">Browse Files</span>
+                                    <span className="bg-slate-900 text-white px-6 md:px-8 py-3 md:py-4 rounded-xl md:rounded-2xl font-black hover:bg-slate-800 transition-all shadow-xl text-xs sm:text-sm">Browse Files</span>
                                 </>
                             )}
                             <input type="file" className="hidden" accept="image/*,video/*" onChange={handleUpload} disabled={isUploading} />
@@ -396,71 +420,71 @@ const StepGenericContent = ({ caption, onCaptionChange, mediaUrl, onMediaUpload 
 const StepFineTune = ({ accounts }: { accounts: any[] }) => {
     const [selectedId, setSelectedId] = useState(accounts[0]?.id);
     return (
-        <div className="space-y-10 animate-in slide-in-from-bottom-4 duration-500">
+        <div className="space-y-6 md:space-y-10 animate-in slide-in-from-bottom-4 duration-500 pb-8">
             <div className="text-center space-y-2">
-                <h3 className="text-3xl font-black text-slate-900">Fine-Tune by Channel</h3>
-                <p className="text-slate-500 font-medium">Customise descriptions and media for each social network.</p>
+                <h3 className="text-xl md:text-3xl font-black text-slate-900">Fine-Tune by Channel</h3>
+                <p className="text-sm text-slate-500 font-medium">Customise descriptions and media for each social network.</p>
             </div>
 
-            <div className="flex gap-8">
-                <div className="w-64 space-y-2">
+            <div className="flex flex-col lg:flex-row gap-6 md:gap-8">
+                <div className="w-full lg:w-64 space-y-2 flex lg:flex-col overflow-x-auto lg:overflow-x-visible pb-2 lg:pb-0 scrollbar-hide">
                     {accounts.length === 0 ? (
                         <div className="p-4 text-center text-slate-400 italic font-medium text-sm">Please select accounts first.</div>
                     ) : accounts.map(a => (
                         <button
                             key={a.id}
                             onClick={() => setSelectedId(a.id)}
-                            className={`w-full flex items-center justify-between p-4 border rounded-[1.5rem] shadow-sm transition-all text-left group ${selectedId === a.id ? 'bg-teal-50 border-teal-200' : 'bg-white border-slate-100 hover:shadow-md'}`}
+                            className={`flex shrink-0 lg:w-full items-center justify-between p-3 md:p-4 border rounded-xl md:rounded-[1.5rem] shadow-sm transition-all text-left group ${selectedId === a.id ? 'bg-teal-50 border-teal-200' : 'bg-white border-slate-100 hover:shadow-md'} mr-2 lg:mr-0`}
                         >
                             <div className="flex items-center gap-3">
-                                <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${selectedId === a.id ? 'bg-teal-500 text-white' : 'bg-slate-50 text-slate-400 group-hover:bg-teal-50 group-hover:text-teal-600'}`}>
-                                    {a.platform === 'instagram' && <Instagram className="w-4 h-4" />}
-                                    {a.platform === 'facebook' && <Facebook className="w-4 h-4" />}
-                                    {a.platform === 'tiktok' && <Smartphone className="w-4 h-4" />}
-                                    {a.platform === 'youtube' && <Youtube className="w-4 h-4" />}
+                                <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl flex items-center justify-center ${selectedId === a.id ? 'bg-teal-500 text-white' : 'bg-slate-50 text-slate-400 group-hover:bg-teal-50 group-hover:text-teal-600'}`}>
+                                    {a.platform === 'instagram' && <Instagram className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
+                                    {a.platform === 'facebook' && <Facebook className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
+                                    {a.platform === 'tiktok' && <Smartphone className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
+                                    {a.platform === 'youtube' && <Youtube className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
                                 </div>
-                                <span className={`text-sm font-black capitalize ${selectedId === a.id ? 'text-teal-900' : 'text-slate-700'}`}>{a.username || a.platform}</span>
+                                <span className={`text-xs sm:text-sm font-black capitalize ${selectedId === a.id ? 'text-teal-900' : 'text-slate-700'}`}>{a.username || a.platform}</span>
                             </div>
-                            <ChevronRight className={`w-4 h-4 ${selectedId === a.id ? 'text-teal-400' : 'text-slate-300'}`} />
+                            <ChevronRight className={`w-4 h-4 hidden lg:block ${selectedId === a.id ? 'text-teal-400' : 'text-slate-300'}`} />
                         </button>
                     ))}
                 </div>
 
-                <div className="flex-1 bg-white border border-slate-100 rounded-[2.5rem] shadow-xl overflow-hidden flex flex-col min-h-[500px]">
+                <div className="flex-1 bg-white border border-slate-100 rounded-[1.5rem] md:rounded-[2.5rem] shadow-xl overflow-hidden flex flex-col min-h-[400px] md:min-h-[500px]">
                     {accounts.length === 0 ? (
                         <div className="flex items-center justify-center flex-1 text-slate-400 italic">No account selected for fine-tuning.</div>
                     ) : (
-                        <div className="p-10 flex-1 grid grid-cols-1 xl:grid-cols-2 gap-12">
+                        <div className="p-6 md:p-10 flex-1 grid grid-cols-1 xl:grid-cols-2 gap-8 md:gap-12">
                             <div className="space-y-6">
                                 <div className="flex items-center justify-between">
-                                    <h4 className="text-lg font-black text-slate-900">Version Content</h4>
+                                    <h4 className="text-base md:text-lg font-black text-slate-900">Version Content</h4>
                                     <div className="flex items-center gap-2 p-1 bg-slate-50 rounded-lg">
-                                        <button className="p-2 bg-white shadow-sm rounded-md text-[10px] font-black uppercase text-teal-600">Reel</button>
-                                        <button className="p-2 text-[10px] font-black uppercase text-slate-400">Post</button>
+                                        <button className="p-2 bg-white shadow-sm rounded-md text-[9px] md:text-[10px] font-black uppercase text-teal-600">Reel</button>
+                                        <button className="p-2 text-[9px] md:text-[10px] font-black uppercase text-slate-400">Post</button>
                                     </div>
                                 </div>
-                                <textarea className="w-full h-[250px] bg-slate-50/50 border border-slate-100 rounded-2xl p-6 text-sm font-medium outline-none focus:ring-4 focus:ring-teal-500/5 shadow-inner" placeholder="Version specific caption..." />
-                                <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 space-y-4">
+                                <textarea className="w-full h-[150px] md:h-[250px] bg-slate-50/50 border border-slate-100 rounded-2xl p-4 md:p-6 text-sm font-medium outline-none focus:ring-4 focus:ring-teal-500/5 shadow-inner" placeholder="Version specific caption..." />
+                                <div className="bg-slate-50 p-4 md:p-6 rounded-2xl border border-slate-100 space-y-4">
                                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Platform Specifics</p>
                                     <label className="flex items-center gap-3 cursor-pointer">
-                                        <div className="w-10 h-5 bg-teal-500 rounded-full relative"><div className="absolute right-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow-sm"></div></div>
-                                        <span className="text-xs font-bold text-slate-700">Share to Feed</span>
+                                        <div className="w-9 h-4.5 md:w-10 md:h-5 bg-teal-500 rounded-full relative"><div className="absolute right-0.5 top-0.5 w-3.5 h-3.5 md:w-4 md:h-4 bg-white rounded-full shadow-sm"></div></div>
+                                        <span className="text-[10px] md:text-xs font-bold text-slate-700">Share to Feed</span>
                                     </label>
                                     <label className="flex items-center gap-3 cursor-pointer">
-                                        <div className="w-10 h-5 bg-slate-200 rounded-full relative"><div className="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow-sm"></div></div>
-                                        <span className="text-xs font-bold text-slate-700">Add to Profile Grid</span>
+                                        <div className="w-9 h-4.5 md:w-10 md:h-5 bg-slate-200 rounded-full relative"><div className="absolute left-0.5 top-0.5 w-3.5 h-3.5 md:w-4 md:h-4 bg-white rounded-full shadow-sm"></div></div>
+                                        <span className="text-[10px] md:text-xs font-bold text-slate-700">Add to Profile Grid</span>
                                     </label>
                                 </div>
                             </div>
-                            <div className="flex flex-col items-center justify-center bg-slate-50/50 rounded-[2rem] border border-slate-100 p-8">
-                                <div className="w-[280px] h-[500px] bg-white rounded-[2.5rem] shadow-2xl border-[6px] border-white relative overflow-hidden ring-4 ring-slate-100">
-                                    <div className="absolute top-0 left-0 right-0 h-12 bg-gradient-to-b from-black/20 to-transparent z-10 flex items-center justify-between px-6">
-                                        <div className="flex items-center gap-2"><div className="w-6 h-6 rounded-full bg-slate-200" /><span className="text-[10px] text-white font-bold">Your Store</span></div>
-                                        <Instagram className="w-4 h-4 text-white" />
+                            <div className="flex flex-col items-center justify-center bg-slate-50/50 rounded-[1.5rem] md:rounded-[2rem] border border-slate-100 p-6 md:p-8">
+                                <div className="w-[200px] h-[350px] md:w-[280px] md:h-[500px] bg-white rounded-[2rem] md:rounded-[2.5rem] shadow-2xl border-[4px] md:border-[6px] border-white relative overflow-hidden ring-4 ring-slate-100 shrink-0">
+                                    <div className="absolute top-0 left-0 right-0 h-10 md:h-12 bg-gradient-to-b from-black/20 to-transparent z-10 flex items-center justify-between px-4 md:px-6">
+                                        <div className="flex items-center gap-2"><div className="w-5 h-5 md:w-6 md:h-6 rounded-full bg-slate-200" /><span className="text-[8px] md:text-[10px] text-white font-bold">Your Store</span></div>
+                                        <Instagram className="w-3.5 h-3.5 md:w-4 md:h-4 text-white" />
                                     </div>
-                                    <div className="w-full h-full bg-slate-200 flex items-center justify-center italic text-slate-400 text-xs">Feed Preview</div>
+                                    <div className="w-full h-full bg-slate-200 flex items-center justify-center italic text-slate-400 text-[10px] md:text-xs">Feed Preview</div>
                                 </div>
-                                <p className="mt-4 text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><Smartphone className="w-3.5 h-3.5" /> Mobile Feed Preview</p>
+                                <p className="mt-4 text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><Smartphone className="w-3.5 h-3.5" /> Mobile Feed Preview</p>
                             </div>
                         </div>
                     )}
@@ -471,32 +495,32 @@ const StepFineTune = ({ accounts }: { accounts: any[] }) => {
 };
 
 const StepSettings = ({ hashtags, onHashtagsChange }: { hashtags: string, onHashtagsChange: (v: string) => void }) => (
-    <div className="max-w-3xl mx-auto space-y-12 animate-in slide-in-from-bottom-4 duration-500">
+    <div className="max-w-3xl mx-auto space-y-8 md:space-y-12 animate-in slide-in-from-bottom-4 duration-500 pb-4">
         <div className="text-center space-y-2">
-            <h3 className="text-3xl font-black text-slate-900">Posting Settings</h3>
-            <p className="text-slate-500 font-medium">Fine-tune the technical metadata for your social posts.</p>
+            <h3 className="text-xl md:text-3xl font-black text-slate-900">Posting Settings</h3>
+            <p className="text-sm text-slate-500 font-medium">Fine-tune the technical metadata for your social posts.</p>
         </div>
-        <div className="grid grid-cols-2 gap-8">
-            <div className="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-100 space-y-6">
-                <div className="w-12 h-12 bg-teal-50 rounded-2xl flex items-center justify-center text-teal-600"><Globe className="w-6 h-6" /></div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 md:gap-8">
+            <div className="bg-white p-6 md:p-8 rounded-[1.5rem] md:rounded-[2rem] shadow-sm border border-slate-100 space-y-4 md:space-y-6">
+                <div className="w-10 h-10 md:w-12 md:h-12 bg-teal-50 rounded-xl md:rounded-2xl flex items-center justify-center text-teal-600"><Globe className="w-5 h-5 md:w-6 md:h-6" /></div>
                 <div className="space-y-4">
-                    <h4 className="font-black text-slate-900">Visibility Settings</h4>
+                    <h4 className="font-black text-slate-900 text-sm md:text-base">Visibility Settings</h4>
                     <div className="space-y-3">
                         {['Public (Recommended)', 'Team Only', 'Private Draft'].map(o => (
-                            <label key={o} className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl cursor-pointer hover:bg-teal-50/50 transition-all border border-transparent hover:border-teal-100">
-                                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${o.includes('Public') ? 'border-teal-500' : 'border-slate-200'}`}>
-                                    {o.includes('Public') && <div className="w-2.5 h-2.5 bg-teal-500 rounded-full" />}
+                            <label key={o} className="flex items-center gap-3 p-3 md:p-4 bg-slate-50 rounded-xl cursor-pointer hover:bg-teal-50/50 transition-all border border-transparent hover:border-teal-100">
+                                <div className={`w-4 h-4 md:w-5 md:h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${o.includes('Public') ? 'border-teal-500' : 'border-slate-200'}`}>
+                                    {o.includes('Public') && <div className="w-2 md:w-2.5 h-2 md:h-2.5 bg-teal-500 rounded-full" />}
                                 </div>
-                                <span className="text-xs font-bold text-slate-700">{o}</span>
+                                <span className="text-[10px] md:text-xs font-bold text-slate-700">{o}</span>
                             </label>
                         ))}
                     </div>
                 </div>
             </div>
-            <div className="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-100 space-y-6">
-                <div className="w-12 h-12 bg-purple-50 rounded-2xl flex items-center justify-center text-purple-600"><Settings className="w-6 h-6" /></div>
+            <div className="bg-white p-6 md:p-8 rounded-[1.5rem] md:rounded-[2rem] shadow-sm border border-slate-100 space-y-4 md:space-y-6">
+                <div className="w-10 h-10 md:w-12 md:h-12 bg-purple-50 rounded-xl md:rounded-2xl flex items-center justify-center text-purple-600"><Settings className="w-5 h-5 md:w-6 md:h-6" /></div>
                 <div className="space-y-4">
-                    <h4 className="font-black text-slate-900">Optimization</h4>
+                    <h4 className="font-black text-slate-900 text-sm md:text-base">Optimization</h4>
                     <div className="space-y-4">
                         <label className="flex flex-col gap-2">
                             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Hashtags</span>
@@ -504,12 +528,12 @@ const StepSettings = ({ hashtags, onHashtagsChange }: { hashtags: string, onHash
                                 value={hashtags}
                                 onChange={(e) => onHashtagsChange(e.target.value)}
                                 placeholder="#socialmedia #marketing"
-                                className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 text-xs font-bold outline-none focus:ring-4 focus:ring-purple-500/5 shadow-inner"
+                                className="w-full bg-slate-50 border border-slate-100 rounded-xl p-3 md:p-4 text-xs font-bold outline-none focus:ring-4 focus:ring-purple-500/5 shadow-inner"
                             />
                         </label>
-                        <label className="flex items-center justify-between p-4 bg-slate-50 rounded-xl mt-4">
-                            <span className="text-xs font-bold text-slate-700">Auto-Suggest Hashtags</span>
-                            <div className="w-10 h-5 bg-purple-500 rounded-full relative"><div className="absolute right-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow-sm"></div></div>
+                        <label className="flex items-center justify-between p-3 md:p-4 bg-slate-50 rounded-xl mt-2">
+                            <span className="text-[10px] md:text-xs font-bold text-slate-700">Auto-Suggest Hashtags</span>
+                            <div className="w-9 h-4.5 md:w-10 md:h-5 bg-purple-500 rounded-full relative"><div className="absolute right-0.5 top-0.5 w-3.5 h-3.5 md:w-4 md:h-4 bg-white rounded-full shadow-sm"></div></div>
                         </label>
                     </div>
                 </div>
@@ -519,22 +543,22 @@ const StepSettings = ({ hashtags, onHashtagsChange }: { hashtags: string, onHash
 );
 
 const StepReview = ({ data, accounts }: { data: any, accounts: any[] }) => (
-    <div className="max-w-4xl mx-auto space-y-8 animate-in slide-in-from-bottom-4 duration-500">
+    <div className="max-w-4xl mx-auto space-y-6 md:space-y-8 animate-in slide-in-from-bottom-4 duration-500 pb-8">
         <div className="text-center space-y-2">
-            <h3 className="text-3xl font-black text-slate-900">Final Review</h3>
-            <p className="text-slate-500 font-medium">Verify all platform versions before commitment.</p>
+            <h3 className="text-xl md:text-3xl font-black text-slate-900">Final Review</h3>
+            <p className="text-sm text-slate-500 font-medium">Verify all platform versions before commitment.</p>
         </div>
-        <div className="bg-white p-10 rounded-[3rem] shadow-xl border border-slate-100">
-            <div className="flex items-center justify-between mb-8 pb-8 border-b border-slate-50">
-                <div className="flex items-center gap-6">
-                    <div className="w-24 h-24 bg-slate-100 rounded-[2rem] overflow-hidden shadow-lg border border-slate-200">
-                        {data.mediaUrl ? <img src={data.mediaUrl} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-slate-50 flex flex-col items-center justify-center text-slate-400 italic text-[10px]"><ImageIcon className="w-6 h-6 mb-1 text-slate-300" />No Asset</div>}
+        <div className="bg-white p-6 md:p-10 rounded-[1.5rem] md:rounded-[3rem] shadow-xl border border-slate-100">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-6 mb-8 pb-8 border-b border-slate-50">
+                <div className="flex flex-col sm:flex-row items-center gap-4 md:gap-6 text-center sm:text-left">
+                    <div className="w-20 h-20 md:w-24 md:h-24 bg-slate-100 rounded-[1.5rem] md:rounded-[2rem] overflow-hidden shadow-lg border border-slate-200 shrink-0">
+                        {data.mediaUrl ? <img src={data.mediaUrl} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-slate-50 flex flex-col items-center justify-center text-slate-400 italic text-[9px] md:text-[10px]"><ImageIcon className="w-5 h-5 md:w-6 md:h-6 mb-1 text-slate-300" />No Asset</div>}
                     </div>
                     <div>
-                        <h4 className="text-2xl font-black text-slate-900 leading-tight">{data.title || 'Untitled Post'}</h4>
-                        <div className="flex flex-wrap gap-2 mt-3">
+                        <h4 className="text-lg md:text-2xl font-black text-slate-900 leading-tight">{data.title || 'Untitled Post'}</h4>
+                        <div className="flex flex-wrap justify-center sm:justify-start gap-2 mt-3">
                             {accounts.length ? accounts.map(a => (
-                                <span key={a.id} className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 text-slate-600 border border-slate-200 text-[10px] font-black rounded-lg uppercase tracking-widest shadow-sm">
+                                <span key={a.id} className="flex items-center gap-1.5 px-2 md:px-3 py-1 md:py-1.5 bg-slate-50 text-slate-600 border border-slate-200 text-[9px] md:text-[10px] font-black rounded-lg uppercase tracking-widest shadow-sm">
                                     {a.platform === 'instagram' && <Instagram className="w-3 h-3 text-pink-500" />}
                                     {a.platform === 'facebook' && <Facebook className="w-3 h-3 text-blue-600" />}
                                     {a.platform === 'tiktok' && <Smartphone className="w-3 h-3 text-slate-900" />}
@@ -545,29 +569,29 @@ const StepReview = ({ data, accounts }: { data: any, accounts: any[] }) => (
                         </div>
                     </div>
                 </div>
-                <div className="text-right">
+                <div className="text-center sm:text-right shrink-0">
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Estimated Reach</p>
-                    <p className="text-3xl font-black text-teal-500">~ 12.4k</p>
+                    <p className="text-2xl md:text-3xl font-black text-teal-500">~ 12.4k</p>
                 </div>
             </div>
             <div className="space-y-6">
-                <div className="p-6 bg-slate-50/50 rounded-2xl border border-slate-100 relative shadow-sm">
-                    <span className="absolute top-0 right-8 -translate-y-1/2 bg-white px-2 text-[10px] font-black text-slate-400 tracking-widest uppercase">Caption</span>
-                    <p className="text-sm text-slate-600 leading-relaxed font-medium whitespace-pre-wrap">{data.caption || 'No caption provided.'}</p>
-                    {data.hashtags && <p className="mt-4 text-xs font-bold text-teal-600">{data.hashtags}</p>}
+                <div className="p-4 md:p-6 bg-slate-50/50 rounded-[1.5rem] border border-slate-100 relative shadow-sm">
+                    <span className="absolute top-0 right-8 -translate-y-1/2 bg-white px-2 text-[9px] md:text-[10px] font-black text-slate-400 tracking-widest uppercase">Caption</span>
+                    <p className="text-xs md:text-sm text-slate-600 leading-relaxed font-medium whitespace-pre-wrap">{data.caption || 'No caption provided.'}</p>
+                    {data.hashtags && <p className="mt-4 text-[10px] md:text-xs font-bold text-teal-600">{data.hashtags}</p>}
                 </div>
-                <div className="grid grid-cols-3 gap-6">
-                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-2">
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Publish Date</p>
-                        <p className="text-sm font-bold text-slate-900">{new Date(data.scheduledAt).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6">
+                    <div className="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-slate-100 space-y-1 md:space-y-2">
+                        <p className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest">Publish Date</p>
+                        <p className="text-xs md:text-sm font-bold text-slate-900">{new Date(data.scheduledAt).toLocaleDateString(undefined, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}</p>
                     </div>
-                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-2">
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Time</p>
-                        <p className="text-sm font-bold text-slate-900">{new Date(data.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                    <div className="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-slate-100 space-y-1 md:space-y-2">
+                        <p className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest">Time</p>
+                        <p className="text-xs md:text-sm font-bold text-slate-900">{new Date(data.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                     </div>
-                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-2">
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Approval</p>
-                        <p className="text-sm font-bold text-orange-500">Auto-Post Mode</p>
+                    <div className="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-slate-100 space-y-1 md:space-y-2">
+                        <p className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest">Approval</p>
+                        <p className="text-xs md:text-sm font-bold text-orange-500">Auto-Post Mode</p>
                     </div>
                 </div>
             </div>
@@ -576,33 +600,33 @@ const StepReview = ({ data, accounts }: { data: any, accounts: any[] }) => (
 );
 
 const StepSchedule = ({ value, onChange }: { value: string, onChange: (v: string) => void }) => (
-    <div className="max-w-2xl mx-auto space-y-12 animate-in slide-in-from-bottom-4 duration-500">
+    <div className="max-w-2xl mx-auto space-y-8 md:space-y-12 animate-in slide-in-from-bottom-4 duration-500 pb-12">
         <div className="text-center space-y-2">
-            <h3 className="text-3xl font-black text-slate-900">Set Schedule</h3>
-            <p className="text-slate-500 font-medium">When should this post go live across the world?</p>
+            <h3 className="text-xl md:text-3xl font-black text-slate-900">Set Schedule</h3>
+            <p className="text-sm text-slate-500 font-medium">When should this post go live across the world?</p>
         </div>
-        <div className="bg-white p-12 rounded-[3rem] shadow-2xl border border-slate-100 space-y-10">
-            <div className="grid grid-cols-1 gap-10">
+        <div className="bg-white p-6 md:p-12 rounded-[1.5rem] md:rounded-[3rem] shadow-2xl border border-slate-100 space-y-8 md:space-y-10">
+            <div className="grid grid-cols-1 gap-6 md:gap-10">
                 <div className="space-y-3">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Publish Date & Time</label>
                     <div className="relative">
-                        <Calendar className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-green-500" />
+                        <Calendar className="absolute left-5 md:left-6 top-1/2 -translate-y-1/2 w-4 md:w-5 h-4 md:h-5 text-green-500" />
                         <input
                             type="datetime-local"
                             value={value}
                             onChange={(e) => onChange(e.target.value)}
-                            className="w-full bg-slate-50 border border-slate-100 rounded-2xl pl-16 pr-6 py-5 text-sm font-black outline-none focus:ring-4 focus:ring-green-500/5 shadow-inner"
+                            className="w-full bg-slate-50 border border-slate-100 rounded-2xl pl-12 md:pl-16 pr-4 md:pr-6 py-4 md:py-5 text-xs md:text-sm font-black outline-none focus:ring-4 focus:ring-green-500/5 shadow-inner"
                         />
                     </div>
                 </div>
             </div>
-            <div className="p-8 bg-green-50 border border-green-100 rounded-[2rem] flex items-center gap-6">
-                <div className="w-14 h-14 bg-green-500 rounded-full flex items-center justify-center text-white shadow-lg"><Clock className="w-7 h-7" /></div>
-                <div>
-                    <h5 className="text-lg font-black text-green-900">Optimal Time Detected</h5>
-                    <p className="text-sm font-medium text-green-600">Based on your followers, **09:00 AM** gets 2x engagement.</p>
+            <div className="p-4 md:p-8 bg-green-50 border border-green-100 rounded-[1.5rem] md:rounded-[2rem] flex flex-col sm:flex-row items-center gap-4 md:gap-6">
+                <div className="w-12 h-12 md:w-14 md:h-14 bg-green-500 rounded-full flex items-center justify-center text-white shadow-lg shrink-0"><Clock className="w-6 md:w-7 h-6 md:h-7" /></div>
+                <div className="text-center sm:text-left">
+                    <h5 className="text-base md:text-lg font-black text-green-900">Optimal Time</h5>
+                    <p className="text-[10px] md:text-sm font-medium text-green-600">Engagement peaks at **09:00 AM**.</p>
                 </div>
-                <button className="ml-auto bg-green-600 text-white px-6 py-3 rounded-xl font-black text-xs hover:bg-green-700 shadow-lg">Use Optimal</button>
+                <button className="sm:ml-auto w-full sm:w-auto bg-green-600 text-white px-6 py-3 rounded-xl font-black text-[10px] md:text-xs hover:bg-green-700 shadow-lg">Use Optimal</button>
             </div>
         </div>
     </div>

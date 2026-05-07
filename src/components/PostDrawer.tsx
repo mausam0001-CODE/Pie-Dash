@@ -27,7 +27,7 @@ export const PostDrawer = ({ post, onClose, onEdit }: PostDrawerProps) => {
     return (
         <div className="fixed inset-0 z-50 flex justify-end animate-in fade-in duration-200">
             <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={onClose}></div>
-            <div className="w-[520px] bg-white h-full shadow-2xl relative animate-in slide-in-from-right duration-300 overflow-y-auto">
+            <div className="w-full sm:w-[520px] bg-white h-full shadow-2xl relative animate-in slide-in-from-right duration-300 overflow-y-auto">
                 <div className="p-6 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white z-10">
                     <div className="flex items-center gap-3">
                         <span className="text-[10px] font-black text-teal-600 bg-teal-50 px-2.5 py-1 rounded-lg uppercase tracking-tighter">ID: {post.id?.slice(0, 8)}</span>

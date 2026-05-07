@@ -65,50 +65,54 @@ export const CalendarView = () => {
                 </div>
             </div>
 
-            <div className="bg-white border border-slate-200 rounded-[2.5rem] shadow-xl overflow-hidden shadow-slate-200/50">
-                <div className="grid grid-cols-7 border-b border-slate-100 bg-slate-50/50">
-                    {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-                        <div key={day} className="py-4 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">{day}</div>
-                    ))}
-                </div>
-                <div className="grid grid-cols-7">
-                    {calendarDays.map((day, i) => {
-                        const dayPosts = posts.filter((p: any) => p.scheduled_at && isSameDay(new Date(p.scheduled_at), day));
-                        const isCurrentMonth = isSameMonth(day, monthStart);
+            <div className="bg-white border border-slate-200 rounded-2xl md:rounded-[2.5rem] shadow-xl overflow-hidden shadow-slate-200/50">
+                <div className="overflow-x-auto scrollbar-hide">
+                    <div className="min-w-[800px]">
+                        <div className="grid grid-cols-7 border-b border-slate-100 bg-slate-50/50">
+                            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+                                <div key={day} className="py-4 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">{day}</div>
+                            ))}
+                        </div>
+                        <div className="grid grid-cols-7">
+                            {calendarDays.map((day, i) => {
+                                const dayPosts = posts.filter((p: any) => p.scheduled_at && isSameDay(new Date(p.scheduled_at), day));
+                                const isCurrentMonth = isSameMonth(day, monthStart);
 
-                        return (
-                            <div key={i} className={`min-h-[140px] border-r border-b border-slate-100 p-4 transition-colors group relative ${!isCurrentMonth ? 'bg-slate-50/30' : 'bg-white hover:bg-slate-50/50'}`}>
-                                <div className="flex items-center justify-between mb-2">
-                                    <span className={`text-xs font-black ${isCurrentMonth ? 'text-slate-900' : 'text-slate-300'}`}>
-                                        {format(day, 'd')}
-                                    </span>
-                                    {isCurrentMonth && (
-                                        <button
-                                            onClick={() => setIsBuildingPost(true)}
-                                            className="opacity-0 group-hover:opacity-100 p-1.5 bg-teal-500 text-white rounded-lg hover:bg-teal-600 transition-all shadow-sm"
-                                        >
-                                            <Plus className="w-3.5 h-3.5" />
-                                        </button>
-                                    )}
-                                </div>
-                                <div className="space-y-1.5 overflow-y-auto max-h-[100px] scrollbar-hide">
-                                    {dayPosts.map((post: any, idx: number) => (
-                                        <div
-                                            key={post.id}
-                                            onClick={() => setSelectedReel(post)}
-                                            className={`p-2 rounded-xl border truncate text-[10px] font-bold cursor-pointer hover:scale-[1.03] active:scale-95 transition-all shadow-sm ${post.status === 'Published' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
-                                                post.status === 'Scheduled' ? 'bg-teal-50 text-teal-700 border-teal-100' :
-                                                    'bg-slate-50 text-slate-700 border-slate-100'
-                                                }`}
-                                        >
-                                            {post.thumbnail_url && <img src={post.thumbnail_url} className="w-3 h-3 inline-block rounded-sm mr-1 object-cover" />}
-                                            {post.title}
+                                return (
+                                    <div key={i} className={`min-h-[140px] border-r border-b border-slate-100 p-4 transition-colors group relative ${!isCurrentMonth ? 'bg-slate-50/30' : 'bg-white hover:bg-slate-50/50'}`}>
+                                        <div className="flex items-center justify-between mb-2">
+                                            <span className={`text-xs font-black ${isCurrentMonth ? 'text-slate-900' : 'text-slate-300'}`}>
+                                                {format(day, 'd')}
+                                            </span>
+                                            {isCurrentMonth && (
+                                                <button
+                                                    onClick={() => setIsBuildingPost(true)}
+                                                    className="opacity-0 group-hover:opacity-100 p-1.5 bg-teal-500 text-white rounded-lg hover:bg-teal-600 transition-all shadow-sm"
+                                                >
+                                                    <Plus className="w-3.5 h-3.5" />
+                                                </button>
+                                            )}
                                         </div>
-                                    ))}
-                                </div>
-                            </div>
-                        );
-                    })}
+                                        <div className="space-y-1.5 overflow-y-auto max-h-[100px] scrollbar-hide">
+                                            {dayPosts.map((post: any, idx: number) => (
+                                                <div
+                                                    key={post.id}
+                                                    onClick={() => setSelectedReel(post)}
+                                                    className={`p-2 rounded-xl border truncate text-[10px] font-bold cursor-pointer hover:scale-[1.03] active:scale-95 transition-all shadow-sm ${post.status === 'Published' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
+                                                        post.status === 'Scheduled' ? 'bg-teal-50 text-teal-700 border-teal-100' :
+                                                            'bg-slate-50 text-slate-700 border-slate-100'
+                                                        }`}
+                                                >
+                                                    {post.thumbnail_url && <img src={post.thumbnail_url} className="w-3 h-3 inline-block rounded-sm mr-1 object-cover" />}
+                                                    {post.title}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
                 </div>
             </div>
 

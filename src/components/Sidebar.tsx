@@ -31,20 +31,37 @@ const contentItems = [
 
 import { AccountSwitcher } from './AccountSwitcher';
 
-export const Sidebar = () => {
+export const Sidebar = ({
+    isOpen,
+    onClose
+}: {
+    isOpen: boolean;
+    onClose: () => void;
+}) => {
     const { activeAccount } = useAccountContext();
     const { profile } = useUser();
     const navigate = useNavigate();
     const location = useLocation();
 
     return (
-        <aside className="w-64 bg-white border-r border-slate-200 flex flex-col sticky top-0 h-screen z-20">
-            <div className="p-6 flex items-center gap-3 border-b border-slate-100 mb-2">
-                <div className="w-9 h-9 bg-gradient-to-br from-teal-500 to-purple-500 rounded-xl flex items-center justify-center text-white font-bold">P</div>
-                <div>
-                    <h1 className="font-bold text-slate-900 leading-none">Pie</h1>
-                    <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider mt-1">Social Pro</p>
+        <aside className={cn(
+            "fixed inset-y-0 left-0 w-64 bg-white border-r border-slate-200 flex flex-col z-40 transition-transform duration-300 lg:translate-x-0 lg:static lg:h-screen",
+            isOpen ? "translate-x-0" : "-translate-x-full"
+        )}>
+            <div className="p-6 flex items-center justify-between border-b border-slate-100 mb-2 shrink-0">
+                <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 bg-gradient-to-br from-teal-500 to-purple-500 rounded-xl flex items-center justify-center text-white font-bold">P</div>
+                    <div>
+                        <h1 className="font-bold text-slate-900 leading-none text-sm md:text-base">Pie</h1>
+                        <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider mt-1">Social Pro</p>
+                    </div>
                 </div>
+                <button
+                    onClick={onClose}
+                    className="p-2 -mr-2 text-slate-400 hover:text-slate-600 lg:hidden"
+                >
+                    <Plus className="w-5 h-5 rotate-45" />
+                </button>
             </div>
 
             <AccountSwitcher />
@@ -57,9 +74,12 @@ export const Sidebar = () => {
                         return (
                             <button
                                 key={item.label}
-                                onClick={() => navigate(item.path)}
+                                onClick={() => {
+                                    navigate(item.path);
+                                    if (window.innerWidth < 1024) onClose();
+                                }}
                                 className={cn(
-                                    "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all",
+                                    "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all text-left",
                                     active ? "bg-teal-50 text-teal-700" : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
                                 )}
                             >
@@ -80,9 +100,12 @@ export const Sidebar = () => {
                         return (
                             <button
                                 key={item.label}
-                                onClick={() => navigate(`/library?status=${item.label}`)}
+                                onClick={() => {
+                                    navigate(`/library?status=${item.label}`);
+                                    if (window.innerWidth < 1024) onClose();
+                                }}
                                 className={cn(
-                                    "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all",
+                                    "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all text-left",
                                     active ? "bg-slate-100 text-slate-900" : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
                                 )}
                             >
@@ -95,9 +118,9 @@ export const Sidebar = () => {
             </nav>
 
             {/* Bottom Section - Profile */}
-            <div className="p-4 mt-auto border-t border-slate-100/50 bg-white/50 backdrop-blur-xl">
+            <div className="p-4 mt-auto border-t border-slate-100/50 bg-white shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.05)]">
                 <div className="group flex items-center gap-3 p-3 rounded-2xl hover:bg-slate-50 transition-all cursor-pointer border border-transparent hover:border-slate-100">
-                    <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-lg overflow-hidden border border-white">
+                    <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-lg overflow-hidden border border-white shrink-0">
                         {profile?.avatar_url ? (
                             <img src={profile.avatar_url} className="w-full h-full object-cover" />
                         ) : (

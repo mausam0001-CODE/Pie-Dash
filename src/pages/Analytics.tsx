@@ -74,39 +74,39 @@ export const Analytics = () => {
     ];
 
     return (
-        <div className="space-y-8 animate-in fade-in duration-700">
+        <div className="space-y-6 md:space-y-8 animate-in fade-in duration-700">
             <div>
-                <h2 className="text-3xl font-black text-slate-900 tracking-tight font-display">Performance Analytics</h2>
-                <p className="text-slate-500 text-sm mt-1 font-medium italic">Strategic insights for your content ecosystem.</p>
+                <h2 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight font-display">Performance Analytics</h2>
+                <p className="text-slate-500 text-[10px] md:text-sm mt-1 font-medium italic">Strategic insights for your content ecosystem.</p>
             </div>
 
             {/* Quick Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
                 {stats.map((stat, i) => (
-                    <div key={i} className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm">
-                        <div className="flex items-center justify-between mb-4">
-                            <div className={`p-3 rounded-xl ${stat.bg} ${stat.color}`}>
-                                <stat.icon className="w-6 h-6" />
+                    <div key={i} className="bg-white border border-slate-100 rounded-2xl p-4 md:p-6 shadow-sm">
+                        <div className="flex items-center justify-between mb-3 md:mb-4">
+                            <div className={`p-2 md:p-3 rounded-lg md:rounded-xl ${stat.bg} ${stat.color}`}>
+                                <stat.icon className="w-4 h-4 md:w-6 md:h-6" />
                             </div>
-                            <span className="text-[10px] font-bold text-green-500 bg-green-50 px-2 py-1 rounded-full">+4.2%</span>
+                            <span className="text-[8px] md:text-[10px] font-bold text-green-500 bg-green-50 px-2 py-0.5 md:py-1 rounded-full">+4.2%</span>
                         </div>
-                        <p className="text-sm font-medium text-slate-500">{stat.label}</p>
-                        <h3 className="text-2xl font-bold text-slate-900 mt-1">{stat.value}</h3>
+                        <p className="text-[10px] md:text-sm font-medium text-slate-500 line-clamp-1">{stat.label}</p>
+                        <h3 className="text-lg md:text-2xl font-bold text-slate-900 mt-1">{stat.value}</h3>
                     </div>
                 ))}
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
                 {/* Growth Trend */}
-                <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm">
-                    <div className="flex items-center justify-between mb-8">
-                        <h3 className="font-bold text-slate-900 font-display">Follower Growth</h3>
-                        <select className="text-xs bg-slate-50 border-none rounded-lg font-bold px-3 py-2 outline-none">
+                <div className="bg-white border border-slate-100 rounded-2xl p-4 md:p-6 shadow-sm">
+                    <div className="flex items-center justify-between mb-6 md:mb-8">
+                        <h3 className="text-sm md:text-base font-bold text-slate-900 font-display">Follower Growth</h3>
+                        <select className="text-[10px] bg-slate-50 border-none rounded-lg font-bold px-2 py-1.5 outline-none">
                             <option>Last 6 Months</option>
                             <option>Last Year</option>
                         </select>
                     </div>
-                    <div className="h-72">
+                    <div className="h-48 md:h-72">
                         <ResponsiveContainer width="100%" height="100%">
                             <AreaChart data={growthData}>
                                 <defs>
@@ -116,9 +116,9 @@ export const Analytics = () => {
                                     </linearGradient>
                                 </defs>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 11 }} dy={10} />
-                                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 11 }} />
-                                <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }} />
+                                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10 }} dy={10} />
+                                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10 }} />
+                                <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.05)', fontSize: '12px' }} />
                                 <Area type="monotone" dataKey="followers" stroke="#a855f7" strokeWidth={3} fillOpacity={1} fill="url(#colorFollow)" />
                             </AreaChart>
                         </ResponsiveContainer>
@@ -126,16 +126,16 @@ export const Analytics = () => {
                 </div>
 
                 {/* Engagement by Category */}
-                <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm">
-                    <h3 className="font-bold text-slate-900 mb-8 font-display">Engagement by Topic</h3>
-                    <div className="h-72">
+                <div className="bg-white border border-slate-100 rounded-2xl p-4 md:p-6 shadow-sm">
+                    <h3 className="text-sm md:text-base font-bold text-slate-900 mb-6 md:mb-8 font-display">Engagement by Topic</h3>
+                    <div className="h-48 md:h-72">
                         <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={categoryData}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 10 }} dy={10} />
-                                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 11 }} />
-                                <Tooltip cursor={{ fill: '#f8fafc' }} contentStyle={{ borderRadius: '12px', border: 'none' }} />
-                                <Bar dataKey="value" radius={[6, 6, 0, 0]} barSize={24}>
+                                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 9 }} dy={10} />
+                                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10 }} />
+                                <Tooltip cursor={{ fill: '#f8fafc' }} contentStyle={{ borderRadius: '12px', border: 'none', fontSize: '12px' }} />
+                                <Bar dataKey="value" radius={[4, 4, 0, 0]} barSize={16}>
                                     {categoryData.map((entry, index) => (
                                         <Cell key={`cell-${index}`} fill={entry.color} />
                                     ))}
@@ -148,36 +148,36 @@ export const Analytics = () => {
 
             {/* Top Content Table */}
             <div className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden">
-                <div className="p-6 border-b border-slate-100">
-                    <h3 className="font-bold text-slate-900 italic font-display">🔥 Top Performing Content</h3>
+                <div className="p-4 md:p-6 border-b border-slate-100">
+                    <h3 className="text-sm md:text-base font-bold text-slate-900 italic font-display">🔥 Top Performing Content</h3>
                 </div>
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left">
+                <div className="overflow-x-auto scrollbar-hide">
+                    <table className="w-full text-left min-w-[500px]">
                         <thead className="bg-slate-50/50">
                             <tr>
-                                <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">Content</th>
-                                <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">Views</th>
-                                <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">Likes</th>
-                                <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">Shares</th>
+                                <th className="px-4 md:px-6 py-3 md:py-4 text-[9px] md:text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">Content</th>
+                                <th className="px-4 md:px-6 py-3 md:py-4 text-[9px] md:text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">Views</th>
+                                <th className="px-4 md:px-6 py-3 md:py-4 text-[9px] md:text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">Likes</th>
+                                <th className="px-4 md:px-6 py-3 md:py-4 text-[9px] md:text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">Shares</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">
                             {topPostsWithStats.map((post: any, i: number) => (
-                                <tr key={i} className="hover:bg-slate-50/50 transition-colors">
-                                    <td className="px-6 py-4">
+                                <tr key={i} className="hover:bg-slate-50/50 transition-colors cursor-pointer">
+                                    <td className="px-4 md:px-6 py-3 md:py-4">
                                         <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 rounded bg-slate-200 overflow-hidden">
+                                            <div className="w-8 h-8 md:w-10 md:h-10 rounded bg-slate-200 overflow-hidden shrink-0 border border-slate-100 shadow-sm">
                                                 <img src={post.thumbnail_url || post.media_url} className="w-full h-full object-cover" />
                                             </div>
-                                            <div>
-                                                <p className="text-xs font-bold text-slate-900">{post.title}</p>
-                                                <p className="text-[10px] text-slate-400 font-medium uppercase">{post.category}</p>
+                                            <div className="min-w-0">
+                                                <p className="text-[11px] md:text-xs font-bold text-slate-900 truncate">{post.title}</p>
+                                                <p className="text-[9px] text-slate-400 font-medium uppercase tracking-tight">{post.category}</p>
                                             </div>
                                         </div>
                                     </td>
-                                    <td className="px-6 py-4 text-xs font-bold text-slate-700">{post.views}</td>
-                                    <td className="px-6 py-4 text-xs font-medium text-slate-500">{post.likes}</td>
-                                    <td className="px-6 py-4 text-xs font-medium text-slate-500">{post.shares}</td>
+                                    <td className="px-4 md:px-6 py-3 md:py-4 text-[11px] md:text-xs font-bold text-slate-700">{post.views}</td>
+                                    <td className="px-4 md:px-6 py-3 md:py-4 text-[11px] md:text-xs font-medium text-slate-500">{post.likes}</td>
+                                    <td className="px-4 md:px-6 py-3 md:py-4 text-[11px] md:text-xs font-medium text-slate-500">{post.shares}</td>
                                 </tr>
                             ))}
                         </tbody>
