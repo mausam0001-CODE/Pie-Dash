@@ -10,6 +10,7 @@ const Workflow = lazy(() => import('../pages/Workflow').then(m => ({ default: m.
 const Connections = lazy(() => import('../pages/Connections').then(m => ({ default: m.Connections })));
 const Settings = lazy(() => import('../pages/Settings').then(m => ({ default: m.Settings })));
 const Interactions = lazy(() => import('../pages/Interactions').then(m => ({ default: m.Interactions })));
+const CompetitorInsights = lazy(() => import('../pages/CompetitorInsights').then(m => ({ default: m.CompetitorInsights })));
 
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { DashboardSkeleton, KanbanColumnSkeleton, ChartSkeleton, PostCardSkeleton } from '../components/Skeleton';
@@ -57,6 +58,7 @@ export const router = createBrowserRouter([
             { path: 'connections', element: wrap(Connections, 'dashboard') },
             { path: 'settings', element: wrap(Settings, 'dashboard') },
             { path: 'interactions', element: wrap(Interactions, 'dashboard') },
+            { path: 'competitor-insights', element: wrap(CompetitorInsights, 'analytics') },
             { path: '*', element: <Navigate to="/" replace /> }
         ]
     }
