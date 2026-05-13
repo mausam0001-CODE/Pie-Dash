@@ -89,10 +89,10 @@ export const Connections = () => {
         const redirectUri = redirectUriBase;
         const state = `${session?.user?.id || 'team-user'}:${platformId}`;
 
-        // Simplified scopes to avoid "Invalid Scopes" error for non-reviewed apps
-        // Removed problematic pages_manage_posts
+        // Scopes must match EXACTLY what is configured in the Meta App Dashboard
+        // Based on the screenshot: instagram_business_basic, instagram_manage_comments, instagram_business_manage_messages
         const scope = platformId === 'instagram'
-            ? 'instagram_basic,instagram_content_publish,pages_read_engagement,pages_show_list,public_profile'
+            ? 'instagram_business_basic,instagram_manage_comments,instagram_business_manage_messages,pages_read_engagement,pages_show_list,public_profile'
             : 'pages_read_engagement,pages_show_list,public_profile';
 
         window.location.href = `https://www.facebook.com/v18.0/dialog/oauth?client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}&state=${state}&response_type=code`;
