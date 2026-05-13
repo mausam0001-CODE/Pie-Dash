@@ -81,14 +81,14 @@ serve(async (req) => {
         let avatarUrl = '';
 
         if (isInstagram) {
-            // Get Instagram user details (Basic Display / Graph API variant)
+            // Get Instagram user details
             const profResp = await fetch(`https://graph.instagram.com/me?fields=id,username&access_token=${longToken}`)
             const profData = await profResp.json()
             if (profData.error) throw new Error(profData.error.message)
             accountId = profData.id;
             username = profData.username;
         } else {
-            // Facebook/IG-via-Facebook logic
+            // Facebook logic
             const pagesResp = await fetch(`https://graph.facebook.com/v18.0/me/accounts?access_token=${longToken}`)
             const pagesData = await pagesResp.json()
             if (pagesData.error) throw new Error(pagesData.error.message)
@@ -118,13 +118,14 @@ serve(async (req) => {
             .upsert({
                 user_id: userId,
                 platform: targetPlatform,
-                access_token: longData.access_token,
+                access_token: longToken,
                 account_id: accountId,
                 username: username,
+                avatar_url: avatarUrl,
                 expires_at: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString()
             })
 
-        if (error) throw error
+        if (error) throw error;
 
         // 5. Redirect back to Frontend
         const frontendUrl = Deno.env.get('FRONTEND_URL') || 'https://pie-dash.vercel.app'

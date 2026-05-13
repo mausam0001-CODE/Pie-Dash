@@ -78,17 +78,17 @@ export const Connections = () => {
             ? `https://${projectRef}.supabase.co/functions/v1/ig-oauth`
             : "https://ivsytkzemjludwzhrdsu.supabase.co/functions/v1/ig-oauth";
 
-        // Add platform as query param to redirectUri for maximum reliability
-        const redirectUri = `${redirectUriBase}?targetPagePlatform=${platformId}`;
+        // Meta requires the redirect_uri to be an EXACT match. Do not add dynamic query params.
+        const redirectUri = redirectUriBase;
         const state = `${session?.user?.id || 'team-user'}:${platformId}`;
 
-        if (platformId === 'instagram') {
-            const scope = 'instagram_business_basic,instagram_business_manage_messages,instagram_business_manage_comments,instagram_business_content_publish';
-            window.location.href = `https://api.instagram.com/oauth/authorize?client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}&response_type=code&state=${state}`;
-        } else {
-            const scope = 'instagram_basic,instagram_content_publish,pages_read_engagement,pages_show_list';
-            window.location.href = `https://www.facebook.com/v18.0/dialog/oauth?client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}&state=${state}`;
-        }
+        // For both Instagram Business and Facebook, we use the Facebook OAuth dialog
+        // This is required for publishing permissions (Instagram Graph API)
+        const scope = platformId === 'instagram'
+            ? 'instagram_basic,instagram_content_publish,instagram_business_basic,instagram_business_manage_messages,instagram_business_manage_comments,pages_read_engagement,pages_show_list'
+            : 'pages_read_engagement,pages_show_list,pages_manage_posts,public_profile';
+
+        window.location.href = `https://www.facebook.com/v18.0/dialog/oauth?client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}&state=${state}&response_type=code`;
     };
 
     const handleDelete = async (id: string) => {
