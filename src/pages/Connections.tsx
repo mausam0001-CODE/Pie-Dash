@@ -73,8 +73,8 @@ export const Connections = () => {
     const confirmConnect = async () => {
         const platformId = showNotesModal;
         const appId = platformId === 'instagram'
-            ? (import.meta.env.VITE_INSTA_APP_ID || import.meta.env.VITE_FB_APP_ID)
-            : (import.meta.env.VITE_FB_APP_ID || import.meta.env.VITE_INSTA_APP_ID);
+            ? (import.meta.env.VITE_INSTA_APP_ID || import.meta.env.VITE_FB_APP_ID || '997891079244802')
+            : (import.meta.env.VITE_FB_APP_ID || import.meta.env.VITE_INSTA_APP_ID || '997891079244802');
 
         console.log('Final Meta App ID used:', appId);
         console.log('Platform:', platformId);
