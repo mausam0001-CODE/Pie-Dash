@@ -72,6 +72,10 @@ export const Connections = () => {
         const appId = platformId === 'instagram'
             ? (import.meta.env.VITE_INSTA_APP_ID || import.meta.env.VITE_FB_APP_ID)
             : (import.meta.env.VITE_FB_APP_ID || import.meta.env.VITE_INSTA_APP_ID);
+
+        console.log('Final Meta App ID used:', appId);
+        console.log('Platform:', platformId);
+
         const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
         const projectRef = supabaseUrl.split('//')[1]?.split('.')[0];
         const redirectUriBase = projectRef
@@ -82,11 +86,11 @@ export const Connections = () => {
         const redirectUri = redirectUriBase;
         const state = `${session?.user?.id || 'team-user'}:${platformId}`;
 
-        // For both Instagram Business and Facebook, we use the Facebook OAuth dialog
-        // This is required for publishing permissions (Instagram Graph API)
+        // Simplified scopes to avoid "Invalid Scopes" error for non-reviewed apps
+        // Removed problematic pages_manage_posts
         const scope = platformId === 'instagram'
-            ? 'instagram_basic,instagram_content_publish,instagram_business_basic,instagram_business_manage_messages,instagram_business_manage_comments,pages_read_engagement,pages_show_list'
-            : 'pages_read_engagement,pages_show_list,pages_manage_posts,public_profile';
+            ? 'instagram_basic,instagram_content_publish,pages_read_engagement,pages_show_list,public_profile'
+            : 'pages_read_engagement,pages_show_list,public_profile';
 
         window.location.href = `https://www.facebook.com/v18.0/dialog/oauth?client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}&state=${state}&response_type=code`;
     };
