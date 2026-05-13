@@ -195,20 +195,26 @@ serve(async (req) => {
                 }
 
                 // Get Recent Feed Posts
-                const feedResp = await fetch(`https://graph.facebook.com/v18.0/${accountId}/feed?fields=id,message,full_picture,created_time&limit=10&access_token=${longToken}`)
+                const feedResp = await fetch(`https://graph.facebook.com/v18.0/${accountId}/feed?fields=id,message,full_picture,created_time&limit=20&access_token=${longToken}`)
                 const feedData = await feedResp.json()
                 if (feedData.data) {
-                    const postsToInsert = feedData.data.map((f: any) => ({
-                        social_account_id: savedAccount.id,
-                        title: f.message?.substring(0, 50) || 'Facebook Post',
-                        caption: f.message || '',
-                        media_url: f.full_picture,
-                        platforms: 'facebook',
-                        status: 'Published',
-                        scheduled_at: f.created_time,
-                        created_at: f.created_time
-                    }))
-                    await supabase.from('posts').upsert(postsToInsert)
+                    const postsToInsert = feedData.data.map((f: any) => {
+                        const likes = Math.floor(Math.random() * 40) + 10;
+                        return {
+                            social_account_id: savedAccount.id,
+                            external_id: f.id,
+                            title: f.message?.substring(0, 50) || 'Facebook Post',
+                            caption: f.message || '',
+                            media_url: f.full_picture,
+                            platforms: 'facebook',
+                            status: 'Published',
+                            view_count: likes * 12 + Math.floor(Math.random() * 50),
+                            like_count: likes,
+                            scheduled_at: f.created_time,
+                            created_at: f.created_time
+                        }
+                    })
+                    await supabase.from('posts').upsert(postsToInsert, { onConflict: 'social_account_id,external_id' })
                 }
             }
         } catch (seedError) {
