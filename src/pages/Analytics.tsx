@@ -1,10 +1,12 @@
 import React from 'react';
 import { usePosts } from '../features/posts/usePosts';
+import { useMetrics } from '../features/accounts/useMetrics';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
     AreaChart, Area, LineChart, Line
 } from 'recharts';
 import { TrendingUp, TrendingDown, Users, Eye, BarChart3, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { format, subMonths, startOfMonth, isSameMonth } from 'date-fns';
 
 // ── Helpers ──────────────────────────────────────────────────────────
 function momBadge(current: number, prev: number) {
@@ -13,39 +15,54 @@ function momBadge(current: number, prev: number) {
     return { pct: `${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%`, up: pct >= 0 };
 }
 
-// MoM follower projections we store per month as baseline
-const MOCK_FOLLOWER_HISTORY = [3200, 3580, 3940, 4280, 4710, 5100];
-
 export const Analytics = () => {
-    const { data: posts = [], isLoading } = usePosts();
+    const { data: posts = [], isLoading: postsLoading } = usePosts();
+    const { data: metrics = [], isLoading: metricsLoading } = useMetrics();
 
-    // ── Audience Growth (with MoM diff) ──────────────────────────────
-    const audienceData = React.useMemo(() => {
-        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
-        return months.map((month, i) => {
-            const followers = MOCK_FOLLOWER_HISTORY[i];
-            const prev = MOCK_FOLLOWER_HISTORY[i - 1] ?? followers;
-            const { pct, up } = momBadge(followers, prev);
-            return { name: month, followers, momPct: pct, up };
+    const isLoading = postsLoading || metricsLoading;
+
+    // Last 6 months for labels
+    const last6Months = React.useMemo(() => {
+        return Array.from({ length: 6 }).map((_, i) => {
+            const date = subMonths(new Date(), 5 - i);
+            return {
+                label: format(date, 'MMM'),
+                date: startOfMonth(date)
+            };
         });
     }, []);
+
+    // ── Audience Growth (Real metrics) ──────────────────────────────
+    const audienceData = React.useMemo(() => {
+        return last6Months.map(({ label, date }) => {
+            const metricEntry = metrics.find(m => isSameMonth(new Date(m.month), date));
+            const followers = metricEntry?.follower_count || 0;
+
+            // Try to find previous month for badge
+            const prevDate = subMonths(date, 1);
+            const prevEntry = metrics.find(m => isSameMonth(new Date(m.month), prevDate));
+            const prevFollowers = prevEntry?.follower_count || followers;
+
+            const { pct, up } = momBadge(followers, prevFollowers);
+            return { name: label, followers, momPct: pct, up };
+        });
+    }, [last6Months, metrics]);
 
     const latestMonth = audienceData[audienceData.length - 1];
     const prevMonth = audienceData[audienceData.length - 2];
     const followerMoM = momBadge(latestMonth.followers, prevMonth.followers);
 
-    // ── By-category engagement ────────────────────────────────────────
+    // ── Content Performance (Real posts per month) ──────────────────
     const growthData = React.useMemo(() => {
-        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
-        return months.map((month, i) => {
-            const monthPosts = posts.filter((p: any) => new Date(p.scheduled_at || p.created_at).getMonth() === i);
+        return last6Months.map(({ label, date }) => {
+            const monthPosts = posts.filter(p => isSameMonth(new Date(p.scheduled_at || p.created_at), date));
             return {
-                name: month,
-                views: monthPosts.reduce((sum: number, p: any) => sum + (p.view_count || 0), 0),
-                likes: monthPosts.reduce((sum: number, p: any) => sum + (p.like_count || 0), 0),
+                name: label,
+                views: monthPosts.reduce((sum, p) => sum + (p.view_count || 0), 0),
+                likes: monthPosts.reduce((sum, p) => sum + (p.like_count || 0), 0),
             };
         });
-    }, [posts]);
+    }, [last6Months, posts]);
 
     const categoryData = React.useMemo(() => {
         if (!posts.length) return [];
