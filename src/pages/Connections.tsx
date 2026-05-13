@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import {
     Plus, Instagram, Youtube, Share2, ShieldCheck,
     Trash2, Loader2, Info, CheckCircle2, AlertCircle,
-    Twitter, Linkedin, Globe
+    Twitter, Linkedin, Globe, RefreshCw
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabase';
+import { useNotification } from '../context/NotificationContext';
 
 interface Account {
     id: string;
@@ -23,8 +24,10 @@ const PLATFORMS = [
 
 export const Connections = () => {
     const { session, isLoading: authLoading } = useAuth();
+    const { notify } = useNotification();
     const [accounts, setAccounts] = useState<Account[]>([]);
     const [loading, setLoading] = useState(false);
+    const [syncingId, setSyncingId] = useState<string | null>(null);
     const [showNotesModal, setShowNotesModal] = useState<string | null>(null);
 
     const fetchAccounts = async () => {
@@ -95,6 +98,26 @@ export const Connections = () => {
         window.location.href = `https://www.facebook.com/v18.0/dialog/oauth?client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}&state=${state}&response_type=code`;
     };
 
+    const handleSync = async (id: string) => {
+        setSyncingId(id);
+        notify('Sync started...', 'info');
+        try {
+            const { data, error } = await supabase.functions.invoke('sync-account', {
+                body: { accountId: id }
+            });
+
+            if (error) throw error;
+            if (data?.error) throw new Error(data.error);
+
+            notify('Sync completed! Your data is now up to date.', 'success');
+        } catch (error: any) {
+            console.error('Sync error:', error);
+            notify(`Sync failed: ${error.message || 'Meta API error'}`, 'error');
+        } finally {
+            setSyncingId(null);
+        }
+    };
+
     const handleDelete = async (id: string) => {
         if (!confirm('Are you sure you want to disconnect this account?')) return;
         try {
@@ -151,12 +174,23 @@ export const Connections = () => {
                                                     </div>
                                                     <span className="text-sm font-bold text-slate-700">{acc.username}</span>
                                                 </div>
-                                                <button
-                                                    onClick={() => handleDelete(acc.id)}
-                                                    className="p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all md:opacity-0 md:group-hover:opacity-100 opacity-100"
-                                                >
-                                                    <Trash2 className="w-3.5 h-3.5" />
-                                                </button>
+                                                <div className="flex items-center gap-2 md:opacity-0 md:group-hover:opacity-100 opacity-100 transition-all">
+                                                    <button
+                                                        onClick={() => handleSync(acc.id)}
+                                                        disabled={syncingId === acc.id}
+                                                        className={`p-1.5 rounded-lg transition-all ${syncingId === acc.id ? 'bg-slate-100 text-slate-400 animate-spin' : 'text-slate-300 hover:text-teal-600 hover:bg-teal-50'}`}
+                                                        title="Sync data from Meta"
+                                                    >
+                                                        <RefreshCw className="w-3.5 h-3.5" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDelete(acc.id)}
+                                                        className="p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
+                                                        title="Disconnect account"
+                                                    >
+                                                        <Trash2 className="w-3.5 h-3.5" />
+                                                    </button>
+                                                </div>
                                             </div>
                                         ))
                                     ) : (

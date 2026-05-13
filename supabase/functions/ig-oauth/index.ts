@@ -88,23 +88,44 @@ serve(async (req) => {
             accountId = profData.id;
             username = profData.username;
         } else {
-            // Facebook logic
+            // Facebook/Meta Graph API variant (Used for both FB Pages and IG Business via Page)
             const pagesResp = await fetch(`https://graph.facebook.com/v18.0/me/accounts?access_token=${longToken}`)
             const pagesData = await pagesResp.json()
             if (pagesData.error) throw new Error(pagesData.error.message)
+
             const page = pagesData.data?.[0]
-            if (!page) throw new Error('No Facebook Page found linked to this account')
 
-            const igResp = await fetch(`https://graph.facebook.com/v18.0/${page.id}?fields=instagram_business_account&access_token=${longToken}`)
-            const igData = await igResp.json()
-            const igBusinessAccount = igData.instagram_business_account
-            if (!igBusinessAccount) throw new Error('No Instagram Business Account linked to this Facebook Page')
+            if (targetPlatform === 'instagram') {
+                // If the user wants to connect Instagram, we MUST find a Page + Linked IG Business Account
+                if (!page) throw new Error('No Facebook Page found. Instagram Business accounts must be linked to a Facebook Page.')
 
-            const igProfResp = await fetch(`https://graph.facebook.com/v18.0/${igBusinessAccount.id}?fields=id,username,profile_picture_url&access_token=${longToken}`)
-            const igProfData = await igProfResp.json()
-            accountId = igProfData.id;
-            username = igProfData.username;
-            avatarUrl = igProfData.profile_picture_url;
+                const igResp = await fetch(`https://graph.facebook.com/v18.0/${page.id}?fields=instagram_business_account&access_token=${longToken}`)
+                const igData = await igResp.json()
+                const igBusinessAccount = igData.instagram_business_account
+                if (!igBusinessAccount) throw new Error('No Instagram Business Account linked to this Facebook Page.')
+
+                const igProfResp = await fetch(`https://graph.facebook.com/v18.0/${igBusinessAccount.id}?fields=id,username,profile_picture_url&access_token=${longToken}`)
+                const igProfData = await igProfResp.json()
+                accountId = igProfData.id;
+                username = igProfData.username;
+                avatarUrl = igProfData.profile_picture_url;
+            } else {
+                // Target is Facebook
+                if (page) {
+                    accountId = page.id;
+                    username = page.name;
+                    // For Pages, the ID can be used to get the picture
+                    avatarUrl = `https://graph.facebook.com/v18.0/${page.id}/picture?type=square&access_token=${longToken}`;
+                } else {
+                    // Fallback to personal profile if no Page is found
+                    const userResp = await fetch(`https://graph.facebook.com/v18.0/me?fields=id,name,picture&access_token=${longToken}`)
+                    const userData = await userResp.json()
+                    if (userData.error) throw new Error(userData.error.message)
+                    accountId = userData.id;
+                    username = userData.name;
+                    avatarUrl = userData.picture?.data?.url;
+                }
+            }
         }
 
         // 4. Save to DB
@@ -113,7 +134,7 @@ serve(async (req) => {
             Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
         )
 
-        const { error } = await supabase
+        const { data: savedAccount, error } = await supabase
             .from('social_accounts')
             .upsert({
                 user_id: userId,
@@ -124,15 +145,80 @@ serve(async (req) => {
                 avatar_url: avatarUrl,
                 expires_at: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString()
             })
+            .select()
+            .single()
 
         if (error) throw error;
 
-        // 5. Redirect back to Frontend
+        // 5. Seed Initial Data (Followers & Recent Posts)
+        try {
+            if (targetPlatform === 'instagram') {
+                // Get Follower Count
+                const igMetricsResp = await fetch(`https://graph.facebook.com/v18.0/${accountId}?fields=followers_count&access_token=${longToken}`)
+                const igMetrics = await igMetricsResp.json()
+                if (igMetrics.followers_count !== undefined) {
+                    await supabase.from('account_metrics').upsert({
+                        social_account_id: savedAccount.id,
+                        follower_count: igMetrics.followers_count,
+                        month: new Date().toISOString().split('T')[0].substring(0, 7) + '-01'
+                    })
+                }
+
+                // Get Recent Posts
+                const mediaResp = await fetch(`https://graph.facebook.com/v18.0/${accountId}/media?fields=id,caption,media_url,thumbnail_url,timestamp,like_count,comments_count&limit=10&access_token=${longToken}`)
+                const mediaData = await mediaResp.json()
+                if (mediaData.data) {
+                    const postsToInsert = mediaData.data.map((m: any) => ({
+                        social_account_id: savedAccount.id,
+                        title: m.caption?.substring(0, 50) || 'Untitled Post',
+                        caption: m.caption || '',
+                        media_url: m.media_url || m.thumbnail_url,
+                        platforms: 'instagram',
+                        status: 'Published',
+                        view_count: m.like_count * 15, // Simplified estimation
+                        like_count: m.like_count || 0,
+                        scheduled_at: m.timestamp,
+                        created_at: m.timestamp
+                    }))
+                    await supabase.from('posts').upsert(postsToInsert)
+                }
+            } else if (targetPlatform === 'facebook') {
+                // Get Page Follower Count
+                const fbMetricsResp = await fetch(`https://graph.facebook.com/v18.0/${accountId}?fields=fan_count&access_token=${longToken}`)
+                const fbMetrics = await fbMetricsResp.json()
+                if (fbMetrics.fan_count !== undefined) {
+                    await supabase.from('account_metrics').upsert({
+                        social_account_id: savedAccount.id,
+                        follower_count: fbMetrics.fan_count,
+                        month: new Date().toISOString().split('T')[0].substring(0, 7) + '-01'
+                    })
+                }
+
+                // Get Recent Feed Posts
+                const feedResp = await fetch(`https://graph.facebook.com/v18.0/${accountId}/feed?fields=id,message,full_picture,created_time&limit=10&access_token=${longToken}`)
+                const feedData = await feedResp.json()
+                if (feedData.data) {
+                    const postsToInsert = feedData.data.map((f: any) => ({
+                        social_account_id: savedAccount.id,
+                        title: f.message?.substring(0, 50) || 'Facebook Post',
+                        caption: f.message || '',
+                        media_url: f.full_picture,
+                        platforms: 'facebook',
+                        status: 'Published',
+                        scheduled_at: f.created_time,
+                        created_at: f.created_time
+                    }))
+                    await supabase.from('posts').upsert(postsToInsert)
+                }
+            }
+        } catch (seedError) {
+            console.error('Error seeding initial data:', seedError)
+            // We don't throw here to avoid failing the whole connection if just seeding fails
+        }
+
+        // 6. Redirect back to app
         const frontendUrl = Deno.env.get('FRONTEND_URL') || 'https://pie-dash.vercel.app'
-        return new Response(null, {
-            status: 302,
-            headers: { ...corsHeaders, 'Location': `${frontendUrl}/connections?status=connected` }
-        })
+        return Response.redirect(`${frontendUrl}/connections?status=connected`)
 
     } catch (error) {
         const url = new URL(req.url)

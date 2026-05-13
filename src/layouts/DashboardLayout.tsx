@@ -3,6 +3,7 @@ import { Outlet } from 'react-router-dom';
 import { Sidebar } from '../components/Sidebar';
 import { Header } from '../components/Header';
 import { PostBuilder } from '../components/PostBuilder';
+import { NotificationContainer } from '../components/NotificationToast';
 
 export const DashboardLayout = () => {
     const [isPostBuilderOpen, setIsPostBuilderOpen] = useState(false);
@@ -33,6 +34,7 @@ export const DashboardLayout = () => {
             {isPostBuilderOpen && (
                 <PostBuilder onClose={() => setIsPostBuilderOpen(false)} />
             )}
+            <NotificationContainer />
         </div>
     );
 };
