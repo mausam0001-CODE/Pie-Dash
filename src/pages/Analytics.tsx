@@ -55,11 +55,11 @@ export const Analytics = () => {
     // ── Content Performance (Real posts per month) ──────────────────
     const growthData = React.useMemo(() => {
         return last6Months.map(({ label, date }) => {
-            const monthPosts = posts.filter(p => isSameMonth(new Date(p.scheduled_at || p.created_at), date));
+            const monthPosts = posts.filter((p: any) => isSameMonth(new Date(p.scheduled_at || p.created_at), date));
             return {
                 name: label,
-                views: monthPosts.reduce((sum, p) => sum + (p.view_count || 0), 0),
-                likes: monthPosts.reduce((sum, p) => sum + (p.like_count || 0), 0),
+                views: monthPosts.reduce((sum: number, p: any) => sum + (p.view_count || 0), 0),
+                likes: monthPosts.reduce((sum: number, p: any) => sum + (p.like_count || 0), 0),
             };
         });
     }, [last6Months, posts]);
