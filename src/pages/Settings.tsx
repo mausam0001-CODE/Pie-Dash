@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, Bell, Shield, Smartphone, Globe, Save, Loader2, User, UserCircle } from 'lucide-react';
+import { Settings as SettingsIcon, Bell, Shield, Smartphone, Globe, Save, Loader2, User, UserCircle, LogOut } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { useUser } from '../features/auth/UserContext';
@@ -53,6 +53,15 @@ export const Settings = () => {
         setSaving(false);
     };
 
+    const handleLogout = async () => {
+        const { error } = await supabase.auth.signOut();
+        if (error) {
+            alert('Error logging out: ' + error.message);
+        } else {
+            window.location.href = '/login';
+        }
+    };
+
     if (loading) return <div className="p-8 md:p-12 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px] md:text-xs animate-pulse">Retrieving Preferences...</div>;
 
     return (
@@ -94,6 +103,12 @@ export const Settings = () => {
                                 className={`w-full flex items-center justify-between px-5 py-3.5 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'danger' ? 'bg-rose-50 text-rose-600' : 'text-rose-400 hover:bg-rose-50/50'}`}
                             >
                                 <span className="flex items-center gap-3"><Shield className="w-4 h-4" /> Danger Zone</span>
+                            </button>
+                            <button
+                                onClick={handleLogout}
+                                className="w-full mt-2 flex items-center gap-3 px-5 py-3.5 rounded-2xl text-xs font-black uppercase tracking-widest text-slate-500 hover:bg-slate-100 transition-all"
+                            >
+                                <LogOut className="w-4 h-4" /> Sign Out
                             </button>
                         </div>
                     </div>
