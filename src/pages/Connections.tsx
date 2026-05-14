@@ -232,6 +232,11 @@ export const Connections = () => {
                                     <p className="text-[13px] text-amber-800 font-medium">You must have an <strong>Instagram Professional account</strong> to post directly.</p>
                                 </div>
 
+                                <div className="text-[10px] text-slate-400 font-mono text-center mb-[-16px]">
+                                    DEBUG ID: {(showNotesModal === 'instagram'
+                                        ? (import.meta.env.VITE_INSTA_APP_ID || import.meta.env.VITE_FB_APP_ID || '997891079244802')
+                                        : (import.meta.env.VITE_FB_APP_ID || import.meta.env.VITE_INSTA_APP_ID || '1247702890719706'))}
+                                </div>
                                 <button
                                     onClick={confirmConnect}
                                     className="w-full py-4 bg-slate-950 text-white rounded-2xl text-[13px] font-bold flex items-center justify-center gap-2 hover:bg-black transition-all shadow-xl shadow-slate-900/10"
