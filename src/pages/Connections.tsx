@@ -89,13 +89,14 @@ export const Connections = () => {
         const redirectUri = redirectUriBase;
         const state = `${session?.user?.id || 'team-user'}:${platformId}`;
 
-        // Aligning with official Meta "Instagram Use Case" and "Pages API" requirements
-        // Includes: publishing, basic profile info, messaging, and comment moderation
+        // Per official Meta docs: https://developers.facebook.com/docs/instagram-platform/instagram-api-with-facebook-login/get-started/
+        // Only instagram_basic + pages_show_list are required to start the connection.
+        // Advanced permissions (publishing, insights) require App Review and are added separately.
         const scope = platformId === 'instagram'
-            ? 'instagram_basic,instagram_content_publishing,pages_show_list,public_profile'
+            ? 'instagram_basic,pages_show_list,public_profile'
             : 'pages_show_list,pages_read_engagement,public_profile';
 
-        window.location.href = `https://www.facebook.com/v18.0/dialog/oauth?client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}&state=${state}&response_type=code`;
+        window.location.href = `https://www.facebook.com/v25.0/dialog/oauth?client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}&state=${state}&response_type=code`;
     };
 
     const handleSync = async (id: string) => {

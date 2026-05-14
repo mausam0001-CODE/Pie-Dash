@@ -26,9 +26,10 @@ serve(async (req) => {
 
         console.log('OAuth Callback Details:', { userId, targetPlatform, hasState: !!state, hasParam: !!platformParam });
 
-        const isInstagram = targetPlatform === 'instagram';
-        const FB_APP_ID = Deno.env.get(isInstagram ? 'INSTA_APP_ID' : 'FB_APP_ID') || Deno.env.get('FB_APP_ID');
-        const FB_APP_SECRET = Deno.env.get(isInstagram ? 'INSTA_APP_SECRET' : 'FB_APP_SECRET') || Deno.env.get('FB_APP_SECRET');
+        // Per official Meta docs, both Instagram and Facebook use the same App ID and Graph API.
+        // See: https://developers.facebook.com/docs/instagram-platform/instagram-api-with-facebook-login/get-started/
+        const FB_APP_ID = Deno.env.get('FB_APP_ID');
+        const FB_APP_SECRET = Deno.env.get('FB_APP_SECRET');
 
         const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
         const projectRef = SUPABASE_URL.split('//')[1]?.split('.')[0]
@@ -36,95 +37,67 @@ serve(async (req) => {
             ? `https://${projectRef}.supabase.co/functions/v1/ig-oauth`
             : "https://ivsytkzemjludwzhrdsu.supabase.co/functions/v1/ig-oauth"
 
-        // 1. Exchange for Short Token
-        let accessToken = '';
-        if (isInstagram) {
-            const shortResp = await fetch(`https://api.instagram.com/oauth/access_token`, {
-                method: 'POST',
-                body: new URLSearchParams({
-                    client_id: FB_APP_ID || '',
-                    client_secret: FB_APP_SECRET || '',
-                    grant_type: 'authorization_code',
-                    redirect_uri: REDIRECT_URI,
-                    code: code,
-                })
-            })
-            const shortData = await shortResp.json()
-            console.log('Short Token Data:', shortData);
-            if (shortData.error_message) throw new Error(shortData.error_message)
-            if (shortData.error) throw new Error(shortData.error.message)
-            accessToken = shortData.access_token;
-        } else {
-            const shortResp = await fetch(`https://graph.facebook.com/v18.0/oauth/access_token?client_id=${FB_APP_ID}&client_secret=${FB_APP_SECRET}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&code=${code}`)
-            const shortData = await shortResp.json()
-            if (shortData.error) throw new Error(shortData.error.message)
-            accessToken = shortData.access_token;
-        }
+        // 1. Exchange code for Short-Lived User Access Token (same for both IG and FB)
+        // Per Meta docs, always use graph.facebook.com for this step.
+        const shortResp = await fetch(`https://graph.facebook.com/v25.0/oauth/access_token?client_id=${FB_APP_ID}&client_secret=${FB_APP_SECRET}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&code=${code}`)
+        const shortData = await shortResp.json()
+        console.log('Short Token Response:', JSON.stringify(shortData));
+        if (shortData.error) throw new Error(shortData.error.message)
+        let accessToken = shortData.access_token;
 
-        // 2. Exchange for Long Token
-        let longToken = accessToken;
-        if (isInstagram) {
-            const longResp = await fetch(`https://graph.instagram.com/access_token?grant_type=ig_exchange_token&client_secret=${FB_APP_SECRET}&access_token=${accessToken}`)
-            const longData = await longResp.json()
-            if (longData.error) throw new Error(longData.error.message)
-            longToken = longData.access_token || accessToken;
-        } else {
-            const longResp = await fetch(`https://graph.facebook.com/v18.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${FB_APP_ID}&client_secret=${FB_APP_SECRET}&fb_exchange_token=${accessToken}`)
-            const longData = await longResp.json()
-            if (longData.error) throw new Error(longData.error.message)
-            longToken = longData.access_token || accessToken;
-        }
+        // 2. Exchange for Long-Lived User Access Token
+        const longResp = await fetch(`https://graph.facebook.com/v25.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${FB_APP_ID}&client_secret=${FB_APP_SECRET}&fb_exchange_token=${accessToken}`)
+        const longData = await longResp.json()
+        if (longData.error) throw new Error(longData.error.message)
+        let longToken = longData.access_token || accessToken;
 
-        // 3. Get Profile Details
+        // 3. Get Profile Details via Facebook Graph API
+        // Per official docs: GET /me/accounts -> find page -> get instagram_business_account from page
         let accountId = '';
         let username = '';
         let avatarUrl = '';
 
-        if (isInstagram) {
-            // Get Instagram user details
-            const profResp = await fetch(`https://graph.instagram.com/me?fields=id,username&access_token=${longToken}`)
-            const profData = await profResp.json()
-            if (profData.error) throw new Error(profData.error.message)
-            accountId = profData.id;
-            username = profData.username;
+        if (targetPlatform === 'instagram') {
+            // Step A: Get the user's Facebook Pages
+            const pagesResp = await fetch(`https://graph.facebook.com/v25.0/me/accounts?access_token=${longToken}`)
+            const pagesData = await pagesResp.json()
+            console.log('Pages Data:', JSON.stringify(pagesData));
+            if (pagesData.error) throw new Error(pagesData.error.message)
+            const page = pagesData.data?.[0]
+            if (!page) throw new Error('No Facebook Page found. Your Instagram Business Account must be linked to a Facebook Page.')
+
+            // Step B: Get the Instagram Business Account from the Page
+            const igResp = await fetch(`https://graph.facebook.com/v25.0/${page.id}?fields=instagram_business_account&access_token=${longToken}`)
+            const igData = await igResp.json()
+            console.log('IG Business Account Data:', JSON.stringify(igData));
+            if (!igData.instagram_business_account) throw new Error('No Instagram Business Account linked to your Facebook Page. Please link one in your Instagram settings.')
+
+            // Step C: Get the Instagram Business Account Profile
+            const igProfResp = await fetch(`https://graph.facebook.com/v25.0/${igData.instagram_business_account.id}?fields=id,username,profile_picture_url&access_token=${longToken}`)
+            const igProfData = await igProfResp.json()
+            if (igProfData.error) throw new Error(igProfData.error.message)
+            accountId = igProfData.id;
+            username = igProfData.username;
+            avatarUrl = igProfData.profile_picture_url;
+
         } else {
-            // Facebook/Meta Graph API variant (Used for both FB Pages and IG Business via Page)
-            const pagesResp = await fetch(`https://graph.facebook.com/v18.0/me/accounts?access_token=${longToken}`)
+            // Facebook: get the first Page, fallback to user profile
+            const pagesResp = await fetch(`https://graph.facebook.com/v25.0/me/accounts?access_token=${longToken}`)
             const pagesData = await pagesResp.json()
             if (pagesData.error) throw new Error(pagesData.error.message)
-
             const page = pagesData.data?.[0]
 
-            if (targetPlatform === 'instagram') {
-                // If the user wants to connect Instagram, we MUST find a Page + Linked IG Business Account
-                if (!page) throw new Error('No Facebook Page found. Instagram Business accounts must be linked to a Facebook Page.')
-
-                const igResp = await fetch(`https://graph.facebook.com/v18.0/${page.id}?fields=instagram_business_account&access_token=${longToken}`)
-                const igData = await igResp.json()
-                const igBusinessAccount = igData.instagram_business_account
-                if (!igBusinessAccount) throw new Error('No Instagram Business Account linked to this Facebook Page.')
-
-                const igProfResp = await fetch(`https://graph.facebook.com/v18.0/${igBusinessAccount.id}?fields=id,username,profile_picture_url&access_token=${longToken}`)
-                const igProfData = await igProfResp.json()
-                accountId = igProfData.id;
-                username = igProfData.username;
-                avatarUrl = igProfData.profile_picture_url;
+            if (page) {
+                accountId = page.id;
+                username = page.name;
+                avatarUrl = `https://graph.facebook.com/v25.0/${page.id}/picture?type=square&access_token=${longToken}`;
             } else {
-                // Target is Facebook
-                if (page) {
-                    accountId = page.id;
-                    username = page.name;
-                    // For Pages, the ID can be used to get the picture
-                    avatarUrl = `https://graph.facebook.com/v18.0/${page.id}/picture?type=square&access_token=${longToken}`;
-                } else {
-                    // Fallback to personal profile if no Page is found
-                    const userResp = await fetch(`https://graph.facebook.com/v18.0/me?fields=id,name,picture&access_token=${longToken}`)
-                    const userData = await userResp.json()
-                    if (userData.error) throw new Error(userData.error.message)
-                    accountId = userData.id;
-                    username = userData.name;
-                    avatarUrl = userData.picture?.data?.url;
-                }
+                const userResp = await fetch(`https://graph.facebook.com/v25.0/me?fields=id,name,picture&access_token=${longToken}`)
+                const userData = await userResp.json()
+                if (userData.error) throw new Error(userData.error.message)
+                accountId = userData.id;
+                username = userData.name;
+                avatarUrl = userData.picture?.data?.url;
             }
         }
 
@@ -154,7 +127,7 @@ serve(async (req) => {
         try {
             if (targetPlatform === 'instagram') {
                 // Get Follower Count
-                const igMetricsResp = await fetch(`https://graph.facebook.com/v18.0/${accountId}?fields=followers_count&access_token=${longToken}`)
+                const igMetricsResp = await fetch(`https://graph.facebook.com/v25.0/${accountId}?fields=followers_count&access_token=${longToken}`)
                 const igMetrics = await igMetricsResp.json()
                 if (igMetrics.followers_count !== undefined) {
                     await supabase.from('account_metrics').upsert({
@@ -165,7 +138,7 @@ serve(async (req) => {
                 }
 
                 // Get Recent Posts
-                const mediaResp = await fetch(`https://graph.facebook.com/v18.0/${accountId}/media?fields=id,caption,media_url,thumbnail_url,timestamp,like_count,comments_count&limit=10&access_token=${longToken}`)
+                const mediaResp = await fetch(`https://graph.facebook.com/v25.0/${accountId}/media?fields=id,caption,media_url,thumbnail_url,timestamp,like_count,comments_count&limit=10&access_token=${longToken}`)
                 const mediaData = await mediaResp.json()
                 if (mediaData.data) {
                     const postsToInsert = mediaData.data.map((m: any) => ({
@@ -184,7 +157,7 @@ serve(async (req) => {
                 }
             } else if (targetPlatform === 'facebook') {
                 // Get Page Follower Count
-                const fbMetricsResp = await fetch(`https://graph.facebook.com/v18.0/${accountId}?fields=fan_count&access_token=${longToken}`)
+                const fbMetricsResp = await fetch(`https://graph.facebook.com/v25.0/${accountId}?fields=fan_count&access_token=${longToken}`)
                 const fbMetrics = await fbMetricsResp.json()
                 if (fbMetrics.fan_count !== undefined) {
                     await supabase.from('account_metrics').upsert({
@@ -195,7 +168,7 @@ serve(async (req) => {
                 }
 
                 // Get Recent Feed Posts
-                const feedResp = await fetch(`https://graph.facebook.com/v18.0/${accountId}/feed?fields=id,message,full_picture,created_time&limit=20&access_token=${longToken}`)
+                const feedResp = await fetch(`https://graph.facebook.com/v25.0/${accountId}/feed?fields=id,message,full_picture,created_time&limit=20&access_token=${longToken}`)
                 const feedData = await feedResp.json()
                 if (feedData.data) {
                     const postsToInsert = feedData.data.map((f: any) => {
