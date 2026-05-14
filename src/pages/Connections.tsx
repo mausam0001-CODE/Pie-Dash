@@ -74,7 +74,7 @@ export const Connections = () => {
         const platformId = showNotesModal;
         const appId = platformId === 'instagram'
             ? (import.meta.env.VITE_INSTA_APP_ID || import.meta.env.VITE_FB_APP_ID || '997891079244802')
-            : (import.meta.env.VITE_FB_APP_ID || import.meta.env.VITE_INSTA_APP_ID || '997891079244802');
+            : (import.meta.env.VITE_FB_APP_ID || import.meta.env.VITE_INSTA_APP_ID || '1247702890719706');
 
         console.log('Final Meta App ID used:', appId);
         console.log('Platform:', platformId);
@@ -89,11 +89,11 @@ export const Connections = () => {
         const redirectUri = redirectUriBase;
         const state = `${session?.user?.id || 'team-user'}:${platformId}`;
 
-        // Scopes must match EXACTLY what is configured in the Meta App Dashboard
-        // Based on the screenshot: instagram_business_basic, instagram_manage_comments, instagram_business_manage_messages
+        // Aligning with official Meta "Instagram Use Case" and "Pages API" requirements
+        // Includes: publishing, basic profile info, messaging, and comment moderation
         const scope = platformId === 'instagram'
-            ? 'instagram_business_basic,instagram_manage_comments,instagram_business_manage_messages,pages_read_engagement,pages_show_list,public_profile'
-            : 'pages_read_engagement,pages_show_list,public_profile';
+            ? 'instagram_basic,instagram_content_publishing,instagram_manage_comments,instagram_manage_messages,business_management,pages_read_engagement,pages_show_list,public_profile'
+            : 'pages_manage_posts,pages_manage_engagement,pages_read_engagement,pages_show_list,public_profile';
 
         window.location.href = `https://www.facebook.com/v18.0/dialog/oauth?client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}&state=${state}&response_type=code`;
     };
