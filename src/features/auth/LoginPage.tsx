@@ -4,35 +4,77 @@ import { ThemeSupa } from '@supabase/auth-ui-shared';
 import { supabase } from '../../lib/supabase';
 
 export const LoginPage = () => {
+    const [view, setView] = React.useState<'sign_in' | 'update_password'>('sign_in');
+
+    React.useEffect(() => {
+        // Detect if user is coming from a password reset link
+        const hash = window.location.hash;
+        if (hash && hash.includes('type=recovery')) {
+            setView('update_password');
+        }
+    }, []);
+
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 to-emerald-950 p-6">
-            <div className="bg-white rounded-3xl p-10 w-full max-w-md shadow-2xl border border-white/20">
-                <div className="flex flex-col items-center mb-10">
-                    <div className="w-16 h-16 bg-gradient-to-br from-teal-500 to-purple-500 rounded-2xl flex items-center justify-center text-white text-3xl font-black mb-4 shadow-lg">P</div>
-                    <h1 className="text-3xl font-black text-slate-900">Pie Pro</h1>
-                    <p className="text-slate-400 font-medium text-sm mt-1 uppercase tracking-widest">Modern Social Dashboard</p>
+        <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6">
+            <div className="absolute top-12 left-12">
+                <span className="text-2xl font-black tracking-tight text-slate-900">Pie</span>
+            </div>
+
+            <div className="w-full max-w-[400px] text-center space-y-12">
+                <div className="space-y-4">
+                    <h1 className="text-4xl md:text-5xl font-medium text-slate-900 tracking-tight">
+                        Your personal<br />tax assistant
+                    </h1>
+                    <p className="text-slate-500 text-[13px] font-medium tracking-tight">
+                        Privacy first ai to automate all your accounting
+                    </p>
                 </div>
 
-                <Auth
-                    supabaseClient={supabase}
-                    appearance={{
-                        theme: ThemeSupa,
-                        variables: {
-                            default: {
-                                colors: {
-                                    brand: '#14b8a6',
-                                    brandAccent: '#0d9488',
+                <div className="bg-white">
+                    <Auth
+                        supabaseClient={supabase}
+                        view={view}
+                        showLinks={false}
+                        appearance={{
+                            theme: ThemeSupa,
+                            variables: {
+                                default: {
+                                    colors: {
+                                        brand: '#0f172a',
+                                        brandAccent: '#1e293b',
+                                        inputBackground: '#eff6ff',
+                                        inputText: '#0f172a',
+                                        inputPlaceholder: '#94a3b8',
+                                        inputBorder: 'transparent',
+                                        inputBorderFocus: '#3b82f6',
+                                    },
+                                    radii: {
+                                        borderRadiusButton: '12px',
+                                        inputBorderRadius: '12px',
+                                    }
                                 }
                             }
-                        }
-                    }}
-                    theme="light"
-                    providers={[]}
-                    redirectTo={window.location.origin}
-                />
-
-                <div className="mt-8 text-center bg-slate-50 p-4 rounded-xl">
-                    <p className="text-xs text-slate-500 font-medium">Use email authentication to secure your social accounts.</p>
+                        }}
+                        theme="light"
+                        providers={[]}
+                        redirectTo={window.location.origin}
+                        localization={{
+                            variables: {
+                                sign_in: {
+                                    button_label: 'Continue with email',
+                                    email_label: '',
+                                    password_label: '',
+                                    email_input_placeholder: 'Email',
+                                    password_input_placeholder: 'Password',
+                                },
+                                update_password: {
+                                    button_label: 'Update Password',
+                                    password_label: 'New Password',
+                                    password_input_placeholder: 'Enter new password',
+                                }
+                            }
+                        }}
+                    />
                 </div>
             </div>
         </div>
