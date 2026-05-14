@@ -73,7 +73,7 @@ export const Connections = () => {
     const confirmConnect = async () => {
         const platformId = showNotesModal;
         const appId = platformId === 'instagram'
-            ? (import.meta.env.VITE_INSTA_APP_ID || import.meta.env.VITE_FB_APP_ID || '997891079244802')
+            ? (import.meta.env.VITE_INSTA_APP_ID || import.meta.env.VITE_FB_APP_ID || '1247702890719706')
             : (import.meta.env.VITE_FB_APP_ID || import.meta.env.VITE_INSTA_APP_ID || '1247702890719706');
 
         console.log('Final Meta App ID used:', appId);
@@ -234,7 +234,7 @@ export const Connections = () => {
 
                                 <div className="text-[10px] text-slate-400 font-mono text-center mb-[-16px]">
                                     DEBUG ID: {(showNotesModal === 'instagram'
-                                        ? (import.meta.env.VITE_INSTA_APP_ID || import.meta.env.VITE_FB_APP_ID || '997891079244802')
+                                        ? (import.meta.env.VITE_INSTA_APP_ID || import.meta.env.VITE_FB_APP_ID || '1247702890719706')
                                         : (import.meta.env.VITE_FB_APP_ID || import.meta.env.VITE_INSTA_APP_ID || '1247702890719706'))}
                                 </div>
                                 <button
