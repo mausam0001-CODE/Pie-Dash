@@ -23,11 +23,15 @@ export const LoginPage = () => {
             <div className="w-full max-w-[400px] text-center space-y-12">
                 <div className="space-y-4">
                     <h1 className="text-4xl md:text-5xl font-medium text-slate-900 tracking-tight">
-                        Your personal<br />tax assistant
+                        Your personal<br />social media dashboard
                     </h1>
-                    <p className="text-slate-500 text-[13px] font-medium tracking-tight">
-                        Privacy first ai to automate all your accounting
-                    </p>
+                    <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 text-slate-500 text-[11px] font-bold uppercase tracking-widest px-4">
+                        <span>AI Content Engine</span>
+                        <span>•</span>
+                        <span>Multi-Account Sync</span>
+                        <span>•</span>
+                        <span>Viral Insights</span>
+                    </div>
                 </div>
 
                 <div className="bg-white">
