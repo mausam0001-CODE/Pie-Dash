@@ -72,9 +72,9 @@ export const Connections = () => {
 
     const confirmConnect = async () => {
         const platformId = showNotesModal;
-        const appId = platformId === 'instagram'
-            ? (import.meta.env.VITE_INSTA_APP_ID || import.meta.env.VITE_FB_APP_ID || '1247702890719706')
-            : (import.meta.env.VITE_FB_APP_ID || import.meta.env.VITE_INSTA_APP_ID || '1247702890719706');
+        // Always use VITE_FB_APP_ID - a single verified Meta App handles both IG and FB.
+        // NEVER use VITE_INSTA_APP_ID - that old app ID is invalid/unconfigured.
+        const appId = import.meta.env.VITE_FB_APP_ID || '1247702890719706';
 
         console.log('Final Meta App ID used:', appId);
         console.log('Platform:', platformId);
@@ -234,9 +234,7 @@ export const Connections = () => {
                                 </div>
 
                                 <div className="text-[10px] text-slate-400 font-mono text-center mb-[-16px]">
-                                    DEBUG ID: {(showNotesModal === 'instagram'
-                                        ? (import.meta.env.VITE_INSTA_APP_ID || import.meta.env.VITE_FB_APP_ID || '1247702890719706')
-                                        : (import.meta.env.VITE_FB_APP_ID || import.meta.env.VITE_INSTA_APP_ID || '1247702890719706'))}
+                                    DEBUG ID: {import.meta.env.VITE_FB_APP_ID || '1247702890719706'}
                                 </div>
                                 <button
                                     onClick={confirmConnect}
