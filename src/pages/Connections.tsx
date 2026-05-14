@@ -96,7 +96,28 @@ export const Connections = () => {
             ? 'instagram_basic,pages_show_list,public_profile'
             : 'pages_show_list,pages_read_engagement,public_profile';
 
-        window.location.href = `https://www.facebook.com/v25.0/dialog/oauth?client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}&state=${state}&response_type=code`;
+        const oauthUrl = `https://www.facebook.com/v25.0/dialog/oauth?client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}&state=${state}&response_type=code`;
+
+        // Open OAuth in a centered popup window (like Instagram/Google auth)
+        const width = 600;
+        const height = 700;
+        const left = window.screen.width / 2 - width / 2;
+        const top = window.screen.height / 2 - height / 2;
+        const popup = window.open(
+            oauthUrl,
+            'MetaOAuth',
+            `width=${width},height=${height},left=${left},top=${top},toolbar=0,menubar=0,location=0`
+        );
+
+        setShowNotesModal(null);
+
+        // Poll for popup close then refresh accounts
+        const timer = setInterval(() => {
+            if (popup?.closed) {
+                clearInterval(timer);
+                fetchAccounts();
+            }
+        }, 800);
     };
 
     const handleSync = async (id: string) => {
