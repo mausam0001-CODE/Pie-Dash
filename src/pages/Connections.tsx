@@ -72,7 +72,10 @@ export const Connections = () => {
 
     const confirmConnect = async (loginMethod: 'ig' | 'fb' = 'fb') => {
         const platformId = showNotesModal;
-        const appId = import.meta.env.VITE_FB_APP_ID || '1247702890719706';
+        // FB App ID is used for Facebook Login
+        const fbAppId = import.meta.env.VITE_FB_APP_ID || '1247702890719706';
+        // NEW: IG App ID is specifically required for the direct Instagram Login flow
+        const igAppId = '997891079244802';
 
         console.log('Connecting platform:', platformId, 'via method:', loginMethod);
 
@@ -89,15 +92,16 @@ export const Connections = () => {
 
         if (platformId === 'instagram' && loginMethod === 'ig') {
             // NEW: Instagram Login — no Facebook Page required!
-            // Uses api.instagram.com and instagram_business_* scopes
+            // USES THE DEDICATED INSTAGRAM APP ID
             const scope = 'instagram_business_basic,instagram_business_content_publish,instagram_business_manage_messages,instagram_business_manage_comments';
-            oauthUrl = `https://api.instagram.com/oauth/authorize?client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}&response_type=code&state=${state}`;
+            oauthUrl = `https://api.instagram.com/oauth/authorize?client_id=${igAppId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}&response_type=code&state=${state}`;
         } else {
             // LEGACY: Facebook Login — requires a Facebook Page linked to Instagram
+            // USES THE STANDARD FACEBOOK APP ID
             const scope = platformId === 'instagram'
                 ? 'instagram_basic,pages_show_list,public_profile'
                 : 'pages_show_list,pages_read_engagement,public_profile';
-            oauthUrl = `https://www.facebook.com/v25.0/dialog/oauth?client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}&state=${state}&response_type=code`;
+            oauthUrl = `https://www.facebook.com/v25.0/dialog/oauth?client_id=${fbAppId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}&state=${state}&response_type=code`;
         }
 
         // Open OAuth in a centered popup window

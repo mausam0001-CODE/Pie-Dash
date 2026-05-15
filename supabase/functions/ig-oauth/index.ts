@@ -30,8 +30,12 @@ serve(async (req) => {
 
         console.log('OAuth Callback:', { userId, targetPlatform, loginMethod })
 
-        const FB_APP_ID = Deno.env.get('FB_APP_ID')
+        const FB_APP_ID = Deno.env.get('FB_APP_ID') || '1247702890719706'
         const FB_APP_SECRET = Deno.env.get('FB_APP_SECRET')
+        // NEW: Dedicated Instagram App ID for the direct IG Login flow
+        const IG_APP_ID = Deno.env.get('IG_APP_ID') || '997891079244802'
+        const IG_APP_SECRET = Deno.env.get('IG_APP_SECRET') || FB_APP_SECRET
+
         const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
         const projectRef = SUPABASE_URL.split('//')[1]?.split('.')[0]
         const REDIRECT_URI = projectRef
@@ -48,30 +52,31 @@ serve(async (req) => {
         // ---------------------------------------------------------------
         if (loginMethod === 'ig') {
             console.log('Using Instagram Login API (no Facebook Page required)')
+            console.log('Using Client ID:', IG_APP_ID)
 
             // 1. Exchange code for short-lived token via Instagram
             const shortResp = await fetch('https://api.instagram.com/oauth/access_token', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: new URLSearchParams({
-                    client_id: FB_APP_ID!,
-                    client_secret: FB_APP_SECRET!,
+                    client_id: IG_APP_ID!,
+                    client_secret: IG_APP_SECRET!,
                     grant_type: 'authorization_code',
                     redirect_uri: REDIRECT_URI,
                     code: code,
                 }).toString()
             })
             const shortData = await shortResp.json()
-            console.log('IG Short Token:', JSON.stringify(shortData))
-            if (shortData.error_type || shortData.error_message) {
-                throw new Error(shortData.error_message || 'Failed to get short-lived token')
+            console.log('IG Short Token Resp:', JSON.stringify(shortData))
+            if (shortData.error_type || shortData.error_message || shortData.error) {
+                throw new Error(shortData.error_message || shortData.error?.message || 'Failed to get short-lived token')
             }
             const shortToken = shortData.access_token
             const igUserId = shortData.user_id
 
             // 2. Exchange for long-lived token
             const longResp = await fetch(
-                `https://graph.instagram.com/access_token?grant_type=ig_exchange_token&client_secret=${FB_APP_SECRET}&access_token=${shortToken}`
+                `https://graph.instagram.com/access_token?grant_type=ig_exchange_token&client_secret=${IG_APP_SECRET}&access_token=${shortToken}`
             )
             const longData = await longResp.json()
             console.log('IG Long Token:', JSON.stringify(longData))
