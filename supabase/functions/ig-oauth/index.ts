@@ -7,7 +7,6 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
-    // Handle CORS
     if (req.method === 'OPTIONS') {
         return new Response('ok', { headers: corsHeaders })
     }
@@ -15,191 +14,264 @@ serve(async (req) => {
     try {
         const url = new URL(req.url)
         const code = url.searchParams.get('code')
-        const state = url.searchParams.get('state') // userId:platform
-        const platformParam = url.searchParams.get('targetPagePlatform');
+        const state = url.searchParams.get('state') // userId:platform:loginMethod
+        const errorParam = url.searchParams.get('error')
 
+        if (errorParam) {
+            throw new Error(`OAuth denied: ${url.searchParams.get('error_description') || errorParam}`)
+        }
         if (!code) throw new Error('No code provided')
 
-        const [userId, targetPlatform] = (state && state.includes(':'))
-            ? state.split(':')
-            : [state || 'team-user', platformParam || 'facebook'];
+        // State format: userId:platform:loginMethod (loginMethod = 'ig' | 'fb')
+        const parts = (state || '').split(':')
+        const userId = parts[0] || 'team-user'
+        const targetPlatform = parts[1] || 'instagram'
+        const loginMethod = parts[2] || 'fb' // 'ig' = Instagram Login, 'fb' = Facebook Login
 
-        console.log('OAuth Callback Details:', { userId, targetPlatform, hasState: !!state, hasParam: !!platformParam });
+        console.log('OAuth Callback:', { userId, targetPlatform, loginMethod })
 
-        // Per official Meta docs, both Instagram and Facebook use the same App ID and Graph API.
-        // See: https://developers.facebook.com/docs/instagram-platform/instagram-api-with-facebook-login/get-started/
-        const FB_APP_ID = Deno.env.get('FB_APP_ID');
-        const FB_APP_SECRET = Deno.env.get('FB_APP_SECRET');
-
+        const FB_APP_ID = Deno.env.get('FB_APP_ID')
+        const FB_APP_SECRET = Deno.env.get('FB_APP_SECRET')
         const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
         const projectRef = SUPABASE_URL.split('//')[1]?.split('.')[0]
         const REDIRECT_URI = projectRef
             ? `https://${projectRef}.supabase.co/functions/v1/ig-oauth`
             : "https://ivsytkzemjludwzhrdsu.supabase.co/functions/v1/ig-oauth"
 
-        // 1. Exchange code for Short-Lived User Access Token (same for both IG and FB)
-        // Per Meta docs, always use graph.facebook.com for this step.
-        const shortResp = await fetch(`https://graph.facebook.com/v25.0/oauth/access_token?client_id=${FB_APP_ID}&client_secret=${FB_APP_SECRET}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&code=${code}`)
-        const shortData = await shortResp.json()
-        console.log('Short Token Response:', JSON.stringify(shortData));
-        if (shortData.error) throw new Error(shortData.error.message)
-        let accessToken = shortData.access_token;
+        let accessToken = ''
+        let accountId = ''
+        let username = ''
+        let avatarUrl = ''
 
-        // 2. Exchange for Long-Lived User Access Token
-        const longResp = await fetch(`https://graph.facebook.com/v25.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${FB_APP_ID}&client_secret=${FB_APP_SECRET}&fb_exchange_token=${accessToken}`)
-        const longData = await longResp.json()
-        if (longData.error) throw new Error(longData.error.message)
-        let longToken = longData.access_token || accessToken;
+        // ---------------------------------------------------------------
+        // PATH A: Instagram Login (graph.instagram.com) — No Facebook Page
+        // ---------------------------------------------------------------
+        if (loginMethod === 'ig') {
+            console.log('Using Instagram Login API (no Facebook Page required)')
 
-        // 3. Get Profile Details via Facebook Graph API
-        // Per official docs: GET /me/accounts -> find page -> get instagram_business_account from page
-        let accountId = '';
-        let username = '';
-        let avatarUrl = '';
-
-        if (targetPlatform === 'instagram') {
-            // Step A: Get the user's Facebook Pages
-            const pagesResp = await fetch(`https://graph.facebook.com/v25.0/me/accounts?access_token=${longToken}`)
-            const pagesData = await pagesResp.json()
-            console.log('Pages Data:', JSON.stringify(pagesData));
-            if (pagesData.error) throw new Error(pagesData.error.message)
-            const page = pagesData.data?.[0]
-            if (!page) throw new Error('No Facebook Page found. Your Instagram Business Account must be linked to a Facebook Page.')
-
-            // Step B: Get the Instagram Business Account from the Page
-            const igResp = await fetch(`https://graph.facebook.com/v25.0/${page.id}?fields=instagram_business_account&access_token=${longToken}`)
-            const igData = await igResp.json()
-            console.log('IG Business Account Data:', JSON.stringify(igData));
-            if (!igData.instagram_business_account) throw new Error('No Instagram Business Account linked to your Facebook Page. Please link one in your Instagram settings.')
-
-            // Step C: Get the Instagram Business Account Profile
-            const igProfResp = await fetch(`https://graph.facebook.com/v25.0/${igData.instagram_business_account.id}?fields=id,username,profile_picture_url&access_token=${longToken}`)
-            const igProfData = await igProfResp.json()
-            if (igProfData.error) throw new Error(igProfData.error.message)
-            accountId = igProfData.id;
-            username = igProfData.username;
-            avatarUrl = igProfData.profile_picture_url;
-
-        } else {
-            // Facebook: get the first Page, fallback to user profile
-            const pagesResp = await fetch(`https://graph.facebook.com/v25.0/me/accounts?access_token=${longToken}`)
-            const pagesData = await pagesResp.json()
-            if (pagesData.error) throw new Error(pagesData.error.message)
-            const page = pagesData.data?.[0]
-
-            if (page) {
-                accountId = page.id;
-                username = page.name;
-                avatarUrl = `https://graph.facebook.com/v25.0/${page.id}/picture?type=square&access_token=${longToken}`;
-            } else {
-                const userResp = await fetch(`https://graph.facebook.com/v25.0/me?fields=id,name,picture&access_token=${longToken}`)
-                const userData = await userResp.json()
-                if (userData.error) throw new Error(userData.error.message)
-                accountId = userData.id;
-                username = userData.name;
-                avatarUrl = userData.picture?.data?.url;
-            }
-        }
-
-        // 4. Save to DB
-        const supabase = createClient(
-            SUPABASE_URL,
-            Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-        )
-
-        const { data: savedAccount, error } = await supabase
-            .from('social_accounts')
-            .upsert({
-                user_id: userId,
-                platform: targetPlatform,
-                access_token: longToken,
-                account_id: accountId,
-                username: username,
-                avatar_url: avatarUrl,
-                expires_at: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString()
+            // 1. Exchange code for short-lived token via Instagram
+            const shortResp = await fetch('https://api.instagram.com/oauth/access_token', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({
+                    client_id: FB_APP_ID!,
+                    client_secret: FB_APP_SECRET!,
+                    grant_type: 'authorization_code',
+                    redirect_uri: REDIRECT_URI,
+                    code: code,
+                }).toString()
             })
-            .select()
-            .single()
+            const shortData = await shortResp.json()
+            console.log('IG Short Token:', JSON.stringify(shortData))
+            if (shortData.error_type || shortData.error_message) {
+                throw new Error(shortData.error_message || 'Failed to get short-lived token')
+            }
+            const shortToken = shortData.access_token
+            const igUserId = shortData.user_id
 
-        if (error) throw error;
+            // 2. Exchange for long-lived token
+            const longResp = await fetch(
+                `https://graph.instagram.com/access_token?grant_type=ig_exchange_token&client_secret=${FB_APP_SECRET}&access_token=${shortToken}`
+            )
+            const longData = await longResp.json()
+            console.log('IG Long Token:', JSON.stringify(longData))
+            if (longData.error) throw new Error(longData.error.message || 'Failed to get long-lived token')
+            accessToken = longData.access_token || shortToken
 
-        // 5. Seed Initial Data (Followers & Recent Posts)
-        try {
-            if (targetPlatform === 'instagram') {
-                // Get Follower Count
-                const igMetricsResp = await fetch(`https://graph.facebook.com/v25.0/${accountId}?fields=followers_count&access_token=${longToken}`)
-                const igMetrics = await igMetricsResp.json()
-                if (igMetrics.followers_count !== undefined) {
+            // 3. Get Instagram profile using graph.instagram.com
+            const profResp = await fetch(
+                `https://graph.instagram.com/v25.0/me?fields=id,username,profile_picture_url,followers_count&access_token=${accessToken}`
+            )
+            const profData = await profResp.json()
+            console.log('IG Profile:', JSON.stringify(profData))
+            if (profData.error) throw new Error(profData.error.message)
+            accountId = profData.id || String(igUserId)
+            username = profData.username || 'instagram_user'
+            avatarUrl = profData.profile_picture_url || ''
+
+            // 4. Save account to DB
+            const supabase = createClient(SUPABASE_URL, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '')
+            const { data: savedAccount, error: saveError } = await supabase
+                .from('social_accounts')
+                .upsert({
+                    user_id: userId,
+                    platform: 'instagram',
+                    access_token: accessToken,
+                    account_id: String(accountId),
+                    username: username,
+                    avatar_url: avatarUrl,
+                    expires_at: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString()
+                }, { onConflict: 'user_id,platform,account_id' })
+                .select()
+                .single()
+            if (saveError) throw saveError
+
+            // 5. Seed initial data using graph.instagram.com
+            try {
+                if (profData.followers_count !== undefined) {
                     await supabase.from('account_metrics').upsert({
                         social_account_id: savedAccount.id,
-                        follower_count: igMetrics.followers_count,
-                        month: new Date().toISOString().split('T')[0].substring(0, 7) + '-01'
+                        follower_count: profData.followers_count,
+                        month: new Date().toISOString().substring(0, 7) + '-01'
                     })
                 }
-
-                // Get Recent Posts
-                const mediaResp = await fetch(`https://graph.facebook.com/v25.0/${accountId}/media?fields=id,caption,media_url,thumbnail_url,timestamp,like_count,comments_count&limit=10&access_token=${longToken}`)
+                // Get recent media
+                const mediaResp = await fetch(
+                    `https://graph.instagram.com/v25.0/me/media?fields=id,caption,media_url,thumbnail_url,timestamp,like_count,comments_count&limit=10&access_token=${accessToken}`
+                )
                 const mediaData = await mediaResp.json()
-                if (mediaData.data) {
+                if (mediaData.data?.length) {
                     const postsToInsert = mediaData.data.map((m: any) => ({
                         social_account_id: savedAccount.id,
+                        external_id: m.id,
                         title: m.caption?.substring(0, 50) || 'Untitled Post',
                         caption: m.caption || '',
                         media_url: m.media_url || m.thumbnail_url,
                         platforms: 'instagram',
                         status: 'Published',
-                        view_count: m.like_count * 15, // Simplified estimation
                         like_count: m.like_count || 0,
                         scheduled_at: m.timestamp,
                         created_at: m.timestamp
                     }))
-                    await supabase.from('posts').upsert(postsToInsert)
-                }
-            } else if (targetPlatform === 'facebook') {
-                // Get Page Follower Count
-                const fbMetricsResp = await fetch(`https://graph.facebook.com/v25.0/${accountId}?fields=fan_count&access_token=${longToken}`)
-                const fbMetrics = await fbMetricsResp.json()
-                if (fbMetrics.fan_count !== undefined) {
-                    await supabase.from('account_metrics').upsert({
-                        social_account_id: savedAccount.id,
-                        follower_count: fbMetrics.fan_count,
-                        month: new Date().toISOString().split('T')[0].substring(0, 7) + '-01'
-                    })
-                }
-
-                // Get Recent Feed Posts
-                const feedResp = await fetch(`https://graph.facebook.com/v25.0/${accountId}/feed?fields=id,message,full_picture,created_time&limit=20&access_token=${longToken}`)
-                const feedData = await feedResp.json()
-                if (feedData.data) {
-                    const postsToInsert = feedData.data.map((f: any) => {
-                        const likes = Math.floor(Math.random() * 40) + 10;
-                        return {
-                            social_account_id: savedAccount.id,
-                            external_id: f.id,
-                            title: f.message?.substring(0, 50) || 'Facebook Post',
-                            caption: f.message || '',
-                            media_url: f.full_picture,
-                            platforms: 'facebook',
-                            status: 'Published',
-                            view_count: likes * 12 + Math.floor(Math.random() * 50),
-                            like_count: likes,
-                            scheduled_at: f.created_time,
-                            created_at: f.created_time
-                        }
-                    })
                     await supabase.from('posts').upsert(postsToInsert, { onConflict: 'social_account_id,external_id' })
                 }
+            } catch (seedError) {
+                console.error('Seeding error (non-fatal):', seedError)
             }
-        } catch (seedError) {
-            console.error('Error seeding initial data:', seedError)
-            // We don't throw here to avoid failing the whole connection if just seeding fails
+
+            // ---------------------------------------------------------------
+            // PATH B: Facebook Login (graph.facebook.com) — Requires FB Page
+            // ---------------------------------------------------------------
+        } else {
+            console.log('Using Facebook Login API')
+
+            // 1. Exchange code for short token
+            const shortResp = await fetch(
+                `https://graph.facebook.com/v25.0/oauth/access_token?client_id=${FB_APP_ID}&client_secret=${FB_APP_SECRET}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&code=${code}`
+            )
+            const shortData = await shortResp.json()
+            console.log('FB Short Token:', JSON.stringify(shortData))
+            if (shortData.error) throw new Error(shortData.error.message)
+            let shortToken = shortData.access_token
+
+            // 2. Exchange for long-lived token
+            const longResp = await fetch(
+                `https://graph.facebook.com/v25.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${FB_APP_ID}&client_secret=${FB_APP_SECRET}&fb_exchange_token=${shortToken}`
+            )
+            const longData = await longResp.json()
+            if (longData.error) throw new Error(longData.error.message)
+            let longToken = longData.access_token || shortToken
+
+            if (targetPlatform === 'instagram') {
+                // Get Facebook Pages
+                const pagesResp = await fetch(`https://graph.facebook.com/v25.0/me/accounts?access_token=${longToken}`)
+                const pagesData = await pagesResp.json()
+                if (pagesData.error) throw new Error(pagesData.error.message)
+                const page = pagesData.data?.[0]
+                if (!page) throw new Error('No Facebook Page found. Your Instagram Business Account must be linked to a Facebook Page. (Use "Connect via Instagram" for accounts without a Facebook Page)')
+
+                // Get Instagram Business Account from Page
+                const igResp = await fetch(`https://graph.facebook.com/v25.0/${page.id}?fields=instagram_business_account&access_token=${longToken}`)
+                const igData = await igResp.json()
+                if (!igData.instagram_business_account) throw new Error('No Instagram Business Account linked to your Facebook Page.')
+
+                // Get Profile
+                const profResp = await fetch(`https://graph.facebook.com/v25.0/${igData.instagram_business_account.id}?fields=id,username,profile_picture_url&access_token=${longToken}`)
+                const profData = await profResp.json()
+                if (profData.error) throw new Error(profData.error.message)
+                accountId = profData.id
+                username = profData.username
+                avatarUrl = profData.profile_picture_url
+                accessToken = longToken
+            } else {
+                // Facebook Page
+                const pagesResp = await fetch(`https://graph.facebook.com/v25.0/me/accounts?access_token=${longToken}`)
+                const pagesData = await pagesResp.json()
+                if (pagesData.error) throw new Error(pagesData.error.message)
+                const page = pagesData.data?.[0]
+                if (page) {
+                    accountId = page.id
+                    username = page.name
+                    avatarUrl = `https://graph.facebook.com/v25.0/${page.id}/picture?type=square&access_token=${longToken}`
+                } else {
+                    const userResp = await fetch(`https://graph.facebook.com/v25.0/me?fields=id,name,picture&access_token=${longToken}`)
+                    const userData = await userResp.json()
+                    if (userData.error) throw new Error(userData.error.message)
+                    accountId = userData.id
+                    username = userData.name
+                    avatarUrl = userData.picture?.data?.url
+                }
+                accessToken = longToken
+            }
+
+            // Save to DB
+            const supabase = createClient(SUPABASE_URL, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '')
+            const { data: savedAccount, error: saveError } = await supabase
+                .from('social_accounts')
+                .upsert({
+                    user_id: userId,
+                    platform: targetPlatform,
+                    access_token: accessToken,
+                    account_id: accountId,
+                    username: username,
+                    avatar_url: avatarUrl,
+                    expires_at: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString()
+                }, { onConflict: 'user_id,platform,account_id' })
+                .select()
+                .single()
+            if (saveError) throw saveError
+
+            // Seed data
+            try {
+                if (targetPlatform === 'instagram') {
+                    const igMetricsResp = await fetch(`https://graph.facebook.com/v25.0/${accountId}?fields=followers_count&access_token=${accessToken}`)
+                    const igMetrics = await igMetricsResp.json()
+                    if (igMetrics.followers_count !== undefined) {
+                        await supabase.from('account_metrics').upsert({
+                            social_account_id: savedAccount.id,
+                            follower_count: igMetrics.followers_count,
+                            month: new Date().toISOString().substring(0, 7) + '-01'
+                        })
+                    }
+                    const mediaResp = await fetch(`https://graph.facebook.com/v25.0/${accountId}/media?fields=id,caption,media_url,thumbnail_url,timestamp,like_count,comments_count&limit=10&access_token=${accessToken}`)
+                    const mediaData = await mediaResp.json()
+                    if (mediaData.data) {
+                        const postsToInsert = mediaData.data.map((m: any) => ({
+                            social_account_id: savedAccount.id,
+                            external_id: m.id,
+                            title: m.caption?.substring(0, 50) || 'Untitled Post',
+                            caption: m.caption || '',
+                            media_url: m.media_url || m.thumbnail_url,
+                            platforms: 'instagram',
+                            status: 'Published',
+                            like_count: m.like_count || 0,
+                            scheduled_at: m.timestamp,
+                            created_at: m.timestamp
+                        }))
+                        await supabase.from('posts').upsert(postsToInsert, { onConflict: 'social_account_id,external_id' })
+                    }
+                } else {
+                    const fbMetricsResp = await fetch(`https://graph.facebook.com/v25.0/${accountId}?fields=fan_count&access_token=${accessToken}`)
+                    const fbMetrics = await fbMetricsResp.json()
+                    if (fbMetrics.fan_count !== undefined) {
+                        await supabase.from('account_metrics').upsert({
+                            social_account_id: savedAccount.id,
+                            follower_count: fbMetrics.fan_count,
+                            month: new Date().toISOString().substring(0, 7) + '-01'
+                        })
+                    }
+                }
+            } catch (seedError) {
+                console.error('Seeding error (non-fatal):', seedError)
+            }
         }
 
-        // 6. Redirect back to app
+        // Redirect back to app
         const frontendUrl = Deno.env.get('FRONTEND_URL') || 'https://pie-dash.vercel.app'
         return Response.redirect(`${frontendUrl}/connections?status=connected`)
 
-    } catch (error) {
+    } catch (err) {
+        const error = err as Error
         const url = new URL(req.url)
         return new Response(JSON.stringify({
             error: error.message,

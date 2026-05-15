@@ -70,35 +70,37 @@ export const Connections = () => {
         }
     };
 
-    const confirmConnect = async () => {
+    const confirmConnect = async (loginMethod: 'ig' | 'fb' = 'fb') => {
         const platformId = showNotesModal;
-        // Always use VITE_FB_APP_ID - a single verified Meta App handles both IG and FB.
-        // NEVER use VITE_INSTA_APP_ID - that old app ID is invalid/unconfigured.
         const appId = import.meta.env.VITE_FB_APP_ID || '1247702890719706';
 
-        console.log('Final Meta App ID used:', appId);
-        console.log('Platform:', platformId);
+        console.log('Connecting platform:', platformId, 'via method:', loginMethod);
 
         const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
         const projectRef = supabaseUrl.split('//')[1]?.split('.')[0];
-        const redirectUriBase = projectRef
+        const redirectUri = projectRef
             ? `https://${projectRef}.supabase.co/functions/v1/ig-oauth`
             : "https://ivsytkzemjludwzhrdsu.supabase.co/functions/v1/ig-oauth";
 
-        // Meta requires the redirect_uri to be an EXACT match. Do not add dynamic query params.
-        const redirectUri = redirectUriBase;
-        const state = `${session?.user?.id || 'team-user'}:${platformId}`;
+        // State now includes loginMethod: userId:platform:loginMethod
+        const state = `${session?.user?.id || 'team-user'}:${platformId}:${loginMethod}`;
 
-        // Per official Meta docs: https://developers.facebook.com/docs/instagram-platform/instagram-api-with-facebook-login/get-started/
-        // Only instagram_basic + pages_show_list are required to start the connection.
-        // Advanced permissions (publishing, insights) require App Review and are added separately.
-        const scope = platformId === 'instagram'
-            ? 'instagram_basic,pages_show_list,public_profile'
-            : 'pages_show_list,pages_read_engagement,public_profile';
+        let oauthUrl = '';
 
-        const oauthUrl = `https://www.facebook.com/v25.0/dialog/oauth?client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}&state=${state}&response_type=code`;
+        if (platformId === 'instagram' && loginMethod === 'ig') {
+            // NEW: Instagram Login — no Facebook Page required!
+            // Uses api.instagram.com and instagram_business_* scopes
+            const scope = 'instagram_business_basic,instagram_business_content_publish,instagram_business_manage_messages,instagram_business_manage_comments';
+            oauthUrl = `https://api.instagram.com/oauth/authorize?client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}&response_type=code&state=${state}`;
+        } else {
+            // LEGACY: Facebook Login — requires a Facebook Page linked to Instagram
+            const scope = platformId === 'instagram'
+                ? 'instagram_basic,pages_show_list,public_profile'
+                : 'pages_show_list,pages_read_engagement,public_profile';
+            oauthUrl = `https://www.facebook.com/v25.0/dialog/oauth?client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}&state=${state}&response_type=code`;
+        }
 
-        // Open OAuth in a centered popup window (like Instagram/Google auth)
+        // Open OAuth in a centered popup window
         const width = 600;
         const height = 700;
         const left = window.screen.width / 2 - width / 2;
@@ -257,12 +259,30 @@ export const Connections = () => {
                                 <div className="text-[10px] text-slate-400 font-mono text-center mb-[-16px]">
                                     DEBUG ID: {import.meta.env.VITE_FB_APP_ID || '1247702890719706'}
                                 </div>
-                                <button
-                                    onClick={confirmConnect}
-                                    className="w-full py-4 bg-slate-950 text-white rounded-2xl text-[13px] font-bold flex items-center justify-center gap-2 hover:bg-black transition-all shadow-xl shadow-slate-900/10"
-                                >
-                                    <Plus className="w-4 h-4" /> Connect
-                                </button>
+                                {showNotesModal === 'instagram' ? (
+                                    <div className="space-y-2">
+                                        <button
+                                            onClick={() => confirmConnect('ig')}
+                                            className="w-full py-4 bg-gradient-to-r from-purple-600 to-pink-500 text-white rounded-2xl text-[13px] font-bold flex items-center justify-center gap-2 hover:opacity-90 transition-all shadow-xl shadow-pink-500/20"
+                                        >
+                                            <Instagram className="w-4 h-4" /> Connect via Instagram
+                                            <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full ml-1">No Facebook Page needed ✓</span>
+                                        </button>
+                                        <button
+                                            onClick={() => confirmConnect('fb')}
+                                            className="w-full py-3 bg-slate-100 text-slate-600 rounded-2xl text-[12px] font-semibold flex items-center justify-center gap-2 hover:bg-slate-200 transition-all"
+                                        >
+                                            <Globe className="w-4 h-4" /> Connect via Facebook (requires linked Page)
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <button
+                                        onClick={() => confirmConnect('fb')}
+                                        className="w-full py-4 bg-slate-950 text-white rounded-2xl text-[13px] font-bold flex items-center justify-center gap-2 hover:bg-black transition-all shadow-xl shadow-slate-900/10"
+                                    >
+                                        <Plus className="w-4 h-4" /> Connect
+                                    </button>
+                                )}
 
                                 <div className="space-y-4 pt-4 border-t border-slate-200/50">
                                     {[
