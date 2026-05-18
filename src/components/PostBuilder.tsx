@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { X, ChevronRight, ChevronLeft, Globe, FileText, Image as ImageIcon, Smartphone, Settings, CheckCircle, Instagram, Twitter, Facebook, Youtube, Plus, Save, Send, Eye, Sparkles, Calendar, Clock, Upload } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { X, ChevronRight, ChevronLeft, Globe, FileText, Image as ImageIcon, Smartphone, Settings, CheckCircle, Instagram, Twitter, Facebook, Youtube, Plus, Save, Send, Eye, Sparkles, Calendar, Clock, Upload, AlertCircle } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabase';
 import { usePostMutations } from '../features/posts/usePostMutations';
@@ -10,6 +10,25 @@ import { twMerge } from 'tailwind-merge';
 function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs));
 }
+
+type ToastType = 'success' | 'error' | 'draft';
+interface ToastItem { id: number; message: string; type: ToastType; }
+const InlineToast = ({ toasts, onRemove }: { toasts: ToastItem[], onRemove: (id: number) => void }) => (
+    <div className="fixed top-6 right-6 z-[200] flex flex-col gap-3 pointer-events-none">
+        {toasts.map(t => (
+            <div key={t.id} className={`pointer-events-auto flex items-center gap-3 px-5 py-4 rounded-2xl shadow-2xl border text-sm font-bold animate-in slide-in-from-right-4 duration-300 max-w-sm ${t.type === 'success' ? 'bg-emerald-500 text-white border-emerald-400' :
+                    t.type === 'draft' ? 'bg-slate-800 text-white border-slate-700' :
+                        'bg-red-500 text-white border-red-400'
+                }`}>
+                {t.type === 'success' && <CheckCircle className="w-4 h-4 shrink-0" />}
+                {t.type === 'draft' && <Save className="w-4 h-4 shrink-0" />}
+                {t.type === 'error' && <AlertCircle className="w-4 h-4 shrink-0" />}
+                <span className="flex-1">{t.message}</span>
+                <button onClick={() => onRemove(t.id)} className="opacity-60 hover:opacity-100"><X className="w-3.5 h-3.5" /></button>
+            </div>
+        ))}
+    </div>
+);
 
 interface PostBuilderProps {
     onClose: () => void;
@@ -41,9 +60,21 @@ export const PostBuilder = ({ onClose, initialReel }: PostBuilderProps) => {
     const { activeAccount } = useAccountContext();
     const [currentStep, setCurrentStep] = useState(1);
     const [isScheduling, setIsScheduling] = useState(false);
+    const [isSavingDraft, setIsSavingDraft] = useState(false);
     const [connectedAccounts, setConnectedAccounts] = useState<any[]>([]);
     const [selectedAccounts, setSelectedAccounts] = useState<string[]>([]);
     const [labels, setLabels] = useState(['Product', 'Education', 'Vlog', 'Tutorial']);
+    const [toasts, setToasts] = useState<ToastItem[]>([]);
+    const [showCloseConfirm, setShowCloseConfirm] = useState(false);
+    const [isDirty, setIsDirty] = useState(false);
+    const [titleError, setTitleError] = useState('');
+
+    const addToast = useCallback((message: string, type: ToastType) => {
+        const id = Date.now();
+        setToasts(p => [...p, { id, message, type }]);
+        setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 4000);
+    }, []);
+
     const [postData, setPostData] = useState({
         title: initialReel?.title || '',
         caption: initialReel?.caption || '',
@@ -51,8 +82,10 @@ export const PostBuilder = ({ onClose, initialReel }: PostBuilderProps) => {
         mediaType: initialReel?.media_type || 'IMAGE',
         thumbnailUrl: initialReel?.thumbnail_url || '',
         category: initialReel?.category || 'Post',
-        hashtags: initialReel?.hashtags || '',
-        visibility: 'Public (Recommended)',
+        hashtags: Array.isArray(initialReel?.tags)
+            ? (initialReel.tags as string[]).map(t => `#${t}`).join(' ')
+            : (initialReel?.hashtags || ''),
+        visibility: initialReel?.visibility || 'Public (Recommended)',
         scheduledAt: initialReel?.scheduled_at ? new Date(initialReel.scheduled_at).toISOString().substring(0, 16) : new Date().toISOString().substring(0, 16),
         status: initialReel?.status || 'Draft'
     });
@@ -121,8 +154,56 @@ export const PostBuilder = ({ onClose, initialReel }: PostBuilderProps) => {
         fetchData();
     }, [session?.user, activeAccount, initialReel]);
 
-    const nextStep = () => setCurrentStep(prev => Math.min(prev + 1, 7));
+    const nextStep = () => {
+        if (currentStep === 2 && !postData.title.trim()) {
+            setTitleError('Post name is required before continuing.');
+            return;
+        }
+        setTitleError('');
+        setCurrentStep(prev => Math.min(prev + 1, 7));
+    };
     const prevStep = () => setCurrentStep(prev => Math.max(prev - 1, 1));
+
+    const handleClose = () => {
+        if (isDirty) setShowCloseConfirm(true);
+        else onClose();
+    };
+
+    const buildTagsArr = (hashtags: string) =>
+        hashtags.split(/[ ,]+/).filter(Boolean).map(t => t.startsWith('#') ? t.substring(1).toLowerCase() : t.toLowerCase());
+
+    const handleSaveDraft = async () => {
+        if (!session?.user) return;
+        setIsSavingDraft(true);
+        try {
+            const payload = {
+                user_id: session.user.id,
+                title: postData.title || 'Untitled Draft',
+                caption: postData.caption,
+                media_url: postData.mediaUrl,
+                media_type: postData.mediaType,
+                thumbnail_url: postData.thumbnailUrl,
+                category: postData.category,
+                tags: buildTagsArr(postData.hashtags),
+                visibility: postData.visibility,
+                status: 'Draft' as const,
+            };
+            if (initialReel?.id) {
+                const acc = connectedAccounts.find(a => a.id === selectedAccounts[0]);
+                await updatePost.mutateAsync({ id: initialReel.id, updates: { ...payload, social_account_id: acc?.id, platforms: acc?.platform ? [acc.platform] : [] } });
+            } else {
+                const acc = connectedAccounts.find(a => a.id === selectedAccounts[0]);
+                await createPost.mutateAsync({ ...payload, social_account_id: selectedAccounts[0], platforms: acc?.platform ? [acc.platform] : [] });
+            }
+            setIsDirty(false);
+            addToast('Draft saved!', 'draft');
+            onClose();
+        } catch (err: any) {
+            addToast('Error saving draft: ' + err.message, 'error');
+        } finally {
+            setIsSavingDraft(false);
+        }
+    };
 
     const handleSchedule = async () => {
         if (!session?.user) return;
@@ -143,24 +224,18 @@ export const PostBuilder = ({ onClose, initialReel }: PostBuilderProps) => {
                 scheduled_at: new Date(postData.scheduledAt).toISOString(),
                 status: 'Scheduled',
                 category: postData.category,
-                tags: postData.hashtags.split(/[ ,]+/).filter(Boolean).map((t: string) => t.startsWith('#') ? t.substring(1).toLowerCase() : t.toLowerCase()),
+                tags: buildTagsArr(postData.hashtags),
                 visibility: postData.visibility
             };
 
             if (initialReel?.id) {
-                // If editing, we only update the specific record
                 const account = connectedAccounts.find(a => a.id === selectedAccounts[0]);
                 await updatePost.mutateAsync({
                     id: initialReel.id,
-                    updates: {
-                        ...basePayload,
-                        social_account_id: account?.id,
-                        platforms: account?.platform ? [account.platform] : []
-                    }
+                    updates: { ...basePayload, social_account_id: account?.id, platforms: account?.platform ? [account.platform] : [] }
                 });
-                alert('Post updated successfully!');
+                addToast('Post updated successfully!', 'success');
             } else {
-                // If new, create one post entry per selected account for proper segregation
                 const promises = selectedAccounts.map(accountId => {
                     const account = connectedAccounts.find(a => a.id === accountId);
                     const settings = accountSettings[accountId] || {};
@@ -172,13 +247,13 @@ export const PostBuilder = ({ onClose, initialReel }: PostBuilderProps) => {
                     });
                 });
                 await Promise.all(promises);
-                alert(`Successfully scheduled to ${selectedAccounts.length} account${selectedAccounts.length > 1 ? 's' : ''}!`);
+                addToast(`Scheduled to ${selectedAccounts.length} account${selectedAccounts.length > 1 ? 's' : ''}!`, 'success');
             }
-
+            setIsDirty(false);
             onClose();
         } catch (error: any) {
             console.error('Error saving post:', error);
-            alert('Error saving post: ' + error.message);
+            addToast('Error: ' + error.message, 'error');
         } finally {
             setIsScheduling(false);
         }
@@ -186,120 +261,154 @@ export const PostBuilder = ({ onClose, initialReel }: PostBuilderProps) => {
 
     const renderStep = () => {
         switch (currentStep) {
-            case 1: return <StepAccounts accounts={connectedAccounts} selected={selectedAccounts} onToggle={(id) => setSelectedAccounts(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])} />;
-            case 2: return <StepBasicInfo value={postData.title} onChange={(v) => setPostData(d => ({ ...d, title: v }))} labels={labels} selectedLabel={postData.category} onLabelSelect={(l) => setPostData(d => ({ ...d, category: l }))} onAddLabel={(l) => setLabels(prev => [...prev, l])} />;
-            case 3: return <StepGenericContent caption={postData.caption} onCaptionChange={(v) => setPostData(d => ({ ...d, caption: v }))} mediaUrl={postData.mediaUrl} mediaType={postData.mediaType} onMediaUpload={(url, type) => setPostData(d => ({ ...d, mediaUrl: url, mediaType: type, thumbnailUrl: url }))} />;
+            case 1: return <StepAccounts accounts={connectedAccounts} selected={selectedAccounts} onToggle={(id) => { setIsDirty(true); setSelectedAccounts(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]); }} />;
+            case 2: return <StepBasicInfo value={postData.title} onChange={(v) => { setIsDirty(true); setPostData(d => ({ ...d, title: v })); }} labels={labels} selectedLabel={postData.category} onLabelSelect={(l) => setPostData(d => ({ ...d, category: l }))} onAddLabel={(l) => setLabels(prev => [...prev, l])} />;
+            case 3: return <StepGenericContent caption={postData.caption} onCaptionChange={(v) => { setIsDirty(true); setPostData(d => ({ ...d, caption: v })); }} mediaUrl={postData.mediaUrl} mediaType={postData.mediaType} onMediaUpload={(url, type) => { setIsDirty(true); setPostData(d => ({ ...d, mediaUrl: url, mediaType: type, thumbnailUrl: url })); }} />;
             case 4: return <StepFineTune accounts={connectedAccounts.filter(a => selectedAccounts.includes(a.id))} postData={postData} settings={accountSettings} onSettingChange={(id, key, val) => setAccountSettings(prev => ({ ...prev, [id]: { ...(prev[id] || {}), [key]: val } }))} />;
-            case 5: return <StepSettings hashtags={postData.hashtags} onHashtagsChange={(v) => setPostData(d => ({ ...d, hashtags: v }))} visibility={postData.visibility} onVisibilityChange={(v) => setPostData(d => ({ ...d, visibility: v }))} />;
+            case 5: return <StepSettings hashtags={postData.hashtags} onHashtagsChange={(v) => { setIsDirty(true); setPostData(d => ({ ...d, hashtags: v })); }} visibility={postData.visibility} onVisibilityChange={(v) => setPostData(d => ({ ...d, visibility: v }))} />;
             case 6: return <StepReview data={postData} accounts={connectedAccounts.filter(a => selectedAccounts.includes(a.id))} reach={formatReach(estimatedReach)} />;
-            case 7: return <StepSchedule value={postData.scheduledAt} timezone={userSettings?.timezone} onChange={(v) => setPostData(d => ({ ...d, scheduledAt: v }))} />;
+            case 7: return <StepSchedule value={postData.scheduledAt} timezone={userSettings?.timezone} onChange={(v) => { setIsDirty(true); setPostData(d => ({ ...d, scheduledAt: v })); }} />;
             default: return null;
         }
     };
 
     return (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-0 sm:p-6 md:p-8 animate-in fade-in zoom-in-95 duration-500 overflow-hidden">
-            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-xl" onClick={onClose}></div>
+        <>
+            <InlineToast toasts={toasts} onRemove={(id) => setToasts(p => p.filter(t => t.id !== id))} />
 
-            <div className="bg-slate-50 w-full h-full max-w-[1200px] sm:max-h-[92vh] sm:rounded-[3rem] shadow-[0_0_80px_rgba(0,0,0,0.15)] relative flex flex-col overflow-hidden ring-1 ring-slate-200">
-                {/* Header with Progress Bar */}
-                <div className="p-4 sm:p-8 border-b border-slate-200/60 bg-white sticky top-0 z-10">
-                    <div className="flex items-center justify-between mb-4 sm:mb-8">
-                        <div className="flex items-center gap-3 md:gap-4">
-                            <div className="w-10 h-10 md:w-12 md:h-12 bg-teal-500 rounded-xl md:rounded-2xl flex items-center justify-center text-white shadow-lg shadow-teal-200 shrink-0">
-                                <Plus className="w-5 h-5 md:w-6 md:h-6" />
-                            </div>
-                            <div className="min-w-0">
-                                <h2 className="text-lg md:text-2xl font-black text-slate-900 tracking-tight truncate">Build New Post</h2>
-                                <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mt-0.5 truncate">Multi-Channel Distribution</p>
-                            </div>
+            {showCloseConfirm && (
+                <div className="fixed inset-0 z-[150] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" />
+                    <div className="bg-white rounded-[2rem] p-8 relative z-10 shadow-2xl max-w-sm w-full text-center space-y-4">
+                        <div className="w-14 h-14 bg-amber-50 rounded-2xl flex items-center justify-center mx-auto">
+                            <Save className="w-7 h-7 text-amber-500" />
                         </div>
-                        <button onClick={onClose} className="p-2 sm:p-3 hover:bg-slate-50 rounded-xl transition-all text-slate-400 hover:text-slate-600">
-                            <X className="w-5 h-5 md:w-6 md:h-6" />
-                        </button>
+                        <h3 className="text-lg font-black text-slate-900">Save before closing?</h3>
+                        <p className="text-sm text-slate-500">You have unsaved changes. Would you like to save a draft?</p>
+                        <div className="flex gap-3 pt-2">
+                            <button onClick={() => { setShowCloseConfirm(false); onClose(); }} className="flex-1 py-3 rounded-xl text-sm font-bold text-slate-500 hover:bg-slate-100 transition-colors">Discard</button>
+                            <button onClick={() => { setShowCloseConfirm(false); handleSaveDraft(); }} className="flex-1 py-3 rounded-xl text-sm font-black bg-slate-900 text-white hover:bg-slate-800 transition-colors">Save Draft</button>
+                        </div>
                     </div>
+                </div>
+            )}
 
-                    <div className="flex items-center justify-between relative px-1 sm:px-2">
-                        {/* Progress Line Background */}
-                        <div className="absolute top-[16px] sm:top-[18px] left-0 right-0 h-1 bg-slate-100 -z-10 rounded-full mx-6 sm:mx-12"></div>
-                        {/* Progress Line Active */}
-                        <div
-                            className="absolute top-[16px] sm:top-[18px] left-0 h-1 bg-teal-500 -z-10 transition-all duration-500 ease-out rounded-full mx-6 sm:mx-12"
-                            style={{ width: `${((currentStep - 1) / (STEPS.length - 1)) * 100}%` }}
-                        ></div>
+            <div className="fixed inset-0 z-[70] flex items-center justify-center p-0 sm:p-6 md:p-8 animate-in fade-in zoom-in-95 duration-500 overflow-hidden">
+                <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-xl" onClick={handleClose}></div>
 
-                        {STEPS.map((step, i) => {
-                            const stepNum = i + 1;
-                            const isActive = currentStep === stepNum;
-                            const isPast = currentStep > stepNum;
-
-                            return (
-                                <div key={step} className="flex flex-col items-center gap-2 sm:gap-3 relative">
-                                    <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl flex items-center justify-center text-[10px] sm:text-sm font-black transition-all duration-300 ${isActive ? 'bg-teal-500 text-white shadow-xl shadow-teal-200 scale-110 ring-4 ring-teal-50' :
-                                        isPast ? 'bg-teal-50 text-teal-600' :
-                                            'bg-white text-slate-300 border-2 border-slate-100'
-                                        }`}>
-                                        {isPast ? <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5" /> : stepNum}
-                                    </div>
-                                    <span className={cn(
-                                        "text-[8px] sm:text-[10px] font-bold uppercase tracking-tighter",
-                                        isActive ? 'text-teal-600' : 'text-slate-400',
-                                        !isActive && "hidden xs:inline-block" // Hide labels for inactive steps on mobile
-                                    )}>{step}</span>
+                <div className="bg-slate-50 w-full h-full max-w-[1200px] sm:max-h-[92vh] sm:rounded-[3rem] shadow-[0_0_80px_rgba(0,0,0,0.15)] relative flex flex-col overflow-hidden ring-1 ring-slate-200">
+                    {/* Header with Progress Bar */}
+                    <div className="p-4 sm:p-8 border-b border-slate-200/60 bg-white sticky top-0 z-10">
+                        <div className="flex items-center justify-between mb-4 sm:mb-8">
+                            <div className="flex items-center gap-3 md:gap-4">
+                                <div className="w-10 h-10 md:w-12 md:h-12 bg-teal-500 rounded-xl md:rounded-2xl flex items-center justify-center text-white shadow-lg shadow-teal-200 shrink-0">
+                                    <Plus className="w-5 h-5 md:w-6 md:h-6" />
                                 </div>
-                            );
-                        })}
+                                <div className="min-w-0">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        <h2 className="text-lg md:text-2xl font-black text-slate-900 tracking-tight truncate">{initialReel?.id ? 'Edit Post' : 'Build New Post'}</h2>
+                                        {postData.status === 'Draft' && (
+                                            <span className="px-2.5 py-0.5 bg-amber-100 text-amber-700 text-[9px] font-black uppercase tracking-widest rounded-full border border-amber-200">Draft</span>
+                                        )}
+                                    </div>
+                                    <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mt-0.5 truncate">Multi-Channel Distribution</p>
+                                </div>
+                            </div>
+                            <button onClick={handleClose} className="p-2 sm:p-3 hover:bg-slate-50 rounded-xl transition-all text-slate-400 hover:text-slate-600">
+                                <X className="w-5 h-5 md:w-6 md:h-6" />
+                            </button>
+                        </div>
+
+                        <div className="flex items-center justify-between relative px-1 sm:px-2">
+                            {/* Progress Line Background */}
+                            <div className="absolute top-[16px] sm:top-[18px] left-0 right-0 h-1 bg-slate-100 -z-10 rounded-full mx-6 sm:mx-12"></div>
+                            {/* Progress Line Active */}
+                            <div
+                                className="absolute top-[16px] sm:top-[18px] left-0 h-1 bg-teal-500 -z-10 transition-all duration-500 ease-out rounded-full mx-6 sm:mx-12"
+                                style={{ width: `${((currentStep - 1) / (STEPS.length - 1)) * 100}%` }}
+                            ></div>
+
+                            {STEPS.map((step, i) => {
+                                const stepNum = i + 1;
+                                const isActive = currentStep === stepNum;
+                                const isPast = currentStep > stepNum;
+
+                                return (
+                                    <div key={step} className="flex flex-col items-center gap-2 sm:gap-3 relative">
+                                        <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl flex items-center justify-center text-[10px] sm:text-sm font-black transition-all duration-300 ${isActive ? 'bg-teal-500 text-white shadow-xl shadow-teal-200 scale-110 ring-4 ring-teal-50' :
+                                            isPast ? 'bg-teal-50 text-teal-600' :
+                                                'bg-white text-slate-300 border-2 border-slate-100'
+                                            }`}>
+                                            {isPast ? <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5" /> : stepNum}
+                                        </div>
+                                        <span className={cn(
+                                            "text-[8px] sm:text-[10px] font-bold uppercase tracking-tighter",
+                                            isActive ? 'text-teal-600' : 'text-slate-400',
+                                            !isActive && "hidden xs:inline-block" // Hide labels for inactive steps on mobile
+                                        )}>{step}</span>
+                                    </div>
+                                );
+                            })}
+                        </div>
                     </div>
-                </div>
 
-                {/* Content Area */}
-                <div className="flex-1 overflow-y-auto bg-slate-50/50 p-4 sm:p-8 md:p-12">
-                    {renderStep()}
-                </div>
-
-                {/* Footer Navigation */}
-                <div className="p-4 sm:p-8 border-t border-slate-200/60 bg-white/80 backdrop-blur-xl flex items-center justify-between sticky bottom-0 z-20">
-                    <button
-                        onClick={prevStep}
-                        disabled={currentStep === 1}
-                        className={cn(
-                            "flex items-center gap-2 px-3 sm:px-8 py-3 sm:py-4 rounded-xl sm:rounded-2xl font-bold transition-all text-sm",
-                            currentStep === 1 ? 'opacity-0 pointer-events-none' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
+                    {/* Content Area */}
+                    <div className="flex-1 overflow-y-auto bg-slate-50/50 p-4 sm:p-8 md:p-12">
+                        {titleError && (
+                            <div className="mb-4 flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-600 font-bold">
+                                <AlertCircle className="w-4 h-4 shrink-0" />
+                                {titleError}
+                            </div>
                         )}
-                    >
-                        <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
-                        <span className="hidden sm:inline">Back to {STEPS[currentStep - 2]}</span>
-                        <span className="sm:hidden">Back</span>
-                    </button>
+                        {renderStep()}
+                    </div>
 
-                    <div className="flex items-center gap-2 sm:gap-4">
+                    {/* Footer Navigation */}
+                    <div className="p-4 sm:p-8 border-t border-slate-200/60 bg-white/80 backdrop-blur-xl flex items-center justify-between sticky bottom-0 z-20">
                         <button
-                            disabled={isScheduling}
-                            className="px-3 sm:px-8 py-3 sm:py-4 text-slate-500 font-bold hover:bg-slate-100 rounded-xl sm:rounded-2xl transition-all text-xs sm:text-sm"
-                        >
-                            <span className="hidden sm:inline">Save as Draft</span>
-                            <span className="sm:hidden">Draft</span>
-                        </button>
-                        <button
-                            onClick={currentStep === 7 ? handleSchedule : nextStep}
-                            disabled={isScheduling}
+                            onClick={prevStep}
+                            disabled={currentStep === 1}
                             className={cn(
-                                "flex items-center gap-2 px-5 sm:px-10 py-3 sm:py-4 bg-teal-500 text-white rounded-xl sm:rounded-[1.5rem] font-black hover:bg-teal-600 transition-all shadow-lg active:scale-95 text-xs sm:text-base shrink-0",
-                                isScheduling ? 'opacity-50 cursor-not-allowed' : ''
+                                "flex items-center gap-2 px-3 sm:px-8 py-3 sm:py-4 rounded-xl sm:rounded-2xl font-bold transition-all text-sm",
+                                currentStep === 1 ? 'opacity-0 pointer-events-none' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
                             )}
                         >
-                            {isScheduling ? '...' : currentStep === 7 ? 'Schedule' : (
-                                <>
-                                    <span className="hidden sm:inline">Next: {STEPS[currentStep]}</span>
-                                    <span className="sm:hidden">Next</span>
-                                </>
-                            )}
-                            <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
+                            <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+                            <span className="hidden sm:inline">Back to {STEPS[currentStep - 2]}</span>
+                            <span className="sm:hidden">Back</span>
                         </button>
+
+                        <div className="flex items-center gap-2 sm:gap-4">
+                            <button
+                                onClick={handleSaveDraft}
+                                disabled={isScheduling || isSavingDraft}
+                                className="flex items-center gap-1.5 px-3 sm:px-8 py-3 sm:py-4 text-slate-500 font-bold hover:bg-slate-100 rounded-xl sm:rounded-2xl transition-all text-xs sm:text-sm disabled:opacity-40"
+                            >
+                                <Save className="w-3.5 h-3.5" />
+                                <span className="hidden sm:inline">{isSavingDraft ? 'Saving…' : 'Save as Draft'}</span>
+                                <span className="sm:hidden">Draft</span>
+                            </button>
+                            <button
+                                onClick={currentStep === 7 ? handleSchedule : nextStep}
+                                disabled={isScheduling || isSavingDraft}
+                                className={cn(
+                                    "flex items-center gap-2 px-5 sm:px-10 py-3 sm:py-4 bg-teal-500 text-white rounded-xl sm:rounded-[1.5rem] font-black hover:bg-teal-600 transition-all shadow-lg active:scale-95 text-xs sm:text-base shrink-0",
+                                    isScheduling ? 'opacity-50 cursor-not-allowed' : ''
+                                )}
+                            >
+                                {isScheduling ? '...' : currentStep === 7 ? 'Schedule' : (
+                                    <>
+                                        <span className="hidden sm:inline">Next: {STEPS[currentStep]}</span>
+                                        <span className="sm:hidden">Next</span>
+                                    </>
+                                )}
+                                <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
+        </>
     );
 };
 
