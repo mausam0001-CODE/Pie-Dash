@@ -18,7 +18,6 @@ const navItems = [
     { icon: Search, label: 'Competitor Insights', path: '/competitor-insights' },
     { icon: Calendar, label: 'Calendar', path: '/calendar' },
     { icon: Zap, label: 'Workflow', path: '/workflow' },
-    { icon: Users, label: 'Connections', path: '/connections' },
     { icon: Settings, label: 'Settings', path: '/settings' },
 ];
 
