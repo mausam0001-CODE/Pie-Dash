@@ -17,8 +17,22 @@ export const Debug = () => {
             console.log('Initiating Direct Sync for:', account.username);
 
             // Try Graph API (Professional)
+            const metaInfoUrl = `https://graph.facebook.com/v18.0/${account.account_id}?fields=followers_count&access_token=${account.access_token}`;
             const metaUrl = `https://graph.facebook.com/v18.0/${account.account_id}/media?fields=id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count&limit=10&access_token=${account.access_token}`;
             const basicUrl = `https://graph.instagram.com/me/media?fields=id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count&access_token=${account.access_token}`;
+
+            console.log('Fetching Account Info:', metaInfoUrl);
+            const infoResp = await fetch(metaInfoUrl);
+            const infoData = await infoResp.json();
+
+            if (infoData.followers_count !== undefined) {
+                await supabase.from('account_metrics').upsert({
+                    social_account_id: account.id,
+                    user_id: session?.user?.id,
+                    follower_count: infoData.followers_count,
+                    month: new Date().toISOString().substring(0, 7) + '-01'
+                });
+            }
 
             console.log('Trying Business API:', metaUrl);
             const metaResp = await fetch(metaUrl);
