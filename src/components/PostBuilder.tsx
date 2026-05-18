@@ -57,6 +57,7 @@ export const PostBuilder = ({ onClose, initialReel }: PostBuilderProps) => {
         status: initialReel?.status || 'Draft'
     });
     const [accountSettings, setAccountSettings] = useState<Record<string, any>>({});
+    const [userSettings, setUserSettings] = useState<any>(null);
 
     useEffect(() => {
         // Initialize default types when accounts are selected
@@ -87,7 +88,7 @@ export const PostBuilder = ({ onClose, initialReel }: PostBuilderProps) => {
     };
 
     useEffect(() => {
-        const fetchAccounts = async () => {
+        const fetchData = async () => {
             if (!session?.user) return;
             const { data, error } = await supabase
                 .from('social_accounts')
@@ -105,8 +106,19 @@ export const PostBuilder = ({ onClose, initialReel }: PostBuilderProps) => {
                     setSelectedAccounts(data.length > 0 ? [data[0].id] : []);
                 }
             }
+
+            // Fetch user settings
+            const { data: settingsData } = await supabase
+                .from('user_settings')
+                .select('settings')
+                .eq('user_id', session.user.id)
+                .single();
+
+            if (settingsData) {
+                setUserSettings(settingsData.settings);
+            }
         };
-        fetchAccounts();
+        fetchData();
     }, [session?.user, activeAccount, initialReel]);
 
     const nextStep = () => setCurrentStep(prev => Math.min(prev + 1, 7));
@@ -180,7 +192,7 @@ export const PostBuilder = ({ onClose, initialReel }: PostBuilderProps) => {
             case 4: return <StepFineTune accounts={connectedAccounts.filter(a => selectedAccounts.includes(a.id))} postData={postData} settings={accountSettings} onSettingChange={(id, key, val) => setAccountSettings(prev => ({ ...prev, [id]: { ...(prev[id] || {}), [key]: val } }))} />;
             case 5: return <StepSettings hashtags={postData.hashtags} onHashtagsChange={(v) => setPostData(d => ({ ...d, hashtags: v }))} visibility={postData.visibility} onVisibilityChange={(v) => setPostData(d => ({ ...d, visibility: v }))} />;
             case 6: return <StepReview data={postData} accounts={connectedAccounts.filter(a => selectedAccounts.includes(a.id))} reach={formatReach(estimatedReach)} />;
-            case 7: return <StepSchedule value={postData.scheduledAt} onChange={(v) => setPostData(d => ({ ...d, scheduledAt: v }))} />;
+            case 7: return <StepSchedule value={postData.scheduledAt} timezone={userSettings?.timezone} onChange={(v) => setPostData(d => ({ ...d, scheduledAt: v }))} />;
             default: return null;
         }
     };
@@ -746,7 +758,7 @@ const StepReview = ({ data, accounts, reach }: { data: any, accounts: any[], rea
     </div>
 );
 
-const StepSchedule = ({ value, onChange }: { value: string, onChange: (v: string) => void }) => (
+const StepSchedule = ({ value, timezone, onChange }: { value: string, timezone?: string, onChange: (v: string) => void }) => (
     <div className="max-w-2xl mx-auto space-y-8 md:space-y-12 animate-in slide-in-from-bottom-4 duration-500 pb-12">
         <div className="text-center space-y-2">
             <h3 className="text-xl md:text-3xl font-black text-slate-900">Set Schedule</h3>
@@ -755,7 +767,7 @@ const StepSchedule = ({ value, onChange }: { value: string, onChange: (v: string
         <div className="bg-white p-6 md:p-12 rounded-[1.5rem] md:rounded-[3rem] shadow-2xl border border-slate-100 space-y-8 md:space-y-10">
             <div className="grid grid-cols-1 gap-6 md:gap-10">
                 <div className="space-y-3">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Publish Date & Time</label>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Publish Date & Time ({timezone || 'UTC'})</label>
                     <div className="relative">
                         <Calendar className="absolute left-5 md:left-6 top-1/2 -translate-y-1/2 w-4 md:w-5 h-4 md:h-5 text-green-500" />
                         <input
@@ -770,7 +782,7 @@ const StepSchedule = ({ value, onChange }: { value: string, onChange: (v: string
             <div className="p-4 md:p-8 bg-green-50 border border-green-100 rounded-[1.5rem] md:rounded-[2rem] flex flex-col sm:flex-row items-center gap-4 md:gap-6">
                 <div className="w-12 h-12 md:w-14 md:h-14 bg-green-500 rounded-full flex items-center justify-center text-white shadow-lg shrink-0"><Clock className="w-6 md:w-7 h-6 md:h-7" /></div>
                 <div className="text-center sm:text-left">
-                    <h5 className="text-base md:text-lg font-black text-green-900">Optimal Time</h5>
+                    <h5 className="text-base md:text-lg font-black text-green-900">Optimal Time ({timezone || 'UTC'})</h5>
                     <p className="text-[10px] md:text-sm font-medium text-green-600">Engagement peaks at **09:00 AM**.</p>
                 </div>
                 <button className="sm:ml-auto w-full sm:w-auto bg-green-600 text-white px-6 py-3 rounded-xl font-black text-[10px] md:text-xs hover:bg-green-700 shadow-lg">Use Optimal</button>

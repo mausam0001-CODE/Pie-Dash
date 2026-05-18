@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, Bell, Shield, Smartphone, Globe, Save, Loader2, User, UserCircle, LogOut } from 'lucide-react';
+import { Settings as SettingsIcon, Bell, Shield, Smartphone, Globe, Save, Loader2, User, UserCircle, LogOut, Clock } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { useUser } from '../features/auth/UserContext';
@@ -10,11 +10,12 @@ export const Settings = () => {
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
     const [activeTab, setActiveTab] = useState('general');
-    const [settings, setSettings] = useState({
+    const [settings, setSettings] = useState<any>({
         dashboard_title: 'Pie Social Pro',
         primary_color: 'teal',
         organization_website: 'https://pie.social',
         auto_posting: true,
+        timezone: 'UTC',
         user_profile: {
             full_name: 'Pie Team',
             role: 'Pro Manager',
@@ -127,6 +128,31 @@ export const Settings = () => {
                                             className="w-full bg-slate-50 border-2 border-transparent focus:bg-white focus:border-emerald-500/20 rounded-2xl px-5 py-3 md:py-4 text-sm outline-none font-bold text-slate-700 transition-all shadow-inner"
                                         />
                                     </div>
+                                    <div className="space-y-3">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] pl-1">Time Zone (Scheduling)</label>
+                                        <div className="relative group">
+                                            <Clock className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 group-focus-within:text-emerald-500 transition-colors" />
+                                            <select
+                                                value={settings.timezone || 'UTC'}
+                                                onChange={(e) => setSettings({ ...settings, timezone: e.target.value })}
+                                                className="w-full bg-slate-50 border-2 border-transparent focus:bg-white focus:border-emerald-500/20 rounded-2xl pl-12 pr-5 py-3 md:py-4 text-sm outline-none font-bold text-slate-700 transition-all shadow-inner appearance-none cursor-pointer"
+                                            >
+                                                <option value="UTC">UTC (Universal Time)</option>
+                                                <option value="Asia/Kolkata">IST (India Standard Time)</option>
+                                                <option value="America/New_York">EST (Eastern Standard Time)</option>
+                                                <option value="America/Chicago">CST (Central Standard Time)</option>
+                                                <option value="America/Denver">MST (Mountain Standard Time)</option>
+                                                <option value="America/Los_Angeles">PST (Pacific Standard Time)</option>
+                                                <option value="Europe/London">GMT (Greenwich Mean Time)</option>
+                                                <option value="Europe/Paris">CET (Central European Time)</option>
+                                                <option value="Asia/Tokyo">JST (Japan Standard Time)</option>
+                                                <option value="Australia/Sydney">AEST (Australian Eastern Time)</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 md:gap-8">
                                     <div className="space-y-3">
                                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] pl-1">Design Accent</label>
                                         <div className="flex items-center gap-4 pt-1">
