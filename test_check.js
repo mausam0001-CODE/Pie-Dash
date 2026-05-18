@@ -1,5 +1,5 @@
-const { createClient } = require('@supabase/supabase-js');
-const fs = require('fs');
+import { createClient } from '@supabase/supabase-js';
+import fs from 'fs';
 
 const envContent = fs.readFileSync('.env.local', 'utf-8');
 const env = {};
