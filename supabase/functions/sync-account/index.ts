@@ -50,15 +50,38 @@ serve(async (req) => {
             }
 
             // Get Recent Posts
-            const mediaResponse = await fetch(`https://graph.instagram.com/me/media?fields=id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count&access_token=${access_token}`)
+            console.log(`Syncing IG media for account ${metaAccountId}...`)
+
+            // Try Graph API (Professional) first if we have a metaAccountId (which we should for FB login)
+            let mediaUrl = `https://graph.facebook.com/v18.0/${metaAccountId}/media?fields=id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count&limit=50&access_token=${access_token}`
+
+            // If it's a Basic Display token (often starts with IGQ), or if metaAccountId is missing, use Basic API
+            if (!metaAccountId || access_token.startsWith('IGQ')) {
+                mediaUrl = `https://graph.instagram.com/me/media?fields=id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count&access_token=${access_token}`
+            }
+
+            const mediaResponse = await fetch(mediaUrl)
             const mediaData = await mediaResponse.json()
 
             if (mediaData.error) {
                 console.error('IG Media API Error:', mediaData.error)
-                return new Response(JSON.stringify({ error: mediaData.error, detail: 'Failed to fetch media' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 })
+                // If it fails on graph.facebook.com, try graph.instagram.com as fallback
+                if (mediaUrl.includes('facebook.com')) {
+                    console.log('Retrying with Basic Display API...')
+                    const fallbackUrl = `https://graph.instagram.com/me/media?fields=id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count&access_token=${access_token}`
+                    const fallbackResp = await fetch(fallbackUrl)
+                    const fallbackData = await fallbackResp.json()
+                    if (!fallbackData.error && fallbackData.data) {
+                        mediaData.data = fallbackData.data
+                    } else {
+                        return new Response(JSON.stringify({ error: mediaData.error, fallbackError: fallbackData.error, detail: 'Failed to fetch media from both APIs' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 })
+                    }
+                } else {
+                    return new Response(JSON.stringify({ error: mediaData.error, detail: 'Failed to fetch media' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 })
+                }
             }
 
-            if (mediaData.data) {
+            if (mediaData.data && mediaData.data.length > 0) {
                 const postsToInsert = mediaData.data.map((m: any) => {
                     const likes = m.like_count || 0
                     return {
