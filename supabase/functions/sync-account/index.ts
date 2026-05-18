@@ -32,8 +32,14 @@ serve(async (req) => {
         // 2. Sync Logic
         if (platform === 'instagram') {
             // Get Follower Count
-            const igMetricsResp = await fetch(`https://graph.facebook.com/v18.0/${metaAccountId}?fields=followers_count&access_token=${access_token}`)
-            const igMetrics = await igMetricsResp.json()
+            const metricsResponse = await fetch(`https://graph.instagram.com/${metaAccountId}?fields=followers_count&access_token=${access_token}`)
+            const igMetrics = await metricsResponse.json()
+
+            if (igMetrics.error) {
+                console.error('IG Metrics API Error:', igMetrics.error)
+                // We don't fail the whole sync if metrics fail, but we log it
+            }
+
             if (igMetrics.followers_count !== undefined) {
                 await supabase.from('account_metrics').upsert({
                     social_account_id: accountId,
@@ -44,8 +50,14 @@ serve(async (req) => {
             }
 
             // Get Recent Posts
-            const mediaResp = await fetch(`https://graph.facebook.com/v18.0/${metaAccountId}/media?fields=id,caption,media_url,thumbnail_url,timestamp,like_count,comments_count&limit=20&access_token=${access_token}`)
-            const mediaData = await mediaResp.json()
+            const mediaResponse = await fetch(`https://graph.instagram.com/me/media?fields=id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count&access_token=${access_token}`)
+            const mediaData = await mediaResponse.json()
+
+            if (mediaData.error) {
+                console.error('IG Media API Error:', mediaData.error)
+                return new Response(JSON.stringify({ error: mediaData.error, detail: 'Failed to fetch media' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 })
+            }
+
             if (mediaData.data) {
                 const postsToInsert = mediaData.data.map((m: any) => {
                     const likes = m.like_count || 0
