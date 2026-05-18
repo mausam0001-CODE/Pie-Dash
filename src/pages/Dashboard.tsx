@@ -4,10 +4,12 @@ import { useAccountContext } from '../features/accounts/AccountContext';
 import { TrendingUp, Clock, CheckCircle2, AlertCircle, PlusCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { PostDrawer } from '../components/PostDrawer';
 
 export const Dashboard = () => {
     const { activeAccount } = useAccountContext();
     const { data: posts = [], isLoading } = usePosts();
+    const [selectedPost, setSelectedPost] = React.useState<any>(null);
 
     const chartData = React.useMemo(() => {
         const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -114,13 +116,17 @@ export const Dashboard = () => {
                 </div>
 
                 {/* Quick List */}
-                <div className="bg-slate-900 p-8 rounded-[2rem] shadow-xl relative overflow-hidden group">
+                <div className="bg-slate-900 p-6 rounded-[2rem] shadow-xl relative overflow-hidden group">
                     <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-emerald-500/20 transition-all duration-700"></div>
-                    <h3 className="text-white font-black text-lg mb-6 relative">Upcoming Queue</h3>
-                    <div className="space-y-4 relative">
+                    <h3 className="text-white font-black text-lg mb-4 relative">Upcoming Queue</h3>
+                    <div className="space-y-3 relative">
                         {posts.filter((p: any) => (p.status === 'Scheduled' || (p.scheduled_at && !p.piePosted))).slice(0, 4).map((post: any) => (
-                            <div key={post.id} className="flex items-center gap-4 p-3 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 transition-all cursor-pointer">
-                                <div className="w-12 h-12 rounded-xl bg-slate-800 overflow-hidden shrink-0">
+                            <div
+                                key={post.id}
+                                onClick={() => setSelectedPost(post)}
+                                className="flex items-center gap-4 p-2.5 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 transition-all cursor-pointer"
+                            >
+                                <div className="w-10 h-10 rounded-xl bg-slate-800 overflow-hidden shrink-0">
                                     <img src={post.thumbnail_url || post.thumbnail} className="w-full h-full object-cover" />
                                 </div>
                                 <div className="min-w-0">
@@ -130,9 +136,16 @@ export const Dashboard = () => {
                             </div>
                         ))}
                     </div>
-                    <button className="w-full mt-8 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white font-bold text-xs transition-all shadow-lg shadow-emerald-500/20">View Calendar</button>
+                    <Link to="/calendar" className="w-full flex items-center justify-center mt-6 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white font-bold text-xs transition-all shadow-lg shadow-emerald-500/20">View Calendar</Link>
                 </div>
             </div>
+
+            {selectedPost && (
+                <PostDrawer
+                    post={selectedPost}
+                    onClose={() => setSelectedPost(null)}
+                />
+            )}
         </div>
     );
 };

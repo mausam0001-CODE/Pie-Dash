@@ -1,5 +1,6 @@
 import React from 'react';
 import { Search, Bell, HelpCircle, Plus, Menu, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 export const Header = ({
     onOpenPostBuilder,
@@ -10,6 +11,15 @@ export const Header = ({
 }) => {
     const [hasNotifications, setHasNotifications] = React.useState(true);
     const [showNotifications, setShowNotifications] = React.useState(false);
+    const [searchQuery, setSearchQuery] = React.useState('');
+    const navigate = useNavigate();
+
+    const handleSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter' && searchQuery.trim()) {
+            navigate(`/library?q=${encodeURIComponent(searchQuery.trim())}`);
+            setSearchQuery('');
+        }
+    };
 
     const handleHelp = () => {
         alert('Pie Pro Support: Visit docs.pie.social for guidance on creating Reels and managing your workflow.');
@@ -36,6 +46,9 @@ export const Header = ({
                     <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input
                         type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        onKeyDown={handleSearch}
                         placeholder="Search Reels, hooks, hashtags..."
                         className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all font-medium text-slate-700 placeholder:text-slate-400"
                     />

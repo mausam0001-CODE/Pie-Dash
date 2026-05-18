@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { X, Calendar, Hash, FileText, Smartphone, MessageCircle, Heart, Share2, Trash2, Edit, Instagram, Facebook, Youtube, Globe } from 'lucide-react';
 import { usePostMutations } from '../features/posts/usePostMutations';
 
@@ -9,7 +9,19 @@ interface PostDrawerProps {
 }
 
 export const PostDrawer = ({ post, onClose, onEdit }: PostDrawerProps) => {
-    const { deletePost } = usePostMutations();
+    const { deletePost, updatePost } = usePostMutations();
+    const [newTag, setNewTag] = useState('');
+
+    const handleAddTag = async (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter' && newTag.trim()) {
+            const addedTag = newTag.trim().toLowerCase();
+            const currentTags = Array.isArray(post.tags) ? post.tags : [];
+            if (!currentTags.includes(addedTag)) {
+                await updatePost.mutateAsync({ id: post.id, updates: { tags: [...currentTags, addedTag] } });
+            }
+            setNewTag('');
+        }
+    };
 
     const handleDelete = async () => {
         if (window.confirm('Are you sure you want to delete this post?')) {
@@ -127,11 +139,23 @@ export const PostDrawer = ({ post, onClose, onEdit }: PostDrawerProps) => {
 
                             <div className="space-y-3">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                                    <Hash className="w-3.5 h-3.5 text-purple-500" /> Distribution Tags
+                                    <Hash className="w-3.5 h-3.5 text-purple-500" /> Vault Categories
                                 </label>
-                                <p className="text-teal-600 font-bold text-xs bg-teal-50 px-4 py-2 rounded-xl inline-block">
-                                    {post.hashtags || '#SocialMedia'}
-                                </p>
+                                <div className="flex flex-wrap gap-2">
+                                    {Array.isArray(post.tags) && post.tags.map((t: string) => (
+                                        <span key={t} className="text-slate-600 font-bold text-xs bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm">
+                                            #{t}
+                                        </span>
+                                    ))}
+                                    <input
+                                        type="text"
+                                        placeholder="+ Add Tag"
+                                        value={newTag}
+                                        onChange={e => setNewTag(e.target.value)}
+                                        onKeyDown={handleAddTag}
+                                        className="text-xs bg-transparent border border-dashed border-slate-300 px-3 py-1.5 rounded-lg outline-none focus:border-purple-500 focus:bg-purple-50 w-28 transition-all"
+                                    />
+                                </div>
                             </div>
                         </div>
 

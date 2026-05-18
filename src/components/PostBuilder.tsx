@@ -155,7 +155,7 @@ export const PostBuilder = ({ onClose, initialReel }: PostBuilderProps) => {
                     updates: {
                         ...basePayload,
                         social_account_id: account?.id,
-                        platforms: account?.platform
+                        platforms: account?.platform ? [account.platform] : []
                     }
                 });
                 alert('Post updated successfully!');
@@ -168,7 +168,7 @@ export const PostBuilder = ({ onClose, initialReel }: PostBuilderProps) => {
                         ...basePayload,
                         media_type: settings.type || basePayload.media_type,
                         social_account_id: accountId,
-                        platforms: account?.platform
+                        platforms: account?.platform ? [account.platform] : []
                     });
                 });
                 await Promise.all(promises);

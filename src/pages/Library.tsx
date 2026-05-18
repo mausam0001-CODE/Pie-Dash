@@ -4,10 +4,12 @@ import { usePosts } from '../features/posts/usePosts';
 import { PostCard } from '../components/PostCard';
 import { PostDrawer } from '../components/PostDrawer';
 import { PostBuilder } from '../components/PostBuilder';
-import { Film, Tag, Folder, X, ExternalLink, Search, ChevronRight } from 'lucide-react';
+import { Film, Tag, Folder, X, ExternalLink, Search, ChevronRight, Plus, Loader2 } from 'lucide-react';
+import { useAuth } from '../hooks/useAuth';
+import { supabase } from '../lib/supabase';
 
 // ── Predefined smart folders (tags → groups) ──────────────────────────
-const SMART_FOLDERS = [
+const DEFAULT_SMART_FOLDERS = [
     { label: 'Sales Videos', tags: ['sales', 'product', 'offer'], emoji: '💰' },
     { label: 'Tax Tips', tags: ['tax', 'finance', 'accounting', 'tips'], emoji: '🧾' },
     { label: 'Education', tags: ['education', 'tutorial', 'how-to', 'learn'], emoji: '📚' },
@@ -55,6 +57,51 @@ export const Library = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [view, setView] = useState<'grid' | 'folders'>('grid');
 
+    const { session } = useAuth();
+    const [folders, setFolders] = useState<any[]>(DEFAULT_SMART_FOLDERS);
+    const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
+    const [newFolder, setNewFolder] = useState({ label: '', emoji: '📁', tags: '' });
+    const [isSavingFolder, setIsSavingFolder] = useState(false);
+
+    React.useEffect(() => {
+        if (!session?.user?.id) return;
+        const loadSettings = async () => {
+            const { data } = await supabase.from('user_settings').select('settings').eq('user_id', session.user.id).single();
+            if (data?.settings?.folders) {
+                setFolders(data.settings.folders);
+            }
+        };
+        loadSettings();
+    }, [session?.user?.id]);
+
+    const handleSaveFolder = async () => {
+        if (!newFolder.label || !newFolder.tags) return;
+        setIsSavingFolder(true);
+        const tagsObj = newFolder.tags.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+        const newFolderObj = { label: newFolder.label, emoji: newFolder.emoji, tags: tagsObj };
+        const updatedFolders = [...folders, newFolderObj];
+        setFolders(updatedFolders);
+
+        try {
+            const { data: currentSettings } = await supabase.from('user_settings').select('settings').eq('user_id', session?.user?.id).single();
+            const settingsObj = currentSettings?.settings || {};
+            await supabase.from('user_settings').update({ settings: { ...settingsObj, folders: updatedFolders } }).eq('user_id', session?.user?.id);
+            setNewFolder({ label: '', emoji: '📁', tags: '' });
+            setIsFolderModalOpen(false);
+        } catch (e) {
+            console.error('Failed to save folder', e);
+        } finally {
+            setIsSavingFolder(false);
+        }
+    };
+
+    React.useEffect(() => {
+        const q = searchParams.get('q');
+        if (q !== null) {
+            setSearchQuery(q);
+        }
+    }, [searchParams]);
+
     const allTags = useMemo(() => extractTags(posts), [posts]);
 
     // ── Filter posts by active tag / folder / search ──────────────────
@@ -71,11 +118,11 @@ export const Library = () => {
         }
 
         if (activeFolder) {
-            const folder = SMART_FOLDERS.find(f => f.label === activeFolder);
+            const folder = folders.find(f => f.label === activeFolder);
             if (folder) {
                 result = result.filter((p: any) => {
                     const postTags = (Array.isArray(p.tags) ? p.tags : [p.category || '']).map((t: string) => t.toLowerCase());
-                    return folder.tags.some(ft => postTags.some((pt: string) => pt.includes(ft)));
+                    return folder.tags.some((ft: string) => postTags.some((pt: string) => pt.includes(ft)));
                 });
             }
         }
@@ -140,10 +187,17 @@ export const Library = () => {
             {view === 'folders' ? (
                 <div className="space-y-6">
                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-                        {SMART_FOLDERS.map(folder => {
+                        <button
+                            onClick={() => setIsFolderModalOpen(true)}
+                            className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl border-2 border-dashed border-slate-200 transition-all text-center text-slate-400 hover:border-emerald-300 hover:text-emerald-500 hover:bg-emerald-50"
+                        >
+                            <Plus className="w-8 h-8" />
+                            <p className="text-[10px] font-black uppercase tracking-widest">New Folder</p>
+                        </button>
+                        {folders.map(folder => {
                             const count = posts.filter((p: any) => {
                                 const postTags = (Array.isArray(p.tags) ? p.tags : [p.category || '']).map((t: string) => t.toLowerCase());
-                                return folder.tags.some(ft => postTags.some((pt: string) => pt.includes(ft)));
+                                return folder.tags.some((ft: string) => postTags.some((pt: string) => pt.includes(ft)));
                             }).length;
                             const active = activeFolder === folder.label;
                             return (
@@ -190,10 +244,10 @@ export const Library = () => {
                                 <Folder className="w-3.5 h-3.5 text-slate-400" />
                                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Folders</p>
                             </div>
-                            {SMART_FOLDERS.map(folder => {
+                            {folders.map(folder => {
                                 const count = posts.filter((p: any) => {
                                     const postTags = (Array.isArray(p.tags) ? p.tags : [p.category || '']).map((t: string) => t.toLowerCase());
-                                    return folder.tags.some(ft => postTags.some((pt: string) => pt.includes(ft)));
+                                    return folder.tags.some((ft: string) => postTags.some((pt: string) => pt.includes(ft)));
                                 }).length;
                                 return (
                                     <button
@@ -206,6 +260,9 @@ export const Library = () => {
                                     </button>
                                 );
                             })}
+                            <button onClick={() => setIsFolderModalOpen(true)} className="w-full flex items-center gap-2 px-2 py-1.5 mt-2 rounded-lg text-[10px] font-bold text-emerald-500 bg-emerald-50 hover:bg-emerald-100 transition-colors uppercase tracking-widest justify-center">
+                                <Plus className="w-3.5 h-3.5" /> Add Folder
+                            </button>
                         </div>
 
                         {allTags.length > 0 && (
@@ -271,6 +328,60 @@ export const Library = () => {
                                 <p className="text-xs text-slate-500 mt-1">Try a different filter or create a new post</p>
                             </div>
                         )}
+                    </div>
+                </div>
+            )}
+
+            {isFolderModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setIsFolderModalOpen(false)}></div>
+                    <div className="bg-white rounded-3xl w-full max-w-sm relative z-10 overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+                        <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+                            <h3 className="font-black text-slate-900">Create Vault Folder</h3>
+                            <button onClick={() => setIsFolderModalOpen(false)} className="p-2 hover:bg-slate-50 rounded-xl text-slate-400">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <div>
+                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block mb-1">Folder Name <span className="text-red-500">*</span></label>
+                                <div className="flex gap-2">
+                                    <input
+                                        maxLength={2}
+                                        value={newFolder.emoji}
+                                        onChange={e => setNewFolder({ ...newFolder, emoji: e.target.value })}
+                                        className="w-14 text-center text-xl bg-slate-50 border border-slate-200 p-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                                    />
+                                    <input
+                                        placeholder="e.g. Sales Vids"
+                                        value={newFolder.label}
+                                        onChange={e => setNewFolder({ ...newFolder, label: e.target.value })}
+                                        className="flex-1 bg-slate-50 border border-slate-200 p-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-sm font-bold text-slate-900"
+                                    />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block mb-1">Tracked Tags <span className="text-red-500">*</span></label>
+                                <input
+                                    placeholder="e.g. sales, outreach, product..."
+                                    value={newFolder.tags}
+                                    onChange={e => setNewFolder({ ...newFolder, tags: e.target.value })}
+                                    className="w-full bg-slate-50 border border-slate-200 p-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-sm font-medium text-slate-700 placeholder:text-slate-400"
+                                />
+                                <p className="text-[9px] font-bold text-slate-400 mt-1.5 flex items-center gap-1"><Tag className="w-3 h-3" /> Content with these tags will appear here.</p>
+                            </div>
+                        </div>
+                        <div className="p-6 bg-slate-50 border-t border-slate-100 flex justify-end gap-2">
+                            <button onClick={() => setIsFolderModalOpen(false)} className="px-4 py-2 text-xs font-bold text-slate-500 hover:text-slate-900 transition-colors">Cancel</button>
+                            <button
+                                onClick={handleSaveFolder}
+                                disabled={!newFolder.label || !newFolder.tags || isSavingFolder}
+                                className="px-6 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-black shadow-lg shadow-emerald-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                            >
+                                {isSavingFolder && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                                Save Folder
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
