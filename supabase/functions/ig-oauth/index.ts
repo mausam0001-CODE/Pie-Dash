@@ -42,6 +42,8 @@ serve(async (req) => {
             ? `https://${projectRef}.supabase.co/functions/v1/ig-oauth`
             : "https://ivsytkzemjludwzhrdsu.supabase.co/functions/v1/ig-oauth"
 
+        console.log('Redirect URI being used for exchange:', REDIRECT_URI)
+
         let accessToken = ''
         let accountId = ''
         let username = ''
@@ -52,7 +54,11 @@ serve(async (req) => {
         // ---------------------------------------------------------------
         if (loginMethod === 'ig') {
             console.log('Using Instagram Login API (no Facebook Page required)')
-            console.log('Using Client ID:', IG_APP_ID)
+            console.log('Exchange Settings:', {
+                clientId: IG_APP_ID,
+                redirectUri: REDIRECT_URI,
+                codePrefix: code.substring(0, 10) + '...'
+            })
 
             // 1. Exchange code for short-lived token via Instagram
             const shortResp = await fetch('https://api.instagram.com/oauth/access_token', {
@@ -68,13 +74,16 @@ serve(async (req) => {
             })
             const shortData = await shortResp.json()
             console.log('IG Short Token Resp:', JSON.stringify(shortData))
+
             if (shortData.error_type || shortData.error_message || shortData.error) {
-                throw new Error(shortData.error_message || shortData.error?.message || 'Failed to get short-lived token')
+                const errMsg = shortData.error_message || shortData.error?.message || 'Failed to exchange code'
+                throw new Error(`${errMsg} (Check if IG_APP_SECRET matches the Instagram App ID ${IG_APP_ID})`)
             }
             const shortToken = shortData.access_token
             const igUserId = shortData.user_id
 
             // 2. Exchange for long-lived token
+            console.log('Exchanging for long-lived token...')
             const longResp = await fetch(
                 `https://graph.instagram.com/access_token?grant_type=ig_exchange_token&client_secret=${IG_APP_SECRET}&access_token=${shortToken}`
             )
@@ -96,20 +105,31 @@ serve(async (req) => {
 
             // 4. Save account to DB
             const supabase = createClient(SUPABASE_URL, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '')
-            const { data: savedAccount, error: saveError } = await supabase
+            const { data: existingAccount } = await supabase
                 .from('social_accounts')
-                .upsert({
-                    user_id: userId,
-                    platform: 'instagram',
-                    access_token: accessToken,
-                    account_id: String(accountId),
-                    username: username,
-                    avatar_url: avatarUrl,
-                    expires_at: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString()
-                }, { onConflict: 'user_id,platform,account_id' })
-                .select()
-                .single()
-            if (saveError) throw saveError
+                .select('id')
+                .eq('user_id', userId)
+                .eq('platform', 'instagram')
+                .maybeSingle()
+
+            const accountPayload = {
+                user_id: userId,
+                platform: 'instagram',
+                access_token: accessToken,
+                account_id: String(accountId),
+                username: username,
+                avatar_url: avatarUrl,
+                expires_at: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString()
+            };
+
+            let saveResult;
+            if (existingAccount) {
+                saveResult = await supabase.from('social_accounts').update(accountPayload).eq('id', existingAccount.id).select().single()
+            } else {
+                saveResult = await supabase.from('social_accounts').insert(accountPayload).select().single()
+            }
+            const savedAccount = saveResult.data;
+            if (saveResult.error) throw saveResult.error
 
             // 5. Seed initial data using graph.instagram.com
             try {
@@ -127,18 +147,33 @@ serve(async (req) => {
                 const mediaData = await mediaResp.json()
                 if (mediaData.data?.length) {
                     const postsToInsert = mediaData.data.map((m: any) => ({
+                        user_id: userId,
                         social_account_id: savedAccount.id,
                         external_id: m.id,
                         title: m.caption?.substring(0, 50) || 'Untitled Post',
                         caption: m.caption || '',
                         media_url: m.media_url || m.thumbnail_url,
-                        platforms: 'instagram',
+                        platforms: ['instagram'],
                         status: 'Published',
                         like_count: m.like_count || 0,
                         scheduled_at: m.timestamp,
                         created_at: m.timestamp
                     }))
-                    await supabase.from('posts').upsert(postsToInsert, { onConflict: 'social_account_id,external_id' })
+
+                    for (const post of postsToInsert) {
+                        const { data: existingPost } = await supabase
+                            .from('posts')
+                            .select('id')
+                            .eq('social_account_id', post.social_account_id)
+                            .eq('external_id', post.external_id)
+                            .maybeSingle()
+
+                        if (existingPost) {
+                            await supabase.from('posts').update(post).eq('id', existingPost.id)
+                        } else {
+                            await supabase.from('posts').insert(post)
+                        }
+                    }
                 }
             } catch (seedError) {
                 console.error('Seeding error (non-fatal):', seedError)
@@ -211,20 +246,31 @@ serve(async (req) => {
 
             // Save to DB
             const supabase = createClient(SUPABASE_URL, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '')
-            const { data: savedAccount, error: saveError } = await supabase
+            const { data: existingAccount } = await supabase
                 .from('social_accounts')
-                .upsert({
-                    user_id: userId,
-                    platform: targetPlatform,
-                    access_token: accessToken,
-                    account_id: accountId,
-                    username: username,
-                    avatar_url: avatarUrl,
-                    expires_at: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString()
-                }, { onConflict: 'user_id,platform,account_id' })
-                .select()
-                .single()
-            if (saveError) throw saveError
+                .select('id')
+                .eq('user_id', userId)
+                .eq('platform', targetPlatform)
+                .maybeSingle()
+
+            const accountPayload = {
+                user_id: userId,
+                platform: targetPlatform,
+                access_token: accessToken,
+                account_id: accountId,
+                username: username,
+                avatar_url: avatarUrl,
+                expires_at: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString()
+            };
+
+            let saveResult;
+            if (existingAccount) {
+                saveResult = await supabase.from('social_accounts').update(accountPayload).eq('id', existingAccount.id).select().single()
+            } else {
+                saveResult = await supabase.from('social_accounts').insert(accountPayload).select().single()
+            }
+            const savedAccount = saveResult.data;
+            if (saveResult.error) throw saveResult.error
 
             // Seed data
             try {
@@ -242,18 +288,33 @@ serve(async (req) => {
                     const mediaData = await mediaResp.json()
                     if (mediaData.data) {
                         const postsToInsert = mediaData.data.map((m: any) => ({
+                            user_id: userId,
                             social_account_id: savedAccount.id,
                             external_id: m.id,
                             title: m.caption?.substring(0, 50) || 'Untitled Post',
                             caption: m.caption || '',
                             media_url: m.media_url || m.thumbnail_url,
-                            platforms: 'instagram',
+                            platforms: [targetPlatform],
                             status: 'Published',
                             like_count: m.like_count || 0,
                             scheduled_at: m.timestamp,
                             created_at: m.timestamp
                         }))
-                        await supabase.from('posts').upsert(postsToInsert, { onConflict: 'social_account_id,external_id' })
+
+                        for (const post of postsToInsert) {
+                            const { data: existingPost } = await supabase
+                                .from('posts')
+                                .select('id')
+                                .eq('social_account_id', post.social_account_id)
+                                .eq('external_id', post.external_id)
+                                .maybeSingle()
+
+                            if (existingPost) {
+                                await supabase.from('posts').update(post).eq('id', existingPost.id)
+                            } else {
+                                await supabase.from('posts').insert(post)
+                            }
+                        }
                     }
                 } else {
                     const fbMetricsResp = await fetch(`https://graph.facebook.com/v25.0/${accountId}?fields=fan_count&access_token=${accessToken}`)

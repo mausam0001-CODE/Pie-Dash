@@ -11,6 +11,7 @@ const Connections = lazy(() => import('../pages/Connections').then(m => ({ defau
 const Settings = lazy(() => import('../pages/Settings').then(m => ({ default: m.Settings })));
 const Interactions = lazy(() => import('../pages/Interactions').then(m => ({ default: m.Interactions })));
 const CompetitorInsights = lazy(() => import('../pages/CompetitorInsights').then(m => ({ default: m.CompetitorInsights })));
+const Debug = lazy(() => import('../pages/Debug').then(m => ({ default: m.Debug })));
 
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { DashboardSkeleton, KanbanColumnSkeleton, ChartSkeleton, PostCardSkeleton } from '../components/Skeleton';
@@ -59,6 +60,7 @@ export const router = createBrowserRouter([
             { path: 'settings', element: wrap(Settings, 'dashboard') },
             { path: 'interactions', element: wrap(Interactions, 'dashboard') },
             { path: 'competitor-insights', element: wrap(CompetitorInsights, 'analytics') },
+            { path: 'debug', element: wrap(Debug, 'dashboard') },
             { path: '*', element: <Navigate to="/" replace /> }
         ]
     }

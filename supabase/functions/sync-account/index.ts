@@ -27,7 +27,7 @@ serve(async (req) => {
 
         if (accError || !account) throw new Error('Account not found')
 
-        const { platform, access_token, account_id: metaAccountId } = account
+        const { platform, access_token, account_id: metaAccountId, user_id } = account
 
         // 2. Sync Logic
         if (platform === 'instagram') {
@@ -37,6 +37,7 @@ serve(async (req) => {
             if (igMetrics.followers_count !== undefined) {
                 await supabase.from('account_metrics').upsert({
                     social_account_id: accountId,
+                    user_id: user_id,
                     follower_count: igMetrics.followers_count,
                     month: new Date().toISOString().split('T')[0].substring(0, 7) + '-01'
                 })
@@ -50,6 +51,7 @@ serve(async (req) => {
                     const likes = m.like_count || 0
                     return {
                         social_account_id: accountId,
+                        user_id: user_id,
                         external_id: m.id,
                         title: m.caption?.substring(0, 50) || 'Untitled Post',
                         caption: m.caption || '',
@@ -86,6 +88,7 @@ serve(async (req) => {
             if (fbMetrics.fan_count !== undefined) {
                 await supabase.from('account_metrics').upsert({
                     social_account_id: accountId,
+                    user_id: user_id,
                     follower_count: fbMetrics.fan_count,
                     view_count: dailyImpressions, // Storing daily impressions as current views snapshot
                     month: new Date().toISOString().split('T')[0].substring(0, 7) + '-01'
@@ -99,6 +102,7 @@ serve(async (req) => {
                     const likes = Math.floor(Math.random() * 40) + 10
                     return {
                         social_account_id: accountId,
+                        user_id: user_id,
                         external_id: f.id,
                         title: f.message?.substring(0, 50) || 'Facebook Post',
                         caption: f.message || '',
