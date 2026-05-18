@@ -239,47 +239,49 @@ export const Library = () => {
             ) : (
                 <div className="flex gap-6">
                     {/* Tag Sidebar (desktop only) */}
-                    <aside className="hidden lg:flex flex-col gap-3 w-48 shrink-0">
-                        <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm">
-                            <div className="flex items-center gap-2 mb-3">
-                                <Folder className="w-3.5 h-3.5 text-slate-400" />
+                    <aside className="hidden lg:flex flex-col w-56 shrink-0 bg-white border border-slate-100 rounded-[2rem] p-5 shadow-sm h-fit">
+                        <div>
+                            <div className="flex items-center gap-2 mb-4">
+                                <Folder className="w-4 h-4 text-slate-400" />
                                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Folders</p>
                             </div>
-                            {folders.map(folder => {
-                                const count = posts.filter((p: any) => {
-                                    const postTags = (Array.isArray(p.tags) ? p.tags : [p.category || '']).map((t: string) => t.toLowerCase());
-                                    return folder.tags.some((ft: string) => postTags.some((pt: string) => pt.includes(ft)));
-                                }).length;
-                                return (
-                                    <button
-                                        key={folder.label}
-                                        onClick={() => { setActiveFolder(activeFolder === folder.label ? null : folder.label); setActiveTag(null); }}
-                                        className={`w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-[10px] font-bold text-left transition-all ${activeFolder === folder.label ? 'bg-teal-50 text-teal-700' : 'text-slate-500 hover:bg-slate-50'}`}
-                                    >
-                                        <span>{folder.emoji} {folder.label}</span>
-                                        <span className="text-[8px] text-slate-400">{count}</span>
-                                    </button>
-                                );
-                            })}
-                            <button onClick={() => setIsFolderModalOpen(true)} className="w-full flex items-center gap-2 px-2 py-1.5 mt-2 rounded-lg text-[10px] font-bold text-emerald-500 bg-emerald-50 hover:bg-emerald-100 transition-colors uppercase tracking-widest justify-center">
+                            <div className="space-y-1">
+                                {folders.map(folder => {
+                                    const count = posts.filter((p: any) => {
+                                        const postTags = (Array.isArray(p.tags) ? p.tags : [p.category || '']).map((t: string) => t.toLowerCase());
+                                        return folder.tags.some((ft: string) => postTags.some((pt: string) => pt.includes(ft)));
+                                    }).length;
+                                    return (
+                                        <button
+                                            key={folder.label}
+                                            onClick={() => { setActiveFolder(activeFolder === folder.label ? null : folder.label); setActiveTag(null); }}
+                                            className={`w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-[10px] font-bold text-left transition-all ${activeFolder === folder.label ? 'bg-teal-50 text-teal-700' : 'text-slate-500 hover:bg-slate-50'}`}
+                                        >
+                                            <span>{folder.emoji} {folder.label}</span>
+                                            <span className="text-[8px] text-slate-400">{count}</span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                            <button onClick={() => setIsFolderModalOpen(true)} className="w-full flex items-center gap-2 px-2 py-2 mt-3 rounded-xl text-[10px] font-bold text-emerald-500 bg-emerald-50 hover:bg-emerald-100 transition-colors uppercase tracking-widest justify-center">
                                 <Plus className="w-3.5 h-3.5" /> Add Folder
                             </button>
                         </div>
 
                         {allTags.length > 0 && (
-                            <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm">
-                                <div className="flex items-center gap-2 mb-3">
-                                    <Tag className="w-3.5 h-3.5 text-slate-400" />
-                                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Tags</p>
+                            <div className="pt-5 mt-5 border-t border-slate-100">
+                                <div className="flex items-center gap-2 mb-4">
+                                    <Tag className="w-4 h-4 text-slate-400" />
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Tags</p>
                                 </div>
-                                <div className="flex flex-col gap-1">
+                                <div className="flex flex-col gap-1.5">
                                     {allTags.slice(0, 12).map(tag => (
                                         <button
                                             key={tag}
                                             onClick={() => setActiveTag(activeTag === tag ? null : tag)}
-                                            className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10px] font-bold text-left transition-all ${activeTag === tag ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
+                                            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px] font-bold text-left transition-all ${activeTag === tag ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50 border border-transparent hover:border-slate-100'}`}
                                         >
-                                            <ChevronRight className="w-2.5 h-2.5 opacity-50" />
+                                            <ChevronRight className="w-3 h-3 opacity-50" />
                                             #{tag}
                                         </button>
                                     ))}
