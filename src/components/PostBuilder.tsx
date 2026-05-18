@@ -143,7 +143,7 @@ export const PostBuilder = ({ onClose, initialReel }: PostBuilderProps) => {
                 scheduled_at: new Date(postData.scheduledAt).toISOString(),
                 status: 'Scheduled',
                 category: postData.category,
-                hashtags: postData.hashtags,
+                tags: postData.hashtags.split(/[ ,]+/).filter(Boolean).map((t: string) => t.startsWith('#') ? t.substring(1).toLowerCase() : t.toLowerCase()),
                 visibility: postData.visibility
             };
 
