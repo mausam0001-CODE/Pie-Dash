@@ -55,7 +55,7 @@ export const Library = () => {
     const [activeTag, setActiveTag] = useState<string | null>(null);
     const [activeFolder, setActiveFolder] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
-    const [view, setView] = useState<'grid' | 'folders'>('grid');
+    const [view, setView] = useState<'grid' | 'folders' | 'list'>('grid');
 
     const { session } = useAuth();
     const [folders, setFolders] = useState<any[]>(DEFAULT_SMART_FOLDERS);
@@ -156,6 +156,7 @@ export const Library = () => {
                 <div className="flex items-center gap-2">
                     <div className="flex items-center gap-1 bg-slate-100 rounded-xl p-1">
                         <button onClick={() => setView('grid')} className={`px-3 py-1.5 text-[10px] font-bold rounded-lg transition-all ${view === 'grid' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}>Grid</button>
+                        <button onClick={() => setView('list')} className={`px-3 py-1.5 text-[10px] font-bold rounded-lg transition-all ${view === 'list' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}>List</button>
                         <button onClick={() => setView('folders')} className={`px-3 py-1.5 text-[10px] font-bold rounded-lg transition-all ${view === 'folders' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}>Folders</button>
                     </div>
                     <div className="flex items-center gap-1.5 bg-white px-3 py-2 rounded-xl border border-slate-100 shadow-sm">
@@ -297,10 +298,10 @@ export const Library = () => {
                             </div>
                         )}
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
+                        <div className={view === 'list' ? "flex flex-col gap-4" : "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-6"}>
                             {filteredPosts.map((post: any) => (
                                 <div key={post.id || post.post_id} className="relative">
-                                    <PostCard post={post} onClick={() => setSelectedPost(post)} />
+                                    <PostCard post={post} onClick={() => setSelectedPost(post)} mode={view === 'list' ? 'list' : 'grid'} />
                                     {/* Google Drive link overlay */}
                                     {post.google_drive_link && (
                                         <div className="absolute top-2 right-2">
