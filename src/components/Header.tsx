@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, Bell, HelpCircle, Plus, Menu } from 'lucide-react';
+import { Search, Bell, HelpCircle, Plus, Menu, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 export const Header = ({
     onOpenPostBuilder,
@@ -9,14 +9,17 @@ export const Header = ({
     onMenuClick: () => void;
 }) => {
     const [hasNotifications, setHasNotifications] = React.useState(true);
+    const [showNotifications, setShowNotifications] = React.useState(false);
 
     const handleHelp = () => {
         alert('Pie Pro Support: Visit docs.pie.social for guidance on creating Reels and managing your workflow.');
     };
 
     const handleNotifications = () => {
-        setHasNotifications(false);
-        alert('No new notifications. You are all caught up!');
+        setShowNotifications(!showNotifications);
+        if (hasNotifications) {
+            setHasNotifications(false);
+        }
     };
 
     return (
@@ -46,13 +49,54 @@ export const Header = ({
                 >
                     <HelpCircle className="w-5 h-5" />
                 </button>
-                <button
-                    onClick={handleNotifications}
-                    className="p-2 text-slate-400 hover:text-slate-900 transition-all relative"
-                >
-                    <Bell className="w-5 h-5" />
-                    {hasNotifications && <span className="absolute top-2 right-2 w-1.5 h-1.5 bg-red-500 rounded-full border border-white"></span>}
-                </button>
+                <div className="relative">
+                    <button
+                        onClick={handleNotifications}
+                        className={`p-2 transition-all relative rounded-xl ${showNotifications ? 'bg-slate-100 text-slate-900' : 'text-slate-400 hover:text-slate-900'}`}
+                    >
+                        <Bell className="w-5 h-5" />
+                        {hasNotifications && <span className="absolute top-2 right-2 w-1.5 h-1.5 bg-red-500 rounded-full border border-white"></span>}
+                    </button>
+
+                    {showNotifications && (
+                        <>
+                            <div className="fixed inset-0 z-40" onClick={() => setShowNotifications(false)} />
+                            <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-2xl shadow-2xl border border-slate-100 z-50 overflow-hidden animate-in slide-in-from-top-2 fade-in duration-200">
+                                <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                                    <h4 className="font-black text-slate-900 text-sm uppercase tracking-widest">Notifications</h4>
+                                    <button onClick={() => setShowNotifications(false)} className="text-[10px] font-bold text-teal-600 hover:text-teal-700 uppercase tracking-widest">Mark All Read</button>
+                                </div>
+                                <div className="max-h-96 overflow-y-auto">
+                                    <div className="p-4 border-b border-slate-50 hover:bg-slate-50 transition-colors cursor-pointer group">
+                                        <div className="flex gap-3">
+                                            <div className="w-8 h-8 rounded-full bg-red-50 text-red-500 flex items-center justify-center shrink-0">
+                                                <AlertCircle className="w-4 h-4" />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-xs font-medium text-slate-700"><span className="font-bold text-slate-900">Instagram</span> failed to publish your post "Summer Collection Drop".</p>
+                                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">10 mins ago</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="p-4 hover:bg-slate-50 transition-colors cursor-pointer group">
+                                        <div className="flex gap-3">
+                                            <div className="w-8 h-8 rounded-full bg-emerald-50 text-emerald-500 flex items-center justify-center shrink-0">
+                                                <CheckCircle2 className="w-4 h-4" />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-xs font-medium text-slate-700"><span className="font-bold text-slate-900">TikTok</span> successfully published your post.</p>
+                                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">2 hours ago</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="p-3 border-t border-slate-100 bg-slate-50 text-center">
+                                    <button className="text-[10px] font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest">View History</button>
+                                </div>
+                            </div>
+                        </>
+                    )}
+                </div>
                 <div className="w-[1px] h-6 bg-slate-200 mx-1 md:mx-2"></div>
                 <button
                     onClick={onOpenPostBuilder}

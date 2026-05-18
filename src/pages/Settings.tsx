@@ -332,6 +332,69 @@ export const Settings = () => {
                         </div>
                     )}
 
+                    {/* Notifications Tab */}
+                    {activeTab === 'notifications' && (
+                        <div className="max-w-4xl space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                            <section className="space-y-8">
+                                <h3 className="text-lg font-black text-slate-900 uppercase tracking-widest pb-4 border-b border-slate-50">Email Notifications</h3>
+                                <div className="space-y-4">
+                                    {[
+                                        { key: 'email_weekly_digest', label: 'Weekly Analytics Digest', desc: 'Get a summary of your reach and performance every Monday.' },
+                                        { key: 'email_failed_posts', label: 'Failed Publish Alerts', desc: 'Immediate notification if a scheduled post fails to publish.' },
+                                        { key: 'email_disconnections', label: 'Account Disconnections', desc: 'Alerts when a social account token expires or needs refresh.' }
+                                    ].map(item => (
+                                        <div key={item.key} className="flex items-center justify-between p-5 bg-slate-50/50 border border-slate-100 rounded-2xl">
+                                            <div className="space-y-1">
+                                                <h4 className="text-sm font-bold text-slate-900">{item.label}</h4>
+                                                <p className="text-[10px] sm:text-xs font-medium text-slate-400">{item.desc}</p>
+                                            </div>
+                                            <button
+                                                onClick={() => setSettings({ ...settings, [item.key]: !settings[item.key] })}
+                                                className={`w-12 h-6 md:w-14 md:h-7 rounded-full transition-all relative ${settings[item.key] !== false ? 'bg-emerald-500' : 'bg-slate-200'}`}
+                                            >
+                                                <div className={`absolute top-1/2 -translate-y-1/2 w-4 h-4 md:w-5 md:h-5 bg-white rounded-full shadow-sm transition-all ${settings[item.key] !== false ? 'left-[calc(100%-1.125rem)] md:left-[calc(100%-1.375rem)]' : 'left-1'}`} />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </section>
+
+                            <section className="space-y-8 pt-8 border-t border-slate-50">
+                                <h3 className="text-lg font-black text-slate-900 uppercase tracking-widest pb-4 border-b border-slate-50">In-App Notifications</h3>
+                                <div className="space-y-4">
+                                    {[
+                                        { key: 'inapp_mentions', label: 'Mentions & Tags', desc: 'Notify me when someone tags my brand.' },
+                                        { key: 'inapp_published', label: 'Successful Publishes', desc: 'Confirmations when auto-publishing succeeds.' }
+                                    ].map(item => (
+                                        <div key={item.key} className="flex items-center justify-between p-5 bg-slate-50/50 border border-slate-100 rounded-2xl">
+                                            <div className="space-y-1">
+                                                <h4 className="text-sm font-bold text-slate-900">{item.label}</h4>
+                                                <p className="text-[10px] sm:text-xs font-medium text-slate-400">{item.desc}</p>
+                                            </div>
+                                            <button
+                                                onClick={() => setSettings({ ...settings, [item.key]: !settings[item.key] })}
+                                                className={`w-12 h-6 md:w-14 md:h-7 rounded-full transition-all relative ${settings[item.key] !== false ? 'bg-indigo-500' : 'bg-slate-200'}`}
+                                            >
+                                                <div className={`absolute top-1/2 -translate-y-1/2 w-4 h-4 md:w-5 md:h-5 bg-white rounded-full shadow-sm transition-all ${settings[item.key] !== false ? 'left-[calc(100%-1.125rem)] md:left-[calc(100%-1.375rem)]' : 'left-1'}`} />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </section>
+
+                            <div className="pt-12 flex justify-start">
+                                <button
+                                    onClick={handleSave}
+                                    disabled={saving}
+                                    className="bg-slate-900 text-white px-10 py-5 rounded-2xl font-black text-xs uppercase tracking-[0.2em] flex items-center gap-3 hover:bg-slate-800 transition-all shadow-xl active:scale-95 disabled:opacity-50"
+                                >
+                                    {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                                    Save Notification Preferences
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Accounts Tab */}
                     {activeTab === 'accounts' && (
                         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
