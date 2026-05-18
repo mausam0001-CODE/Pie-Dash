@@ -11,15 +11,53 @@ export const Debug = () => {
     const forceSync = async (accountId: string) => {
         setSyncing(accountId);
         try {
-            const { data, error } = await supabase.functions.invoke('sync-account', {
-                body: { accountId }
-            });
-            if (error) throw error;
-            alert('Sync Result: ' + JSON.stringify(data));
-            window.location.reload();
+            const { data: account } = await supabase.from('social_accounts').select('*').eq('id', accountId).single();
+            if (!account) throw new Error('Account not found');
+
+            console.log('Initiating Direct Sync for:', account.username);
+
+            // Try Graph API (Professional)
+            const metaUrl = `https://graph.facebook.com/v18.0/${account.account_id}/media?fields=id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count&limit=10&access_token=${account.access_token}`;
+            const basicUrl = `https://graph.instagram.com/me/media?fields=id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count&access_token=${account.access_token}`;
+
+            console.log('Trying Business API:', metaUrl);
+            const metaResp = await fetch(metaUrl);
+            const metaData = await metaResp.json();
+            console.log('Business API Result:', metaData);
+
+            console.log('Trying Basic API:', basicUrl);
+            const basicResp = await fetch(basicUrl);
+            const basicData = await basicResp.json();
+            console.log('Basic API Result:', basicData);
+
+            const combinedData = metaData.data || basicData.data || [];
+
+            if (combinedData.length > 0) {
+                const postsToInsert = combinedData.map((m: any) => ({
+                    social_account_id: account.id,
+                    user_id: session?.user?.id,
+                    external_id: m.id,
+                    title: m.caption?.substring(0, 50) || 'Untitled Post',
+                    caption: m.caption || '',
+                    media_url: m.media_url || m.thumbnail_url,
+                    platforms: ['instagram'],
+                    status: 'Published',
+                    like_count: m.like_count || 0,
+                    scheduled_at: m.timestamp,
+                    created_at: m.timestamp
+                }));
+
+                const { error: insertErr } = await supabase.from('posts').upsert(postsToInsert, { onConflict: 'social_account_id,external_id' });
+                if (insertErr) throw insertErr;
+
+                alert(`SUCCESS! Found and saved ${postsToInsert.length} posts.`);
+                window.location.reload();
+            } else {
+                alert(`No media found.\nBusiness API: ${JSON.stringify(metaData)}\nBasic API: ${JSON.stringify(basicData)}`);
+            }
         } catch (err: any) {
-            console.error('Sync failed:', err);
-            alert('Sync failed: ' + err.message);
+            console.error('Direct Sync failed:', err);
+            alert('Direct Sync failed: ' + err.message);
         } finally {
             setSyncing(null);
         }
@@ -86,7 +124,7 @@ export const Debug = () => {
                                 disabled={!!syncing}
                                 className="mt-4 bg-emerald-600 text-white px-4 py-2 rounded-xl font-bold text-[10px] hover:bg-emerald-700 disabled:opacity-50"
                             >
-                                {syncing === acc.id ? 'Syncing...' : 'Force Sync Data'}
+                                {syncing === acc.id ? 'Syncing...' : 'Direct Sync (Frontend)'}
                             </button>
                         </div>
                     ))}
