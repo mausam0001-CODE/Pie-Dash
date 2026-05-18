@@ -4,6 +4,7 @@ import {
     Trash2, Loader2, Info, CheckCircle2, AlertCircle,
     Twitter, Linkedin, Globe, RefreshCw
 } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabase';
 import { useNotification } from '../context/NotificationContext';
@@ -25,6 +26,7 @@ const PLATFORMS = [
 export const Connections = () => {
     const { session, isLoading: authLoading } = useAuth();
     const { notify } = useNotification();
+    const queryClient = useQueryClient();
     const [accounts, setAccounts] = useState<Account[]>([]);
     const [loading, setLoading] = useState(false);
     const [syncingId, setSyncingId] = useState<string | null>(null);
@@ -41,6 +43,8 @@ export const Connections = () => {
 
             if (error) throw error;
             setAccounts(data || []);
+            // Invalidate the global cache to keep Sidebar/AccountContext in sync
+            queryClient.invalidateQueries({ queryKey: ['social_accounts'] });
         } catch (error) {
             console.error('Error fetching accounts:', error);
         } finally {
@@ -152,6 +156,8 @@ export const Connections = () => {
             const { error } = await supabase.from('social_accounts').delete().eq('id', id);
             if (error) throw error;
             setAccounts(prev => prev.filter(a => a.id !== id));
+            // Invalidate global cache to refresh Sidebar/Context
+            queryClient.invalidateQueries({ queryKey: ['social_accounts'] });
         } catch (error) {
             console.error('Error deleting account:', error);
         }

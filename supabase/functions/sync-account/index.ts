@@ -54,7 +54,7 @@ serve(async (req) => {
                         title: m.caption?.substring(0, 50) || 'Untitled Post',
                         caption: m.caption || '',
                         media_url: m.media_url || m.thumbnail_url,
-                        platforms: 'instagram',
+                        platforms: ['instagram'],
                         status: 'Published',
                         view_count: likes * 15 + Math.floor(Math.random() * 100),
                         like_count: likes,
@@ -66,12 +66,28 @@ serve(async (req) => {
             }
         } else {
             // Facebook
+            // 2a. Fetch Fan Count (Basic)
             const fbMetricsResp = await fetch(`https://graph.facebook.com/v18.0/${metaAccountId}?fields=fan_count&access_token=${access_token}`)
             const fbMetrics = await fbMetricsResp.json()
+
+            // 2b. Fetch Advanced Insights (Impressions & Engagement)
+            // As per https://developers.facebook.com/docs/pages-api/
+            const insightsResp = await fetch(`https://graph.facebook.com/v18.0/${metaAccountId}/insights?metric=page_impressions,page_post_engagements&period=day&access_token=${access_token}`)
+            const insightsData = await insightsResp.json()
+
+            let dailyImpressions = 0
+            if (insightsData.data) {
+                const impressions = insightsData.data.find((i: any) => i.name === 'page_impressions')
+                if (impressions && impressions.values.length > 0) {
+                    dailyImpressions = impressions.values[impressions.values.length - 1].value
+                }
+            }
+
             if (fbMetrics.fan_count !== undefined) {
                 await supabase.from('account_metrics').upsert({
                     social_account_id: accountId,
                     follower_count: fbMetrics.fan_count,
+                    view_count: dailyImpressions, // Storing daily impressions as current views snapshot
                     month: new Date().toISOString().split('T')[0].substring(0, 7) + '-01'
                 })
             }
@@ -87,7 +103,7 @@ serve(async (req) => {
                         title: f.message?.substring(0, 50) || 'Facebook Post',
                         caption: f.message || '',
                         media_url: f.full_picture,
-                        platforms: 'facebook',
+                        platforms: ['facebook'],
                         status: 'Published',
                         view_count: likes * 12 + Math.floor(Math.random() * 50),
                         like_count: likes,

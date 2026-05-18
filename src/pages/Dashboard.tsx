@@ -1,9 +1,12 @@
 import React from 'react';
 import { usePosts } from '../features/posts/usePosts';
-import { TrendingUp, Clock, CheckCircle2, AlertCircle } from 'lucide-react';
+import { useAccountContext } from '../features/accounts/AccountContext';
+import { TrendingUp, Clock, CheckCircle2, AlertCircle, PlusCircle } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 export const Dashboard = () => {
+    const { activeAccount } = useAccountContext();
     const { data: posts = [], isLoading } = usePosts();
 
     const chartData = React.useMemo(() => {
@@ -35,6 +38,26 @@ export const Dashboard = () => {
         <div className="h-32 bg-slate-200 rounded-3xl w-full" />
         <div className="h-64 bg-slate-200 rounded-3xl w-full" />
     </div>;
+
+    if (!activeAccount) return (
+        <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-6 bg-white rounded-[2rem] border border-slate-100 shadow-sm p-12">
+            <div className="w-20 h-20 bg-teal-50 rounded-full flex items-center justify-center">
+                <PlusCircle className="w-10 h-10 text-teal-500" />
+            </div>
+            <div className="space-y-2 max-w-sm">
+                <h2 className="text-2xl font-black text-slate-900">Connect your first account</h2>
+                <p className="text-sm font-medium text-slate-500 leading-relaxed">
+                    To start seeing your performance insights and managing your posts, you need to connect a social media account.
+                </p>
+            </div>
+            <Link
+                to="/connections"
+                className="inline-flex items-center gap-2 bg-slate-900 text-white px-8 py-3 rounded-2xl font-bold hover:bg-slate-800 transition-all shadow-xl shadow-slate-900/10 active:scale-95"
+            >
+                Connect account
+            </Link>
+        </div>
+    );
 
     return (
         <div className="space-y-8 animate-in fade-in duration-700">
