@@ -16,72 +16,83 @@ export const Debug = () => {
 
             console.log('Initiating Direct Sync for:', account.username);
 
-            // Try Graph API (Professional)
-            const metaInfoUrl = `https://graph.facebook.com/v22.0/${account.account_id}?fields=followers_count&access_token=${account.access_token}`;
-            const metaUrl = `https://graph.facebook.com/v22.0/${account.account_id}/media?fields=id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count,play_count&limit=25&access_token=${account.access_token}`;
-            const basicUrl = `https://graph.instagram.com/me/media?fields=id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count&access_token=${account.access_token}`;
+            // ── STEP 1: Get profile info using graph.instagram.com/me ──
+            // This is the CORRECT endpoint for Instagram Login tokens (not Facebook Page tokens)
+            const meUrl = `https://graph.instagram.com/v25.0/me?fields=id,username,followers_count,media_count,profile_picture_url&access_token=${account.access_token}`;
+            console.log('Fetching profile via /me endpoint...');
+            const meResp = await fetch(meUrl);
+            const meData = await meResp.json();
+            console.log('Profile Response:', JSON.stringify(meData));
 
-            console.log('Fetching Account Info:', metaInfoUrl);
-            const infoResp = await fetch(metaInfoUrl);
-            const infoData = await infoResp.json();
-
-            if (infoData.followers_count !== undefined) {
-                await supabase.from('account_metrics').upsert({
+            // Save follower count to metrics table
+            if (meData.followers_count !== undefined) {
+                const { error: metricErr } = await supabase.from('account_metrics').upsert({
                     social_account_id: account.id,
                     user_id: session?.user?.id,
-                    follower_count: infoData.followers_count,
+                    follower_count: meData.followers_count,
                     month: new Date().toISOString().substring(0, 7) + '-01'
                 });
+                if (metricErr) console.warn('Metric upsert error:', metricErr);
+                else console.log('Follower count saved:', meData.followers_count);
             }
 
-            console.log('Trying Business API:', metaUrl);
-            const metaResp = await fetch(metaUrl);
-            const metaData = await metaResp.json();
-            console.log('Business API Result:', metaData);
+            // ── STEP 2: Fetch media via graph.instagram.com/me/media ──
+            const mediaUrl = `https://graph.instagram.com/v25.0/me/media?fields=id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count&limit=25&access_token=${account.access_token}`;
+            console.log('Fetching media...');
+            const mediaResp = await fetch(mediaUrl);
+            const mediaData = await mediaResp.json();
+            console.log('Media Response (first item):', JSON.stringify(mediaData?.data?.[0]));
 
-            console.log('Trying Basic API:', basicUrl);
-            const basicResp = await fetch(basicUrl);
-            const basicData = await basicResp.json();
-            console.log('Basic API Result:', basicData);
+            const posts = mediaData.data || [];
 
-            const combinedData = metaData.data || basicData.data || [];
-
-            if (combinedData.length > 0) {
-                const postsToInsert = combinedData.map((m: any) => ({
-                    social_account_id: account.id,
-                    user_id: session?.user?.id,
-                    external_id: m.id,
-                    title: m.caption?.substring(0, 50) || 'Untitled Post',
-                    caption: m.caption || '',
-                    media_url: m.media_url || m.thumbnail_url,
-                    thumbnail_url: m.thumbnail_url || m.media_url,
-                    permalink: m.permalink,
-                    platforms: ['instagram'],
-                    status: 'Published',
-                    like_count: m.like_count || 0,
-                    comments_count: m.comments_count || 0,
-                    view_count: m.play_count || 0,
-                    scheduled_at: m.timestamp,
-                    created_at: m.timestamp
+            if (posts.length > 0) {
+                // ── STEP 3: Enrich each video post with play count insights ──
+                const enriched = await Promise.all(posts.map(async (m: any) => {
+                    let playCount = 0;
+                    if (m.media_type === 'VIDEO' || m.media_type === 'REEL') {
+                        try {
+                            const insightUrl = `https://graph.instagram.com/v25.0/${m.id}/insights?metric=plays&access_token=${account.access_token}`;
+                            const insightResp = await fetch(insightUrl);
+                            const insightData = await insightResp.json();
+                            playCount = insightData?.data?.[0]?.values?.[0]?.value || insightData?.data?.[0]?.value || 0;
+                        } catch {
+                            // insights may not be available for all account types
+                        }
+                    }
+                    return {
+                        social_account_id: account.id,
+                        user_id: session?.user?.id,
+                        external_id: m.id,
+                        title: m.caption?.substring(0, 50) || 'Untitled Post',
+                        caption: m.caption || '',
+                        media_url: m.media_url || m.thumbnail_url,
+                        thumbnail_url: m.thumbnail_url || m.media_url,
+                        permalink: m.permalink,
+                        platforms: ['instagram'],
+                        status: 'Published',
+                        like_count: m.like_count || 0,
+                        comments_count: m.comments_count || 0,
+                        view_count: playCount,
+                        scheduled_at: m.timestamp,
+                        created_at: m.timestamp
+                    };
                 }));
 
-                const { error: insertErr } = await supabase.from('posts').upsert(postsToInsert, { onConflict: 'social_account_id,external_id' });
+                const { error: insertErr } = await supabase
+                    .from('posts')
+                    .upsert(enriched, { onConflict: 'social_account_id,external_id' });
                 if (insertErr) throw insertErr;
 
-                const dbgMsg = [
-                    `SYNC ATTEMPTED!`,
-                    `Followers Pulled: ${infoData.followers_count ?? 'MISSING'}`,
-                    `Posts Found: ${postsToInsert.length}`,
-                    `Views on first post: ${postsToInsert[0].view_count}`,
-                    `--- RAW DATA SNIPPET ---`,
-                    `Account: ${JSON.stringify(infoData).substring(0, 100)}`,
-                    `Media: ${JSON.stringify(combinedData[0]).substring(0, 100)}`
-                ].join('\n');
-
-                alert(dbgMsg);
+                const msg = [
+                    `✅ SYNC SUCCESS!`,
+                    `Followers: ${meData.followers_count ?? 'N/A'}`,
+                    `Posts saved: ${enriched.length}`,
+                    meData.error ? `⚠️ Profile Error: ${JSON.stringify(meData.error)}` : ''
+                ].filter(Boolean).join('\n');
+                alert(msg);
                 window.location.reload();
             } else {
-                alert(`No media found.\nBusiness API: ${JSON.stringify(metaData)}\nBasic API: ${JSON.stringify(basicData)}`);
+                alert(`No media found.\nProfile: ${JSON.stringify(meData)}\nMedia Error: ${JSON.stringify(mediaData)}`);
             }
         } catch (err: any) {
             console.error('Direct Sync failed:', err);
@@ -105,7 +116,7 @@ export const Debug = () => {
             results.accounts = accounts;
 
             // Check posts
-            const { data: posts } = await supabase.from('posts').select('id, user_id, social_account_id, title').limit(5);
+            const { data: posts } = await supabase.from('posts').select('id, user_id, social_account_id, title, view_count, like_count').limit(5);
             results.postsSample = posts;
 
             const { count: postsCount } = await supabase.from('posts').select('*', { count: 'exact', head: true });
@@ -175,7 +186,7 @@ export const Debug = () => {
             </section>
 
             <section className="space-y-2">
-                <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest">Post Samples</h2>
+                <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest">Post Samples (with engagement)</h2>
                 <div className="bg-slate-50 p-4 rounded-2xl font-mono text-[10px] overflow-auto max-h-40">
                     <pre>{JSON.stringify(stats.postsSample, null, 2)}</pre>
                 </div>
