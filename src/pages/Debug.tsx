@@ -54,6 +54,8 @@ export const Debug = () => {
                     title: m.caption?.substring(0, 50) || 'Untitled Post',
                     caption: m.caption || '',
                     media_url: m.media_url || m.thumbnail_url,
+                    thumbnail_url: m.thumbnail_url || m.media_url,
+                    permalink: m.permalink,
                     platforms: ['instagram'],
                     status: 'Published',
                     like_count: m.like_count || 0,
