@@ -6,6 +6,24 @@ export const Debug = () => {
     const { session } = useAuth();
     const [stats, setStats] = useState<any>(null);
     const [loading, setLoading] = useState(true);
+    const [syncing, setSyncing] = useState<string | null>(null);
+
+    const forceSync = async (accountId: string) => {
+        setSyncing(accountId);
+        try {
+            const { data, error } = await supabase.functions.invoke('sync-account', {
+                body: { accountId }
+            });
+            if (error) throw error;
+            alert('Sync Result: ' + JSON.stringify(data));
+            window.location.reload();
+        } catch (err: any) {
+            console.error('Sync failed:', err);
+            alert('Sync failed: ' + err.message);
+        } finally {
+            setSyncing(null);
+        }
+    };
 
     useEffect(() => {
         const fetchStats = async () => {
@@ -63,6 +81,13 @@ export const Debug = () => {
                             <p className={acc.user_id === stats.userId ? "text-emerald-600 font-bold" : "text-rose-500 font-bold"}>
                                 {acc.user_id === stats.userId ? "✓ User ID Matches" : "✗ User ID Mismatch!"}
                             </p>
+                            <button
+                                onClick={() => forceSync(acc.id)}
+                                disabled={!!syncing}
+                                className="mt-4 bg-emerald-600 text-white px-4 py-2 rounded-xl font-bold text-[10px] hover:bg-emerald-700 disabled:opacity-50"
+                            >
+                                {syncing === acc.id ? 'Syncing...' : 'Force Sync Data'}
+                            </button>
                         </div>
                     ))}
                     {stats.accounts?.length === 0 && <p className="text-slate-400 text-sm italic">No accounts visible to this user.</p>}
