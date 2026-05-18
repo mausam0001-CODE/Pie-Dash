@@ -68,7 +68,17 @@ export const Debug = () => {
                 const { error: insertErr } = await supabase.from('posts').upsert(postsToInsert, { onConflict: 'social_account_id,external_id' });
                 if (insertErr) throw insertErr;
 
-                alert(`SUCCESS! Found and saved ${postsToInsert.length} posts.`);
+                const dbgMsg = [
+                    `SYNC ATTEMPTED!`,
+                    `Followers Pulled: ${infoData.followers_count ?? 'MISSING'}`,
+                    `Posts Found: ${postsToInsert.length}`,
+                    `Views on first post: ${postsToInsert[0].view_count}`,
+                    `--- RAW DATA SNIPPET ---`,
+                    `Account: ${JSON.stringify(infoData).substring(0, 100)}`,
+                    `Media: ${JSON.stringify(combinedData[0]).substring(0, 100)}`
+                ].join('\n');
+
+                alert(dbgMsg);
                 window.location.reload();
             } else {
                 alert(`No media found.\nBusiness API: ${JSON.stringify(metaData)}\nBasic API: ${JSON.stringify(basicData)}`);
