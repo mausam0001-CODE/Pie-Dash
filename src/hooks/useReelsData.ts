@@ -26,6 +26,8 @@ export interface Reel {
     script?: string;
     thumbnail?: string;
     caption?: string;
+    platforms?: string[];
+    social_account_id?: string;
 }
 
 export const useReelsData = () => {

@@ -303,45 +303,73 @@ export const PostBuilder = ({ onClose, initialReel }: PostBuilderProps) => {
     );
 };
 
-const StepAccounts = ({ accounts, selected, onToggle }: { accounts: any[], selected: string[], onToggle: (id: string) => void }) => (
-    <div className="space-y-6 md:space-y-8 animate-in slide-in-from-bottom-4 duration-500">
-        <div className="text-center space-y-2">
-            <h3 className="text-xl md:text-3xl font-black text-slate-900">Select Accounts</h3>
-            <p className="text-sm text-slate-500 font-medium">Choose where you want to publish this content.</p>
-        </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6 max-w-4xl mx-auto pb-4">
+const StepAccounts = ({ accounts, selected, onToggle }: { accounts: any[], selected: string[], onToggle: (id: string) => void }) => {
+    const groupedAccounts = accounts.reduce((acc, current) => {
+        if (!acc[current.platform]) acc[current.platform] = [];
+        acc[current.platform].push(current);
+        return acc;
+    }, {} as Record<string, any[]>);
+
+    return (
+        <div className="space-y-6 md:space-y-8 animate-in slide-in-from-bottom-4 duration-500">
+            <div className="text-center space-y-2">
+                <h3 className="text-xl md:text-3xl font-black text-slate-900">Select Accounts</h3>
+                <p className="text-sm text-slate-500 font-medium">Choose where you want to publish this content.</p>
+            </div>
+
             {accounts.length === 0 ? (
-                <div className="col-span-full py-12 text-center text-slate-400 italic">No social accounts connected yet. Please connect an account in the Connections tab.</div>
-            ) : accounts.map(acc => {
-                const isSelected = selected.includes(acc.id);
-                return (
-                    <button
-                        key={acc.id}
-                        onClick={() => onToggle(acc.id)}
-                        className={`p-4 sm:p-8 rounded-[1.5rem] md:rounded-[2rem] border-2 transition-all flex flex-col items-center gap-2 sm:gap-4 group ${isSelected ? 'border-teal-500 bg-teal-50 ring-4 ring-teal-500/10 shadow-xl' : 'border-slate-100 bg-white hover:border-slate-300 hover:shadow-md'
-                            }`}
-                    >
-                        <div className={`w-10 h-10 sm:w-16 sm:h-16 rounded-xl md:rounded-2xl flex items-center justify-center transition-all ${isSelected ? 'bg-teal-500 text-white shadow-lg' : 'bg-slate-50 text-slate-300 group-hover:text-slate-400'
-                            }`}>
-                            {acc.platform === 'instagram' && <Instagram className="w-5 h-5 sm:w-8 sm:h-8" />}
-                            {acc.platform === 'facebook' && <Facebook className="w-5 h-5 sm:w-8 sm:h-8" />}
-                            {acc.platform === 'tiktok' && <Smartphone className="w-5 h-5 sm:w-8 sm:h-8" />}
-                            {acc.platform === 'youtube' && <Youtube className="w-5 h-5 sm:w-8 sm:h-8" />}
-                            {!['instagram', 'facebook', 'tiktok', 'youtube'].includes(acc.platform) && <Globe className="w-5 h-5 sm:w-8 sm:h-8" />}
+                <div className="py-12 text-center text-slate-400 italic">No social accounts connected yet. Please connect an account in the Connections tab.</div>
+            ) : (
+                <div className="max-w-5xl mx-auto space-y-10 pb-8">
+                    {Object.entries(groupedAccounts).map(([platform, platformAccounts]: [string, any]) => (
+                        <div key={platform} className="space-y-6">
+                            <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
+                                <div className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-center shrink-0 shadow-sm">
+                                    {platform === 'instagram' && <Instagram className="w-4 h-4 text-pink-500" />}
+                                    {platform === 'facebook' && <Facebook className="w-4 h-4 text-blue-600" />}
+                                    {platform === 'tiktok' && <Smartphone className="w-4 h-4 text-slate-900" />}
+                                    {platform === 'youtube' && <Youtube className="w-4 h-4 text-red-500" />}
+                                    {!['instagram', 'facebook', 'tiktok', 'youtube'].includes(platform) && <Globe className="w-4 h-4 text-slate-400" />}
+                                </div>
+                                <h4 className="text-sm md:text-base font-black text-slate-900 capitalize uppercase tracking-widest">{platform} <span className="text-slate-400 font-bold ml-1">({platformAccounts.length})</span></h4>
+                            </div>
+
+                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+                                {platformAccounts.map((acc: any) => {
+                                    const isSelected = selected.includes(acc.id);
+                                    return (
+                                        <button
+                                            key={acc.id}
+                                            onClick={() => onToggle(acc.id)}
+                                            className={`p-4 xl:p-6 rounded-[1.5rem] md:rounded-[2rem] border-2 transition-all flex flex-col items-center gap-2 sm:gap-4 group ${isSelected ? 'border-teal-500 bg-teal-50 ring-4 ring-teal-500/10 shadow-xl' : 'border-slate-100 bg-white hover:border-slate-300 hover:shadow-md'
+                                                }`}
+                                        >
+                                            <div className={`w-12 h-12 sm:w-16 sm:h-16 rounded-xl md:rounded-2xl flex items-center justify-center transition-all ${isSelected ? 'bg-teal-500 text-white shadow-lg' : 'bg-slate-50 text-slate-300 group-hover:text-slate-400'
+                                                }`}>
+                                                {acc.platform === 'instagram' && <Instagram className="w-5 h-5 sm:w-8 sm:h-8" />}
+                                                {acc.platform === 'facebook' && <Facebook className="w-5 h-5 sm:w-8 sm:h-8" />}
+                                                {acc.platform === 'tiktok' && <Smartphone className="w-5 h-5 sm:w-8 sm:h-8" />}
+                                                {acc.platform === 'youtube' && <Youtube className="w-5 h-5 sm:w-8 sm:h-8" />}
+                                                {!['instagram', 'facebook', 'tiktok', 'youtube'].includes(acc.platform) && <Globe className="w-5 h-5 sm:w-8 sm:h-8" />}
+                                            </div>
+                                            <span className={`font-black text-[10px] sm:text-xs uppercase tracking-widest truncate w-full ${isSelected ? 'text-teal-700' : 'text-slate-400'}`}>
+                                                {acc.username || acc.platform}
+                                            </span>
+                                            <div className={`w-5 h-5 sm:w-6 sm:h-6 flex shrink-0 items-center justify-center rounded-full border-2 transition-all ${isSelected ? 'border-teal-500 bg-teal-500 text-white shadow-md' : 'border-slate-200'
+                                                }`}>
+                                                {isSelected && <CheckCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 active:scale-90 transition-transform" />}
+                                            </div>
+                                        </button>
+                                    )
+                                })}
+                            </div>
                         </div>
-                        <span className={`font-black text-[10px] sm:text-sm uppercase tracking-widest truncate w-full ${isSelected ? 'text-teal-700' : 'text-slate-400'}`}>
-                            {acc.username || acc.platform}
-                        </span>
-                        <div className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full border-2 flex items-center justify-center shrink-0 ${isSelected ? 'border-teal-500 bg-teal-500 text-white' : 'border-slate-100'
-                            }`}>
-                            {isSelected && <CheckCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
-                        </div>
-                    </button>
-                )
-            })}
+                    ))}
+                </div>
+            )}
         </div>
-    </div>
-);
+    );
+};
 
 const StepBasicInfo = ({ value, onChange, labels, selectedLabel, onLabelSelect, onAddLabel }: { value: string, onChange: (v: string) => void, labels: string[], selectedLabel: string, onLabelSelect: (l: string) => void, onAddLabel: (l: string) => void }) => {
     const [isAdding, setIsAdding] = useState(false);

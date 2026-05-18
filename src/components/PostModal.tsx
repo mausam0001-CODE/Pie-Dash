@@ -29,7 +29,7 @@ export const PostModal = ({ reel, onClose }: PostModalProps) => {
                     id: reel.id,
                     title: reel.title,
                     scheduledAt: `${scheduledDate}T${scheduledTime}:00`,
-                    platforms: ['Instagram', 'TikTok']
+                    platforms: reel.platforms || ['Instagram']
                 })
             });
 

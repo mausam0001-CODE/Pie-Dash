@@ -94,8 +94,8 @@ export const Settings = () => {
     };
 
     // Social Account Handlers
-    const confirmConnect = async (loginMethod: 'ig' | 'fb' = 'fb') => {
-        const platformId = showNotesModal;
+    const confirmConnect = async (platform: string, loginMethod: string = 'web') => {
+        const platformId = platform;
         const fbAppId = import.meta.env.VITE_FB_APP_ID || '1247702890719706';
         const igAppId = '997891079244802';
         const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
@@ -110,11 +110,16 @@ export const Settings = () => {
         if (platformId === 'instagram' && loginMethod === 'ig') {
             const scope = 'instagram_business_basic,instagram_business_content_publish,instagram_business_manage_messages,instagram_business_manage_comments';
             oauthUrl = `https://api.instagram.com/oauth/authorize?client_id=${igAppId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}&response_type=code&state=${state}`;
-        } else {
+        } else if (platformId === 'facebook' || platformId === 'instagram') {
             const scope = platformId === 'instagram'
                 ? 'instagram_basic,pages_show_list,public_profile'
                 : 'pages_show_list,pages_read_engagement,public_profile';
             oauthUrl = `https://www.facebook.com/v25.0/dialog/oauth?client_id=${fbAppId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}&state=${state}&response_type=code`;
+        } else {
+            // Mock OAuth for other platforms until built
+            notify(`${platformId.toUpperCase()} integration is coming soon!`, 'info');
+            setShowNotesModal(null);
+            return;
         }
 
         const width = 600, height = 700;
@@ -332,38 +337,65 @@ export const Settings = () => {
                         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
                             <div className="flex items-center justify-between">
                                 <h3 className="text-lg font-black text-slate-900 uppercase tracking-widest">Linked Destinations</h3>
-                                <button onClick={() => setShowNotesModal('instagram')} className="flex items-center gap-2 px-6 py-3 bg-emerald-500 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-emerald-600 shadow-lg shadow-emerald-500/10 transition-all">
+                                <button onClick={() => setShowNotesModal('all')} className="flex items-center gap-2 px-6 py-3 bg-emerald-500 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-emerald-600 shadow-lg shadow-emerald-500/10 transition-all">
                                     <Plus className="w-4 h-4" /> Add Destination
                                 </button>
                             </div>
 
-                            <div className="grid grid-cols-1 gap-4">
-                                {accounts.map(acc => (
-                                    <div key={acc.id} className="flex items-center justify-between p-6 bg-slate-50 border border-slate-100 rounded-2xl group hover:bg-white hover:shadow-xl hover:border-emerald-500/20 transition-all duration-300">
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-12 h-12 rounded-xl bg-white shadow-sm flex items-center justify-center border border-slate-100">
-                                                {acc.platform === 'instagram' && <Instagram className="w-6 h-6 text-pink-500" />}
-                                                {acc.platform === 'youtube' && <Youtube className="w-6 h-6 text-red-600" />}
-                                                {acc.platform === 'facebook' && <Facebook className="w-6 h-6 text-blue-600" />}
+                            <div className="grid grid-cols-1 gap-8">
+                                {Object.entries(
+                                    accounts.reduce((acc, current) => {
+                                        if (!acc[current.platform]) acc[current.platform] = [];
+                                        acc[current.platform].push(current);
+                                        return acc;
+                                    }, {} as Record<string, any[]>)
+                                ).map(([platform, platformAccounts]: [string, any]) => (
+                                    <div key={platform} className="space-y-4">
+                                        <div className="flex items-center gap-3 pb-2 border-b border-slate-100">
+                                            <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center border border-slate-200">
+                                                {platform === 'instagram' && <Instagram className="w-4 h-4 text-pink-500" />}
+                                                {platform === 'youtube' && <Youtube className="w-4 h-4 text-red-600" />}
+                                                {platform === 'facebook' && <Facebook className="w-4 h-4 text-blue-600" />}
+                                                {platform === 'tiktok' && <Smartphone className="w-4 h-4 text-slate-900" />}
+                                                {platform === 'twitter' && <Twitter className="w-4 h-4 text-sky-500" />}
+                                                {platform === 'linkedin' && <UserCircle className="w-4 h-4 text-blue-700" />}
                                             </div>
-                                            <div>
-                                                <h4 className="font-black text-slate-900 text-sm">{acc.username}</h4>
-                                                <div className="flex items-center gap-2 mt-0.5">
-                                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter bg-slate-100 px-2 py-0.5 rounded-full">{acc.platform}</span>
-                                                    <span className="flex items-center gap-1 text-[10px] text-teal-600 font-bold"><CheckCircle2 className="w-3 h-3" /> Connected</span>
-                                                </div>
-                                            </div>
+                                            <h4 className="text-sm font-black text-slate-900 capitalize uppercase tracking-widest">{platform} <span className="text-slate-400 font-bold ml-1">({platformAccounts.length})</span></h4>
                                         </div>
-                                        <div className="flex items-center gap-3">
-                                            <button onClick={() => handleSync(acc.id)} className="p-2.5 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 rounded-xl transition-all">
-                                                <RefreshCw className={`w-4 h-4 ${syncingId === acc.id ? 'animate-spin' : ''}`} />
-                                            </button>
-                                            <button onClick={() => handleDeleteAccount(acc.id)} className="p-2.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all">
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
+
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            {platformAccounts.map((acc: any) => (
+                                                <div key={acc.id} className="flex items-center justify-between p-5 bg-slate-50 border border-slate-100 rounded-2xl group hover:bg-white hover:shadow-xl hover:border-emerald-500/20 transition-all duration-300">
+                                                    <div className="flex items-center gap-4 truncate mr-4">
+                                                        <div className="w-10 h-10 rounded-xl bg-white shadow-sm flex items-center justify-center border border-slate-100 flex-shrink-0">
+                                                            {platform === 'instagram' && <Instagram className="w-5 h-5 text-pink-500" />}
+                                                            {platform === 'youtube' && <Youtube className="w-5 h-5 text-red-600" />}
+                                                            {platform === 'facebook' && <Facebook className="w-5 h-5 text-blue-600" />}
+                                                            {platform === 'tiktok' && <Smartphone className="w-5 h-5 text-slate-900" />}
+                                                            {platform === 'twitter' && <Twitter className="w-5 h-5 text-sky-500" />}
+                                                            {platform === 'linkedin' && <UserCircle className="w-5 h-5 text-blue-700" />}
+                                                        </div>
+                                                        <div className="min-w-0">
+                                                            <h4 className="font-black text-slate-900 text-sm truncate">{acc.username}</h4>
+                                                            <div className="flex items-center gap-2 mt-0.5">
+                                                                <span className="flex items-center gap-1 text-[10px] text-teal-600 font-bold"><CheckCircle2 className="w-3 h-3" /> Connected</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center gap-2 flex-shrink-0">
+                                                        <button onClick={() => handleSync(acc.id)} className="p-2 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 rounded-xl transition-all">
+                                                            <RefreshCw className={`w-4 h-4 ${syncingId === acc.id ? 'animate-spin' : ''}`} />
+                                                        </button>
+                                                        <button onClick={() => handleDeleteAccount(acc.id)} className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all">
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ))}
                                         </div>
                                     </div>
                                 ))}
+
                                 {accounts.length === 0 && (
                                     <div className="py-20 text-center border-2 border-dashed border-slate-100 rounded-[2rem] space-y-4">
                                         <Link2 className="w-12 h-12 text-slate-200 mx-auto" />
@@ -371,6 +403,7 @@ export const Settings = () => {
                                     </div>
                                 )}
                             </div>
+
                         </div>
                     )}
 
@@ -437,28 +470,70 @@ export const Settings = () => {
             {/* OAuth Connection Manager */}
             {showNotesModal && (
                 <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-                    <div className="bg-white w-full max-w-xl rounded-[3rem] p-10 shadow-2xl relative animate-in zoom-in-95 duration-300 border border-slate-100">
+                    <div className="bg-white w-full max-w-2xl rounded-[3rem] p-10 shadow-2xl relative animate-in zoom-in-95 duration-300 border border-slate-100">
+
                         <div className="space-y-6">
-                            <div className="bg-slate-50 rounded-[2rem] p-8 border border-slate-100 space-y-6">
-                                <div className="flex flex-col items-center gap-4 py-4">
-                                    <div className="w-16 h-16 rounded-2xl bg-white shadow-xl flex items-center justify-center border border-slate-100">
-                                        <Instagram className="w-8 h-8 text-pink-500" />
+                            {showNotesModal === 'all' ? (
+                                <div className="space-y-6">
+                                    <div className="text-center py-4">
+                                        <h4 className="text-2xl font-black text-slate-900">Add Destination</h4>
+                                        <p className="text-sm text-slate-500 mt-2">Choose a platform to connect to your Pie Social account.</p>
                                     </div>
-                                    <div className="text-center">
-                                        <h4 className="text-xl font-bold text-slate-900">Connect Instagram</h4>
-                                        <p className="text-sm text-slate-400 mt-1 max-w-xs">Link your professional account to enable auto-posting and real-time analytics.</p>
+                                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                        <button onClick={() => setShowNotesModal('instagram')} className="flex flex-col items-center justify-center gap-3 p-6 bg-slate-50 border border-slate-100 rounded-3xl hover:bg-white hover:border-pink-500/30 hover:shadow-xl hover:-translate-y-1 transition-all group">
+                                            <Instagram className="w-8 h-8 text-pink-500 group-hover:scale-110 transition-transform" />
+                                            <span className="text-xs font-black text-slate-700">Instagram</span>
+                                        </button>
+                                        <button onClick={() => confirmConnect('facebook', 'fb')} className="flex flex-col items-center justify-center gap-3 p-6 bg-slate-50 border border-slate-100 rounded-3xl hover:bg-white hover:border-blue-500/30 hover:shadow-xl hover:-translate-y-1 transition-all group">
+                                            <Facebook className="w-8 h-8 text-blue-600 group-hover:scale-110 transition-transform" />
+                                            <span className="text-xs font-black text-slate-700">Facebook</span>
+                                        </button>
+                                        <button onClick={() => confirmConnect('youtube', 'web')} className="flex flex-col items-center justify-center gap-3 p-6 bg-slate-50 border border-slate-100 rounded-3xl hover:bg-white hover:border-red-500/30 hover:shadow-xl hover:-translate-y-1 transition-all group">
+                                            <Youtube className="w-8 h-8 text-red-600 group-hover:scale-110 transition-transform" />
+                                            <span className="text-xs font-black text-slate-700">YouTube</span>
+                                        </button>
+                                        <button onClick={() => confirmConnect('tiktok', 'web')} className="flex flex-col items-center justify-center gap-3 p-6 bg-slate-50 border border-slate-100 rounded-3xl hover:bg-white hover:border-slate-800/30 hover:shadow-xl hover:-translate-y-1 transition-all group">
+                                            <Smartphone className="w-8 h-8 text-slate-900 group-hover:scale-110 transition-transform" />
+                                            <span className="text-xs font-black text-slate-700">TikTok</span>
+                                        </button>
+                                        <button onClick={() => confirmConnect('twitter', 'web')} className="flex flex-col items-center justify-center gap-3 p-6 bg-slate-50 border border-slate-100 rounded-3xl hover:bg-white hover:border-sky-500/30 hover:shadow-xl hover:-translate-y-1 transition-all group">
+                                            <Twitter className="w-8 h-8 text-sky-500 group-hover:scale-110 transition-transform" />
+                                            <span className="text-xs font-black text-slate-700">X (Twitter)</span>
+                                        </button>
+                                        <button onClick={() => confirmConnect('linkedin', 'web')} className="flex flex-col items-center justify-center gap-3 p-6 bg-slate-50 border border-slate-100 rounded-3xl hover:bg-white hover:border-blue-700/30 hover:shadow-xl hover:-translate-y-1 transition-all group">
+                                            <UserCircle className="w-8 h-8 text-blue-700 group-hover:scale-110 transition-transform" />
+                                            <span className="text-xs font-black text-slate-700">LinkedIn</span>
+                                        </button>
                                     </div>
                                 </div>
-                                <div className="grid grid-cols-1 gap-3">
-                                    <button onClick={() => confirmConnect('ig')} className="w-full py-4 bg-gradient-to-r from-purple-600 to-pink-500 text-white rounded-2xl text-[13px] font-bold flex items-center justify-center gap-2 hover:opacity-90 transition-all shadow-xl shadow-pink-500/20">
-                                        <Instagram className="w-4 h-4" /> Direct Connect Business Account
-                                    </button>
-                                    <button onClick={() => confirmConnect('fb')} className="w-full py-3.5 bg-white border border-slate-200 text-slate-600 rounded-2xl text-[12px] font-bold flex items-center justify-center gap-2 hover:bg-slate-50 transition-all">
-                                        <Facebook className="w-4 h-4 text-blue-600" /> Connect via Facebook Page
-                                    </button>
+                            ) : showNotesModal === 'instagram' ? (
+                                <div className="bg-slate-50 rounded-[2rem] p-8 border border-slate-100 space-y-6">
+                                    <div className="flex flex-col items-center gap-4 py-4">
+                                        <div className="w-16 h-16 rounded-2xl bg-white shadow-xl flex items-center justify-center border border-slate-100">
+                                            <Instagram className="w-8 h-8 text-pink-500" />
+                                        </div>
+                                        <div className="text-center">
+                                            <h4 className="text-xl font-bold text-slate-900">Connect Instagram</h4>
+                                            <p className="text-sm text-slate-400 mt-1 max-w-xs">Link your professional account to enable auto-posting and real-time analytics.</p>
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-1 gap-3">
+                                        <button onClick={() => confirmConnect('instagram', 'ig')} className="w-full py-4 bg-gradient-to-r from-purple-600 to-pink-500 text-white rounded-2xl text-[13px] font-bold flex items-center justify-center gap-2 hover:opacity-90 transition-all shadow-xl shadow-pink-500/20">
+                                            <Instagram className="w-4 h-4" /> Direct Connect Business Account
+                                        </button>
+                                        <button onClick={() => confirmConnect('instagram', 'fb')} className="w-full py-3.5 bg-white border border-slate-200 text-slate-600 rounded-2xl text-[12px] font-bold flex items-center justify-center gap-2 hover:bg-slate-50 transition-all">
+                                            <Facebook className="w-4 h-4 text-blue-600" /> Connect via Facebook Page
+                                        </button>
+                                    </div>
                                 </div>
-                            </div>
-                            <button onClick={() => setShowNotesModal(null)} className="w-full py-3 text-xs font-black uppercase tracking-widest text-slate-300 hover:text-slate-500 transition-colors">Close Portal</button>
+                            ) : null}
+
+                            <button
+                                onClick={() => showNotesModal === 'instagram' ? setShowNotesModal('all') : setShowNotesModal(null)}
+                                className="w-full py-3 text-xs font-black uppercase tracking-widest text-slate-300 hover:text-slate-500 transition-colors"
+                            >
+                                {showNotesModal === 'instagram' ? '← Back to Platforms' : 'Close Portal'}
+                            </button>
                         </div>
                     </div>
                 </div>
