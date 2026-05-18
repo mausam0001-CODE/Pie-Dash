@@ -9,14 +9,7 @@ import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabase';
 
 // ── Predefined smart folders (tags → groups) ──────────────────────────
-const DEFAULT_SMART_FOLDERS = [
-    { label: 'Sales Videos', tags: ['sales', 'product', 'offer'], emoji: '💰' },
-    { label: 'Tax Tips', tags: ['tax', 'finance', 'accounting', 'tips'], emoji: '🧾' },
-    { label: 'Education', tags: ['education', 'tutorial', 'how-to', 'learn'], emoji: '📚' },
-    { label: 'Behind the Scenes', tags: ['bts', 'team', 'behind-the-scenes'], emoji: '🎬' },
-    { label: 'Trending Hooks', tags: ['trending', 'viral', 'hook'], emoji: '🔥' },
-    { label: 'Client Stories', tags: ['client', 'testimonial', 'case-study'], emoji: '⭐' },
-];
+const DEFAULT_SMART_FOLDERS: any[] = [];
 
 // ── Derive all unique tags from posts ─────────────────────────────────
 function extractTags(posts: any[]): string[] {
@@ -62,17 +55,33 @@ export const Library = () => {
     const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
     const [newFolder, setNewFolder] = useState({ label: '', emoji: '📁', tags: '' });
     const [isSavingFolder, setIsSavingFolder] = useState(false);
+    const [customTags, setCustomTags] = useState<string[]>([]);
+    const [isAddingTag, setIsAddingTag] = useState(false);
+    const [newTagInput, setNewTagInput] = useState('');
 
     React.useEffect(() => {
         if (!session?.user?.id) return;
         const loadSettings = async () => {
             const { data } = await supabase.from('user_settings').select('settings').eq('user_id', session.user.id).single();
-            if (data?.settings?.folders) {
-                setFolders(data.settings.folders);
-            }
+            if (data?.settings?.folders) setFolders(data.settings.folders);
+            if (Array.isArray(data?.settings?.customTags)) setCustomTags(data.settings.customTags);
         };
         loadSettings();
     }, [session?.user?.id]);
+
+    const handleSaveTag = async () => {
+        const tag = newTagInput.replace(/^#+/, '').trim().toLowerCase();
+        if (!tag || customTags.includes(tag)) { setNewTagInput(''); setIsAddingTag(false); return; }
+        const updated = [...customTags, tag];
+        setCustomTags(updated);
+        setNewTagInput('');
+        setIsAddingTag(false);
+        try {
+            const { data: curr } = await supabase.from('user_settings').select('settings').eq('user_id', session?.user?.id).single();
+            const s = curr?.settings || {};
+            await supabase.from('user_settings').update({ settings: { ...s, customTags: updated } }).eq('user_id', session?.user?.id);
+        } catch (e) { console.error('Failed to save tag', e); }
+    };
 
     const handleSaveFolder = async () => {
         if (!newFolder.label || !newFolder.tags) return;
@@ -268,26 +277,51 @@ export const Library = () => {
                             </button>
                         </div>
 
-                        {allTags.length > 0 && (
-                            <div className="pt-5 mt-5 border-t border-slate-100">
-                                <div className="flex items-center gap-2 mb-4">
+                        <div className="pt-5 mt-5 border-t border-slate-100">
+                            <div className="flex items-center justify-between mb-4">
+                                <div className="flex items-center gap-2">
                                     <Tag className="w-4 h-4 text-slate-400" />
                                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Tags</p>
                                 </div>
-                                <div className="flex flex-col gap-1.5">
-                                    {allTags.slice(0, 12).map(tag => (
-                                        <button
-                                            key={tag}
-                                            onClick={() => setActiveTag(activeTag === tag ? null : tag)}
-                                            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px] font-bold text-left transition-all ${activeTag === tag ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50 border border-transparent hover:border-slate-100'}`}
-                                        >
-                                            <ChevronRight className="w-3 h-3 opacity-50" />
-                                            #{tag}
-                                        </button>
-                                    ))}
-                                </div>
+                                <button onClick={() => setIsAddingTag(true)} className="p-1 rounded-lg text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 transition-colors">
+                                    <Plus className="w-3.5 h-3.5" />
+                                </button>
                             </div>
-                        )}
+                            <div className="flex flex-col gap-1.5">
+                                {[...new Set([...customTags, ...allTags])].slice(0, 15).map(tag => (
+                                    <button
+                                        key={tag}
+                                        onClick={() => setActiveTag(activeTag === tag ? null : tag)}
+                                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px] font-bold text-left transition-all ${activeTag === tag ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50 border border-transparent hover:border-slate-100'}`}
+                                    >
+                                        <ChevronRight className="w-3 h-3 opacity-50" />
+                                        #{tag}
+                                    </button>
+                                ))}
+                            </div>
+                            {isAddingTag && (
+                                <div className="flex items-center gap-1.5 mt-3">
+                                    <span className="text-slate-400 text-sm font-bold">#</span>
+                                    <input
+                                        autoFocus
+                                        value={newTagInput}
+                                        onChange={e => setNewTagInput(e.target.value)}
+                                        onKeyDown={e => { if (e.key === 'Enter') handleSaveTag(); if (e.key === 'Escape') { setIsAddingTag(false); setNewTagInput(''); } }}
+                                        placeholder="new tag"
+                                        className="flex-1 text-[11px] font-bold bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 outline-none focus:border-emerald-400"
+                                    />
+                                    <button onClick={handleSaveTag} className="p-1.5 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors">
+                                        <Plus className="w-3 h-3" />
+                                    </button>
+                                    <button onClick={() => { setIsAddingTag(false); setNewTagInput(''); }} className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors">
+                                        <X className="w-3 h-3" />
+                                    </button>
+                                </div>
+                            )}
+                            {[...new Set([...customTags, ...allTags])].length === 0 && !isAddingTag && (
+                                <p className="text-[10px] text-slate-400 italic text-center py-2">No tags yet. Click + to add one.</p>
+                            )}
+                        </div>
                     </aside>
 
                     {/* Content Grid */}
