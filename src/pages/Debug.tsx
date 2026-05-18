@@ -17,8 +17,8 @@ export const Debug = () => {
             console.log('Initiating Direct Sync for:', account.username);
 
             // Try Graph API (Professional)
-            const metaInfoUrl = `https://graph.facebook.com/v18.0/${account.account_id}?fields=followers_count&access_token=${account.access_token}`;
-            const metaUrl = `https://graph.facebook.com/v18.0/${account.account_id}/media?fields=id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count&limit=10&access_token=${account.access_token}`;
+            const metaInfoUrl = `https://graph.facebook.com/v22.0/${account.account_id}?fields=followers_count&access_token=${account.access_token}`;
+            const metaUrl = `https://graph.facebook.com/v22.0/${account.account_id}/media?fields=id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count,play_count&limit=25&access_token=${account.access_token}`;
             const basicUrl = `https://graph.instagram.com/me/media?fields=id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count&access_token=${account.access_token}`;
 
             console.log('Fetching Account Info:', metaInfoUrl);
@@ -57,6 +57,8 @@ export const Debug = () => {
                     platforms: ['instagram'],
                     status: 'Published',
                     like_count: m.like_count || 0,
+                    comments_count: m.comments_count || 0,
+                    view_count: m.play_count || 0,
                     scheduled_at: m.timestamp,
                     created_at: m.timestamp
                 }));
