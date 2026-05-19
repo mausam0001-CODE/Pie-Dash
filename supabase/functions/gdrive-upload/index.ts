@@ -89,18 +89,26 @@ serve(async (req) => {
         console.log('Upload - Access token acquired successfully')
 
         if (folderId) {
-            console.log(`Upload - Checking visibility for Folder ID: ${folderId}`)
-            const folderCheck = await fetch(`https://www.googleapis.com/drive/v3/files/${folderId}?fields=id,name`, {
-                headers: { Authorization: `Bearer ${accessToken}` }
-            })
+            console.log(`Upload - Checking visibility for ID: ${folderId}`)
+            let resourceName = `files/${folderId}`
+            let checkUrl = `https://www.googleapis.com/drive/v3/files/${folderId}?fields=id,name&supportsAllDrives=true`
+
+            let folderCheck = await fetch(checkUrl, { headers: { Authorization: `Bearer ${accessToken}` } })
+
+            if (folderCheck.status === 404) {
+                console.log('Upload - Not found as a file, trying as a Drive ID...')
+                checkUrl = `https://www.googleapis.com/drive/v3/drives/${folderId}`
+                folderCheck = await fetch(checkUrl, { headers: { Authorization: `Bearer ${accessToken}` } })
+                if (folderCheck.status === 200) resourceName = `drives/${folderId}`
+            }
 
             if (folderCheck.status !== 200) {
                 const err = await folderCheck.json()
-                console.error('Folder Visibility Check Failed:', JSON.stringify(err, null, 2))
-                throw new Error(`Cannot see folder: ${err.error?.message || 'Check Folder ID and Permissions'}`)
+                console.error('Visibility Check Failed:', JSON.stringify(err, null, 2))
+                throw new Error(`Cannot see resource (${folderId}): ${err.error?.message || 'Check ID and Permissions'}`)
             }
-            const folderMeta = await folderCheck.json()
-            console.log(`Upload - Target folder confirmed: "${folderMeta.name}"`)
+            const resourceMeta = await folderCheck.json()
+            console.log(`Upload - Target resource confirmed: "${resourceMeta.name}" (${resourceName})`)
         }
 
         // 1. Upload File Metadata

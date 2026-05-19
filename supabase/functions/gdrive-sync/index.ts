@@ -60,24 +60,36 @@ serve(async (req) => {
         const accessToken = await getAccessToken(serviceAccount)
         console.log('Sync - Access token acquired successfully')
 
-        // 0. Verify Folder Visibility
-        console.log(`Sync - Checking visibility for Folder ID: ${folderId}`)
-        const folderCheck = await fetch(`https://www.googleapis.com/drive/v3/files/${folderId}?fields=id,name`, {
-            headers: { Authorization: `Bearer ${accessToken}` }
-        })
+        // 0. Verify Visibility (Check if it's a Folder or a Shared Drive)
+        console.log(`Sync - Checking visibility for ID: ${folderId}`)
+        let resourceName = `files/${folderId}`
+        let checkUrl = `https://www.googleapis.com/drive/v3/files/${folderId}?fields=id,name&supportsAllDrives=true`
+
+        let folderCheck = await fetch(checkUrl, { headers: { Authorization: `Bearer ${accessToken}` } })
+
+        // If not found as a file, try as a Drive
+        if (folderCheck.status === 404) {
+            console.log('Sync - Not found as a file, trying as a Drive ID...')
+            checkUrl = `https://www.googleapis.com/drive/v3/drives/${folderId}`
+            folderCheck = await fetch(checkUrl, { headers: { Authorization: `Bearer ${accessToken}` } })
+            if (folderCheck.status === 200) resourceName = `drives/${folderId}`
+        }
 
         if (folderCheck.status !== 200) {
             const err = await folderCheck.json()
-            console.error('Folder Visibility Check Failed:', JSON.stringify(err, null, 2))
-            throw new Error(`Cannot see folder: ${err.error?.message || 'Check Folder ID and Permissions'}`)
+            console.error('Visibility Check Failed:', JSON.stringify(err, null, 2))
+            throw new Error(`Cannot see resource (${folderId}): ${err.error?.message || 'Check ID and Permissions'}`)
         }
-        const folderMeta = await folderCheck.json()
-        console.log(`Sync - Folder found: "${folderMeta.name}" (${folderMeta.id})`)
 
-        // 1. List files in the folder
-        const listResp = await fetch(`https://www.googleapis.com/drive/v3/files?q='${folderId}'+in+parents+and+trashed=false&fields=files(id,name,mimeType,thumbnailLink,webContentLink,createdTime)&pageSize=100`, {
-            headers: { Authorization: `Bearer ${accessToken}` }
-        })
+        const resourceMeta = await folderCheck.json()
+        console.log(`Sync - Resource found: "${resourceMeta.name}" (${resourceName})`)
+
+        // 1. List files
+        const isDrive = resourceName.startsWith('drives')
+        const query = isDrive ? "trashed=false" : `'${folderId}'+in+parents+and+trashed=false`
+        const listUrl = `https://www.googleapis.com/drive/v3/files?q=${query}&fields=files(id,name,mimeType,thumbnailLink,webContentLink,createdTime)&pageSize=100&supportsAllDrives=true&includeItemsFromAllDrives=true${isDrive ? `&driveId=${folderId}&corpora=drive` : ''}`
+
+        const listResp = await fetch(listUrl, { headers: { Authorization: `Bearer ${accessToken}` } })
         const listData = await listResp.json()
 
         if (listData.error) {
