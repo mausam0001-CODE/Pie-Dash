@@ -4,7 +4,7 @@ import {
     Calendar, Image as ImageIcon, Send, Clock,
     Plus, ChevronRight, ChevronLeft, Globe,
     Settings, Save, Check, Sparkles, Hash,
-    Trash2, Edit3, Monitor, Shield, Zap
+    Trash2, Edit3, Monitor, Shield, Zap, Loader2
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
@@ -68,6 +68,8 @@ export const PostBuilder = ({ onClose, initialReel }: PostBuilderProps) => {
     const [isDirty, setIsDirty] = useState(false);
     const [isSavingDraft, setIsSavingDraft] = useState(false);
     const [isScheduling, setIsScheduling] = useState(false);
+    const [publishingPosts, setPublishingPosts] = useState<any[]>([]);
+    const [showPublishingOverlay, setShowPublishingOverlay] = useState(false);
     const [showCloseConfirm, setShowCloseConfirm] = useState(false);
     const [toasts, setToasts] = useState<any[]>([]);
 
@@ -159,7 +161,7 @@ export const PostBuilder = ({ onClose, initialReel }: PostBuilderProps) => {
                 media_type: postData.mediaType,
                 thumbnail_url: postData.thumbnailUrl,
                 scheduled_at: publishNow ? new Date().toISOString() : new Date(postData.scheduledAt).toISOString(),
-                status: publishNow ? 'Published' : 'Scheduled',
+                status: 'Scheduled', // Always start as Scheduled, let worker/function move to Published
                 category: postData.category,
                 tags: buildTagsArr(postData.hashtags),
                 visibility: postData.visibility
@@ -179,10 +181,23 @@ export const PostBuilder = ({ onClose, initialReel }: PostBuilderProps) => {
                     : createPost.mutateAsync(payload);
             });
 
-            await Promise.all(promises);
-            addToast(`Successfully ${publishNow ? 'published' : 'scheduled'} to ${selectedAccounts.length} channel${selectedAccounts.length > 1 ? 's' : ''}!`, 'success');
-            setIsDirty(false);
-            onClose();
+            const posts = await Promise.all(promises);
+            const postIds = posts.map(p => p?.id).filter(Boolean) as string[];
+
+            if (publishNow && postIds.length > 0) {
+                setPublishingPosts(posts);
+                setShowPublishingOverlay(true);
+
+                for (const id of postIds) {
+                    supabase.functions.invoke('ig-publish', {
+                        body: { postId: id }
+                    }).catch(err => console.error('Silent invoke error:', err));
+                }
+            } else {
+                addToast(`Successfully scheduled for ${selectedAccounts.length} channel${selectedAccounts.length > 1 ? 's' : ''}!`, 'success');
+                setIsDirty(false);
+                onClose();
+            }
         } catch (error: any) {
             addToast('Error: ' + error.message, 'error');
         } finally {
@@ -908,3 +923,135 @@ const StepLaunch = ({ value, onChange, publishNow, onPublishNowChange }: { value
         </div>
     </div>
 );
+
+const PublishingOverlay = ({ posts: initialPosts, onClose }: { posts: any[], onClose: () => void }) => {
+    const [posts, setPosts] = useState(initialPosts);
+    const [isComplete, setIsComplete] = useState(false);
+
+    useEffect(() => {
+        const postIds = initialPosts.map(p => p.id).filter(Boolean);
+        if (postIds.length === 0) return;
+
+        const channel = supabase
+            .channel('publishing-updates')
+            .on(
+                'postgres_changes',
+                {
+                    event: 'UPDATE',
+                    schema: 'public',
+                    table: 'posts',
+                    filter: `id=in.(${postIds.map(id => `'${id}'`).join(',')})`
+                },
+                (payload: any) => {
+                    setPosts(current => current.map(p => p.id === payload.new.id ? { ...p, ...payload.new } : p));
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [initialPosts]);
+
+    useEffect(() => {
+        const allFinished = posts.every(p => p.status === 'Published' || p.status === 'Failed');
+        if (allFinished && posts.length > 0) {
+            setIsComplete(true);
+        }
+    }, [posts]);
+
+    const overallProgress = (posts.filter(p => p.status === 'Published').length / posts.length) * 100;
+    const isFailed = posts.some(p => p.status === 'Failed');
+
+    return (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-6 sm:p-12 animate-in fade-in duration-500">
+            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-2xl" />
+
+            <div className="relative bg-white rounded-[3.5rem] w-full max-w-2xl shadow-[0_32px_128px_-12px_rgba(0,0,0,0.4)] overflow-hidden flex flex-col animate-in zoom-in-95 duration-500 border border-white/20">
+                <div className="p-10 sm:p-16 space-y-10 text-center">
+                    <div className="relative mx-auto w-32 h-32">
+                        <div className="absolute inset-0 rounded-full border-8 border-slate-100" />
+                        <svg className="absolute inset-0 w-full h-full -rotate-90">
+                            <circle
+                                cx="64"
+                                cy="64"
+                                r="56"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="8"
+                                strokeDasharray={351.85}
+                                strokeDashoffset={351.85 - (351.85 * (overallProgress || 5)) / 100}
+                                className={cn(
+                                    "transition-all duration-1000",
+                                    isFailed ? "text-red-500" : "text-emerald-500"
+                                )}
+                            />
+                        </svg>
+                        <div className="absolute inset-0 flex items-center justify-center">
+                            {isComplete ? (
+                                <div className={cn("w-16 h-16 rounded-full flex items-center justify-center animate-in zoom-in duration-500", isFailed ? "bg-red-50 text-red-500" : "bg-emerald-50 text-emerald-500")}>
+                                    {isFailed ? <X className="w-8 h-8" /> : <Check className="w-8 h-8" />}
+                                </div>
+                            ) : (
+                                <Loader2 className="w-10 h-10 text-emerald-500 animate-spin" />
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="space-y-4">
+                        <h3 className="text-4xl font-black text-slate-900 tracking-tighter">
+                            {isComplete ? (isFailed ? "Issues Detected" : "Pure Gold!") : "Going Live..."}
+                        </h3>
+                        <p className="text-slate-500 font-medium max-w-sm mx-auto leading-relaxed">
+                            {isComplete
+                                ? (isFailed ? "Some channels failed to receive your content. Check details below." : "Your post is now live across the world. Time to celebrate!")
+                                : "We're currently relaying your media through our high-speed secure cloud to Meta's servers."}
+                        </p>
+                    </div>
+
+                    <div className="space-y-3 pt-4">
+                        {posts.map((post, idx) => (
+                            <div key={post.id || idx} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-10 h-10 bg-white rounded-xl shadow-sm border border-slate-100 flex items-center justify-center">
+                                        {post.platforms?.[0] === 'instagram' ? <Instagram className="w-5 h-5 text-pink-600" /> : <Globe className="w-5 h-5 text-slate-400" />}
+                                    </div>
+                                    <div className="text-left">
+                                        <p className="text-sm font-black text-slate-900 capitalize">{post.platforms?.[0] || 'Social'} Channel</p>
+                                        <p className={cn(
+                                            "text-[10px] font-black uppercase tracking-widest",
+                                            post.status === 'Published' ? "text-emerald-500" :
+                                                post.status === 'Failed' ? "text-red-500" :
+                                                    post.status === 'Processing' ? "text-blue-500 animate-pulse" : "text-slate-400"
+                                        )}>
+                                            {post.status || 'Scheduled'}
+                                        </p>
+                                    </div>
+                                </div>
+                                {post.status === 'Published' ? (
+                                    <Check className="w-5 h-5 text-emerald-500" />
+                                ) : post.status === 'Failed' ? (
+                                    <X className="w-5 h-5 text-red-500" />
+                                ) : (
+                                    <Loader2 className="w-4 h-4 text-slate-300 animate-spin" />
+                                )}
+                            </div>
+                        ))}
+                    </div>
+
+                    {isComplete && (
+                        <button
+                            onClick={onClose}
+                            className={cn(
+                                "w-full py-6 rounded-[2rem] text-lg font-black tracking-tight transition-all active:scale-95 shadow-xl",
+                                isFailed ? "bg-slate-900 text-white hover:bg-slate-800" : "bg-emerald-500 text-white hover:bg-emerald-600 shadow-emerald-500/20"
+                            )}
+                        >
+                            {isFailed ? "I'll Check It Out" : "Awesome, Got It!"}
+                        </button>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};

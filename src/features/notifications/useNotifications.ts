@@ -16,10 +16,11 @@ export const useNotifications = () => {
     const [notifications, setNotifications] = useState<Notification[]>([]);
 
     useEffect(() => {
-        if (!session?.user?.id) return;
+        const userId = session?.user?.id;
+        if (!userId) return;
 
         // Load from localStorage for persistence within the browser
-        const stored = localStorage.getItem(`notifications_${session.user.id}`);
+        const stored = localStorage.getItem(`notifications_${userId}`);
         if (stored) {
             setNotifications(JSON.parse(stored));
         }
@@ -32,48 +33,56 @@ export const useNotifications = () => {
                     event: 'UPDATE',
                     schema: 'public',
                     table: 'posts',
-                    filter: `user_id=eq.${session.user.id}`
+                    filter: `user_id=eq.${userId}`
                 },
-                (payload: any) => {
-                    const oldStatus = payload.old?.status;
-                    const newStatus = payload.new?.status;
-                    const newPost = payload.new;
-
-                    // Detect status changes
-                    if (oldStatus !== newStatus) {
-                        let notification: Notification | null = null;
-
-                        if (newStatus === 'Published') {
-                            notification = {
-                                id: Date.now().toString(),
-                                type: 'success',
-                                message: `Successfully published "${newPost.title || 'Untitled Post'}".`,
-                                platform: Array.isArray(newPost.platforms) ? newPost.platforms[0] : undefined,
-                                timestamp: new Date().toISOString(),
-                                read: false
-                            };
-                        } else if (newStatus === 'Failed') {
-                            notification = {
-                                id: Date.now().toString(),
-                                type: 'error',
-                                message: `Failed to publish "${newPost.title || 'Untitled Post'}".`,
-                                platform: Array.isArray(newPost.platforms) ? newPost.platforms[0] : undefined,
-                                timestamp: new Date().toISOString(),
-                                read: false
-                            };
-                        }
-
-                        if (notification) {
-                            setNotifications(prev => {
-                                const updated = [notification!, ...prev].slice(0, 50);
-                                localStorage.setItem(`notifications_${session.user.id}`, JSON.stringify(updated));
-                                return updated;
-                            });
-                        }
-                    }
-                }
+                (payload: any) => handleStatusChange(payload.old?.status, payload.new?.status, payload.new)
+            )
+            .on(
+                'postgres_changes',
+                {
+                    event: 'INSERT',
+                    schema: 'public',
+                    table: 'posts',
+                    filter: `user_id=eq.${userId}`
+                },
+                (payload: any) => handleStatusChange(null, payload.new?.status, payload.new)
             )
             .subscribe();
+
+        function handleStatusChange(oldStatus: string | null, newStatus: string | null, newPost: any) {
+            // Detect status changes or direct inserts of relevant statuses
+            if (oldStatus !== newStatus || !oldStatus) {
+                let notification: Notification | null = null;
+
+                if (newStatus === 'Published') {
+                    notification = {
+                        id: Date.now().toString(),
+                        type: 'success',
+                        message: `Successfully published "${newPost.title || 'Untitled Post'}".`,
+                        platform: Array.isArray(newPost.platforms) ? newPost.platforms[0] : undefined,
+                        timestamp: new Date().toISOString(),
+                        read: false
+                    };
+                } else if (newStatus === 'Failed') {
+                    notification = {
+                        id: Date.now().toString(),
+                        type: 'error',
+                        message: `Failed to publish "${newPost.title || 'Untitled Post'}": ${newPost.error_message || 'Unknown error'}`,
+                        platform: Array.isArray(newPost.platforms) ? newPost.platforms[0] : undefined,
+                        timestamp: new Date().toISOString(),
+                        read: false
+                    };
+                }
+
+                if (notification) {
+                    setNotifications(prev => {
+                        const updated = [notification!, ...prev].slice(0, 50);
+                        localStorage.setItem(`notifications_${session.user.id}`, JSON.stringify(updated));
+                        return updated;
+                    });
+                }
+            }
+        }
 
         return () => {
             supabase.removeChannel(channel);
@@ -81,10 +90,11 @@ export const useNotifications = () => {
     }, [session?.user?.id]);
 
     const markAllAsRead = () => {
-        if (!session?.user?.id) return;
+        const userId = session?.user?.id;
+        if (!userId) return;
         setNotifications(prev => {
             const updated = prev.map(n => ({ ...n, read: true }));
-            localStorage.setItem(`notifications_${session.user.id}`, JSON.stringify(updated));
+            localStorage.setItem(`notifications_${userId}`, JSON.stringify(updated));
             return updated;
         });
     };

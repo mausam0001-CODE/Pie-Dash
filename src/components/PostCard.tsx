@@ -34,7 +34,14 @@ export const PostCard = ({ post, onClick, mode = 'grid' }: PostCardProps) => {
                 </div>
                 <div className="flex-1 min-w-0 w-full sm:w-auto">
                     <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
-                        <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${post.status === 'Published' ? 'bg-emerald-50 text-emerald-600' : 'bg-orange-50 text-orange-600'}`}>{post.status}</span>
+                        <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${post.status === 'Published' ? 'bg-emerald-50 text-emerald-600' : post.status === 'Failed' ? 'bg-red-50 text-red-600' : 'bg-orange-50 text-orange-600'}`}>
+                            {post.status}
+                        </span>
+                        {post.status === 'Failed' && post.error_message && (
+                            <span className="text-[10px] font-bold text-red-400 truncate max-w-[200px]" title={post.error_message}>
+                                {post.error_message}
+                            </span>
+                        )}
                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{post.category || 'Reel'}</span>
                         <span className="hidden sm:inline text-slate-300">•</span>
                         <div className="flex items-center gap-1 text-slate-400">

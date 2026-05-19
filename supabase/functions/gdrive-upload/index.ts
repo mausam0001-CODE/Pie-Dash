@@ -154,7 +154,7 @@ serve(async (req) => {
             })
         })
 
-        // 3. Get Direct Link & Thumbnail
+        // 3. Get Direct Link & Thumbnail from Google Drive
         const fileInfoResp = await fetch(`https://www.googleapis.com/drive/v3/files/${uploadData.id}?fields=webContentLink,thumbnailLink&supportsAllDrives=true`, {
             headers: { Authorization: `Bearer ${accessToken}` }
         })
@@ -164,11 +164,36 @@ serve(async (req) => {
             console.error('No webContentLink received:', fileInfo)
         }
 
+        // 4. STORAGE RELAY: Upload to Supabase Storage for reliable Meta access
+        const supabase = createClient(
+            Deno.env.get('SUPABASE_URL') ?? '',
+            Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+        )
+
+        const storagePath = `${Date.now()}-${file.name.replace(/\s/g, '_')}`
+        console.log(`Relay - Uploading to Supabase Storage: temp-reels/${storagePath}`)
+
+        const { data: storageData, error: storageErr } = await supabase.storage
+            .from('temp-reels')
+            .upload(storagePath, file, {
+                contentType: file.type,
+                upsert: true
+            })
+
+        if (storageErr) {
+            console.error('Relay - Supabase Storage Error:', storageErr)
+        }
+
+        const { data: publicUrlData } = supabase.storage
+            .from('temp-reels')
+            .getPublicUrl(storagePath)
+
         return new Response(JSON.stringify({
             success: true,
             id: uploadData.id,
-            url: fileInfo.webContentLink || '', // Keep full link for direct download/stream
-            thumbnailUrl: (fileInfo.thumbnailLink || '').replace(/=s220$/, '=s1000') // Higher res thumbnail
+            url: publicUrlData.publicUrl || fileInfo.webContentLink || '', // Prefer Supabase URL for Meta
+            thumbnailUrl: (fileInfo.thumbnailLink || '').replace(/=s220$/, '=s1000'),
+            gdrive_url: fileInfo.webContentLink || '' // Still provide GDrive for reference
         }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             status: 200,
