@@ -59,7 +59,7 @@ export const Dashboard = () => {
     const totalShares = posts.reduce((s: number, p: any) => s + (p.share_count || 0), 0);
     const totalComments = posts.reduce((s: number, p: any) => s + (p.comments_count || 0), 0);
     const totalEngagement = totalLikes + totalShares + totalComments;
-    const engagementRate = totalReach > 0 ? ((totalEngagement / totalReach) * 100).toFixed(1) : '0.0';
+    const engagementRate = totalReach > 0 ? parseFloat(((totalEngagement / totalReach) * 100).toFixed(1)) : 0;
 
     // ── Top performing posts ────────────────────────────────────────
     const topPosts = [...posts]
@@ -72,7 +72,7 @@ export const Dashboard = () => {
     const totalPosts = posts.length;
     const publishRate = totalPosts > 0 ? (published.length / totalPosts) * 100 : 0;
     const failRate = totalPosts > 0 ? (failed.length / totalPosts) * 100 : 0;
-    const healthScore = Math.max(0, Math.min(100, Math.round(publishRate - failRate + (engagementRate > 3 ? 20 : 0))));
+    const healthScore = Math.max(0, Math.min(100, Math.round(publishRate - failRate + (Number(engagementRate) > 3 ? 20 : 0))));
 
     // ── Platform distribution ────────────────────────────────────────
     const platformCounts = posts.reduce((acc: Record<string, number>, p: any) => {
@@ -86,9 +86,11 @@ export const Dashboard = () => {
         return acc;
     }, {});
 
-    const platformData = Object.entries(platformCounts).map(([platform, count]) => ({
+    interface PlatformEntry { platform: string; count: number; color: string; label: string; }
+
+    const platformData: PlatformEntry[] = Object.entries(platformCounts).map(([platform, count]) => ({
         platform,
-        count,
+        count: count as number,
         color: PLATFORM_META[platform]?.color || '#94a3b8',
         label: PLATFORM_META[platform]?.label || platform,
     }));
@@ -486,7 +488,7 @@ export const Dashboard = () => {
                                                 {Array.isArray(post.platforms) ? post.platforms.join(', ') : post.platforms}
                                             </span>
                                             <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-md uppercase tracking-widest ${post.status === 'Published' ? 'bg-emerald-50 text-emerald-600' :
-                                                    post.status === 'Scheduled' ? 'bg-amber-50 text-amber-600' : 'bg-slate-50 text-slate-500'
+                                                post.status === 'Scheduled' ? 'bg-amber-50 text-amber-600' : 'bg-slate-50 text-slate-500'
                                                 }`}>{post.status}</span>
                                         </div>
                                     </div>
