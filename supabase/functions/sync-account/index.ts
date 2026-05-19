@@ -82,8 +82,29 @@ serve(async (req) => {
             }
 
             if (mediaData.data && mediaData.data.length > 0) {
-                const postsToInsert = mediaData.data.map((m: any) => {
+                const postsToInsert = await Promise.all(mediaData.data.map(async (m: any) => {
                     const likes = m.like_count || 0
+                    const comments = m.comments_count || 0
+
+                    let reach = likes * 15 + Math.floor(Math.random() * 100)
+                    let impressions = reach * 1.2
+
+                    // Try to get real insights if it's a professional account
+                    if (metaAccountId && !access_token.startsWith('IGQ')) {
+                        try {
+                            const insightsResp = await fetch(`https://graph.facebook.com/v18.0/${m.id}/insights?metric=reach,impressions&access_token=${access_token}`)
+                            const insights = await insightsResp.json()
+                            if (insights.data) {
+                                const reachVal = insights.data.find((i: any) => i.name === 'reach')?.values[0]?.value
+                                const impVal = insights.data.find((i: any) => i.name === 'impressions')?.values[0]?.value
+                                if (reachVal !== undefined) reach = reachVal
+                                if (impVal !== undefined) impressions = impVal
+                            }
+                        } catch (e) {
+                            console.error(`Failed to fetch insights for post ${m.id}:`, e)
+                        }
+                    }
+
                     return {
                         social_account_id: accountId,
                         user_id: user_id,
@@ -91,14 +112,16 @@ serve(async (req) => {
                         title: m.caption?.substring(0, 50) || 'Untitled Post',
                         caption: m.caption || '',
                         media_url: m.media_url || m.thumbnail_url,
+                        media_type: m.media_type,
                         platforms: ['instagram'],
                         status: 'Published',
-                        view_count: likes * 15 + Math.floor(Math.random() * 100),
+                        view_count: Math.round(reach),
                         like_count: likes,
+                        comments_count: comments,
                         scheduled_at: m.timestamp,
                         created_at: m.timestamp
                     }
-                })
+                }))
                 await supabase.from('posts').upsert(postsToInsert, { onConflict: 'social_account_id,external_id' })
             }
         } else {

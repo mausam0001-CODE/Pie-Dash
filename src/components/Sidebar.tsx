@@ -44,16 +44,13 @@ export const Sidebar = ({
 
     return (
         <aside className={cn(
-            "fixed inset-y-0 left-0 w-64 bg-white border-r border-slate-200 flex flex-col z-40 transition-transform duration-300 lg:translate-x-0 lg:static lg:h-screen",
+            "fixed inset-y-0 left-0 w-64 bg-white border-r border-slate-200 flex flex-col z-40 transition-transform duration-300 lg:translate-x-0 lg:sticky lg:top-0 lg:h-screen",
             isOpen ? "translate-x-0" : "-translate-x-full"
         )}>
             <div className="p-6 flex items-center justify-between border-b border-slate-100 mb-2 shrink-0">
                 <div className="flex items-center gap-3">
                     <div className="relative">
                         <h1 className="font-black text-slate-900 leading-none text-xl md:text-2xl tracking-tighter">Pie</h1>
-                        <div className="absolute -top-1 -right-4 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white shadow-sm ring-2 ring-white">
-                            <Check className="w-3.5 h-3.5" />
-                        </div>
                     </div>
                     <div className="h-6 w-[1px] bg-slate-200 mx-1"></div>
                     <p className="text-[10px] text-slate-400 font-extrabold uppercase tracking-[0.2em] mt-0.5">Social Pro</p>
