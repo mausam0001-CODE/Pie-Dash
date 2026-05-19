@@ -142,6 +142,11 @@ export const Settings = () => {
         try {
             const { error } = await supabase.functions.invoke('sync-account', { body: { accountId: id } });
             if (error) throw error;
+
+            // Invalidate queries to force a refresh on the dashboard and settings
+            queryClient.invalidateQueries({ queryKey: ['posts'] });
+            queryClient.invalidateQueries({ queryKey: ['social_accounts'] });
+
             notify('Sync completed!', 'success');
         } catch (error: any) {
             notify(`Sync failed: ${error.message}`, 'error');

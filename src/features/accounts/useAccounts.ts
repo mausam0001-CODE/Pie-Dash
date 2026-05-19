@@ -1,5 +1,6 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
+import { useEffect } from 'react';
 
 export interface SocialAccount {
     id: string;
@@ -9,7 +10,9 @@ export interface SocialAccount {
 }
 
 export function useAccounts() {
-    return useQuery({
+    const queryClient = useQueryClient();
+
+    const query = useQuery({
         queryKey: ['social_accounts'],
         queryFn: async () => {
             const { data, error } = await supabase
@@ -20,6 +23,25 @@ export function useAccounts() {
             if (error) throw error;
             return data as SocialAccount[];
         },
-        staleTime: 5 * 60 * 1000, // 5 minutes
     });
+
+    // Real-time updates for account status/data
+    useEffect(() => {
+        const channel = supabase
+            .channel('accounts-realtime')
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'social_accounts' },
+                () => {
+                    queryClient.invalidateQueries({ queryKey: ['social_accounts'] });
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [queryClient]);
+
+    return query;
 }

@@ -5,11 +5,13 @@ import { TrendingUp, Clock, CheckCircle2, AlertCircle, PlusCircle } from 'lucide
 import { Link } from 'react-router-dom';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { PostDrawer } from '../components/PostDrawer';
+import { PostBuilder } from '../components/PostBuilder';
 
 export const Dashboard = () => {
     const { activeAccount } = useAccountContext();
     const { data: posts = [], isLoading } = usePosts();
     const [selectedPost, setSelectedPost] = React.useState<any>(null);
+    const [isEditingPost, setIsEditingPost] = React.useState(false);
 
     const chartData = React.useMemo(() => {
         const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -150,6 +152,19 @@ export const Dashboard = () => {
                 <PostDrawer
                     post={selectedPost}
                     onClose={() => setSelectedPost(null)}
+                    onEdit={() => {
+                        setIsEditingPost(true);
+                    }}
+                />
+            )}
+
+            {isEditingPost && selectedPost && (
+                <PostBuilder
+                    onClose={() => {
+                        setIsEditingPost(false);
+                        setSelectedPost(null);
+                    }}
+                    initialReel={selectedPost}
                 />
             )}
         </div>

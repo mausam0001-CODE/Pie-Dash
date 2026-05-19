@@ -1,8 +1,14 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { X, ChevronRight, ChevronLeft, Globe, FileText, Image as ImageIcon, Smartphone, Settings, CheckCircle, Instagram, Twitter, Facebook, Youtube, Plus, Save, Send, Eye, Sparkles, Calendar, Clock, Upload, AlertCircle } from 'lucide-react';
-import { useAuth } from '../hooks/useAuth';
+import React, { useState, useEffect } from 'react';
+import {
+    X, Instagram, Facebook, Smartphone, Youtube,
+    Calendar, Image as ImageIcon, Send, Clock,
+    Plus, ChevronRight, ChevronLeft, Globe,
+    Settings, Save, Check, Sparkles, Hash,
+    Trash2, Edit3, Monitor, Shield, Zap
+} from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { usePostMutations } from '../features/posts/usePostMutations';
+import { useAuth } from '../hooks/useAuth';
+import { usePosts, useCreatePost, useUpdatePost } from '../features/posts/usePosts';
 import { useAccountContext } from '../features/accounts/AccountContext';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -11,158 +17,79 @@ function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs));
 }
 
-type ToastType = 'success' | 'error' | 'draft';
-interface ToastItem { id: number; message: string; type: ToastType; }
-const InlineToast = ({ toasts, onRemove }: { toasts: ToastItem[], onRemove: (id: number) => void }) => (
-    <div className="fixed top-6 right-6 z-[200] flex flex-col gap-3 pointer-events-none">
-        {toasts.map(t => (
-            <div key={t.id} className={`pointer-events-auto flex items-center gap-3 px-5 py-4 rounded-2xl shadow-2xl border text-sm font-bold animate-in slide-in-from-right-4 duration-300 max-w-sm ${t.type === 'success' ? 'bg-emerald-500 text-white border-emerald-400' :
-                t.type === 'draft' ? 'bg-slate-800 text-white border-slate-700' :
-                    'bg-red-500 text-white border-red-400'
-                }`}>
-                {t.type === 'success' && <CheckCircle className="w-4 h-4 shrink-0" />}
-                {t.type === 'draft' && <Save className="w-4 h-4 shrink-0" />}
-                {t.type === 'error' && <AlertCircle className="w-4 h-4 shrink-0" />}
-                <span className="flex-1">{t.message}</span>
-                <button onClick={() => onRemove(t.id)} className="opacity-60 hover:opacity-100"><X className="w-3.5 h-3.5" /></button>
-            </div>
-        ))}
-    </div>
-);
+// Reuse Post type but with updated fields
+interface PostData {
+    title: string;
+    caption: string;
+    mediaUrl: string;
+    mediaType: 'IMAGE' | 'VIDEO';
+    thumbnailUrl: string;
+    scheduledAt: string;
+    hashtags: string;
+    category: string;
+    visibility: string;
+}
+
+interface SocialAccount {
+    id: string;
+    platform: string;
+    username: string;
+    avatar_url?: string;
+}
 
 interface PostBuilderProps {
     onClose: () => void;
     initialReel?: any;
 }
 
-const STEPS = [
-    'Connect',
-    'Basic Info',
-    'Generic',
-    'Fine-Tune',
-    'Post Settings',
-    'Review',
-    'Schedule'
+const steps = [
+    { id: 1, title: 'Destinations', sub: 'Where should this live?' },
+    { id: 2, title: 'Essentials', sub: 'Naming and categorization' },
+    { id: 3, title: 'Creation Hub', sub: 'Design your masterpiece' },
+    { id: 4, title: 'Channel Sync', sub: 'Fine-tune per platform' },
+    { id: 5, title: 'Optimization', sub: 'Metadata and reach' },
+    { id: 6, title: 'Final Review', sub: 'Quality assurance' },
+    { id: 7, title: 'The Launch', sub: 'Schedule or post now' },
 ];
-
-const PLATFORM_POST_TYPES: Record<string, string[]> = {
-    instagram: ['REEL', 'POST', 'STORY'],
-    facebook: ['REEL', 'POST'],
-    tiktok: ['VIDEO'],
-    youtube: ['SHORT', 'VIDEO'],
-    twitter: ['POST'],
-    linkedin: ['POST']
-};
 
 export const PostBuilder = ({ onClose, initialReel }: PostBuilderProps) => {
     const { session } = useAuth();
-    const { createPost, updatePost } = usePostMutations();
-    const { activeAccount } = useAccountContext();
+    const { accounts, activeAccount } = useAccountContext();
+    const createPost = useCreatePost();
+    const updatePost = useUpdatePost();
+
     const [currentStep, setCurrentStep] = useState(1);
-    const [isScheduling, setIsScheduling] = useState(false);
-    const [isSavingDraft, setIsSavingDraft] = useState(false);
-    const [connectedAccounts, setConnectedAccounts] = useState<any[]>([]);
-    const [selectedAccounts, setSelectedAccounts] = useState<string[]>([]);
-    const [labels, setLabels] = useState(['Product', 'Education', 'Vlog', 'Tutorial']);
-    const [toasts, setToasts] = useState<ToastItem[]>([]);
-    const [showCloseConfirm, setShowCloseConfirm] = useState(false);
+    const [selectedAccounts, setSelectedAccounts] = useState<string[]>(
+        initialReel?.social_account_id ? [initialReel.social_account_id] :
+            activeAccount?.id ? [activeAccount.id] : []
+    );
     const [isDirty, setIsDirty] = useState(false);
-    const [titleError, setTitleError] = useState('');
+    const [isSavingDraft, setIsSavingDraft] = useState(false);
+    const [isScheduling, setIsScheduling] = useState(false);
+    const [showCloseConfirm, setShowCloseConfirm] = useState(false);
+    const [toasts, setToasts] = useState<any[]>([]);
 
-    const addToast = useCallback((message: string, type: ToastType) => {
-        const id = Date.now();
-        setToasts(p => [...p, { id, message, type }]);
-        setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 4000);
-    }, []);
-
-    const [postData, setPostData] = useState({
+    const [postData, setPostData] = useState<PostData>({
         title: initialReel?.title || '',
         caption: initialReel?.caption || '',
         mediaUrl: initialReel?.media_url || '',
         mediaType: initialReel?.media_type || 'IMAGE',
         thumbnailUrl: initialReel?.thumbnail_url || '',
-        category: initialReel?.category || 'Post',
-        hashtags: Array.isArray(initialReel?.tags)
-            ? (initialReel.tags as string[]).map(t => `#${t}`).join(' ')
-            : (initialReel?.hashtags || ''),
-        visibility: initialReel?.visibility || 'Public (Recommended)',
-        scheduledAt: initialReel?.scheduled_at ? new Date(initialReel.scheduled_at).toISOString().substring(0, 16) : new Date().toISOString().substring(0, 16),
-        status: initialReel?.status || 'Draft'
+        scheduledAt: initialReel?.scheduled_at || new Date(Date.now() + 86400000).toISOString().slice(0, 16),
+        hashtags: initialReel?.tags?.map((t: string) => `#${t}`).join(' ') || '',
+        category: initialReel?.category || 'Uncategorized',
+        visibility: initialReel?.visibility || 'Public',
     });
+
     const [accountSettings, setAccountSettings] = useState<Record<string, any>>({});
-    const [userSettings, setUserSettings] = useState<any>(null);
+    const [labels, setLabels] = useState(['Uncategorized', 'Marketing', 'Announcement', 'Promo', 'Hiring', 'Event']);
+    const [titleError, setTitleError] = useState('');
 
-    useEffect(() => {
-        // Initialize default types when accounts are selected
-        const newSettings = { ...accountSettings };
-        selectedAccounts.forEach(id => {
-            if (!newSettings[id]) {
-                const account = connectedAccounts.find(a => a.id === id);
-                const platform = account?.platform || 'instagram';
-                newSettings[id] = {
-                    type: PLATFORM_POST_TYPES[platform]?.[0] || 'POST',
-                    shareToFeed: true,
-                    addToGrid: false
-                };
-            }
-        });
-        setAccountSettings(newSettings);
-    }, [selectedAccounts, connectedAccounts]);
-
-    // Dynamic Reach Calculation: Based on selected accounts' follower counts
-    const estimatedReach = connectedAccounts
-        .filter(a => selectedAccounts.includes(a.id))
-        .reduce((sum, a) => sum + (a.followers_count || 1000) * 0.85, 0);
-
-    const formatReach = (num: number) => {
-        if (num >= 1000000) return `~ ${(num / 1000000).toFixed(1)}M`;
-        if (num >= 1000) return `~ ${(num / 1000).toFixed(1)}k`;
-        return `~ ${Math.floor(num)}`;
+    const addToast = (message: string, type: 'success' | 'error' | 'info' | 'draft') => {
+        const id = Date.now().toString();
+        setToasts(prev => [...prev, { id, message, type }]);
+        setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 5000);
     };
-
-    useEffect(() => {
-        const fetchData = async () => {
-            if (!session?.user) return;
-            const { data, error } = await supabase
-                .from('social_accounts')
-                .select('*')
-                .eq('user_id', session.user.id);
-
-            if (!error && data) {
-                setConnectedAccounts(data);
-
-                if (initialReel?.social_account_id) {
-                    setSelectedAccounts([initialReel.social_account_id]);
-                } else if (activeAccount) {
-                    setSelectedAccounts([activeAccount.id]);
-                } else {
-                    setSelectedAccounts(data.length > 0 ? [data[0].id] : []);
-                }
-            }
-
-            // Fetch user settings
-            const { data: settingsData } = await supabase
-                .from('user_settings')
-                .select('settings')
-                .eq('user_id', session.user.id)
-                .single();
-
-            if (settingsData) {
-                setUserSettings(settingsData.settings);
-            }
-        };
-        fetchData();
-    }, [session?.user, activeAccount, initialReel]);
-
-    const nextStep = () => {
-        if (currentStep === 2 && !postData.title.trim()) {
-            setTitleError('Post name is required before continuing.');
-            return;
-        }
-        setTitleError('');
-        setCurrentStep(prev => Math.min(prev + 1, 7));
-    };
-    const prevStep = () => setCurrentStep(prev => Math.max(prev - 1, 1));
 
     const handleClose = () => {
         if (isDirty) setShowCloseConfirm(true);
@@ -186,17 +113,25 @@ export const PostBuilder = ({ onClose, initialReel }: PostBuilderProps) => {
                 category: postData.category,
                 tags: buildTagsArr(postData.hashtags),
                 visibility: postData.visibility,
-                status: 'Draft' as const,
+                status: 'Draft',
             };
+
             if (initialReel?.id) {
-                const acc = connectedAccounts.find(a => a.id === selectedAccounts[0]);
-                await updatePost.mutateAsync({ id: initialReel.id, updates: { ...payload, social_account_id: acc?.id, platforms: acc?.platform ? [acc.platform] : [] } });
+                const acc = accounts.find((a: SocialAccount) => a.id === selectedAccounts[0]);
+                await updatePost.mutateAsync({
+                    id: initialReel.id,
+                    updates: { ...payload, social_account_id: acc?.id, platforms: acc?.platform ? [acc.platform] : [] }
+                });
             } else {
-                const acc = connectedAccounts.find(a => a.id === selectedAccounts[0]);
-                await createPost.mutateAsync({ ...payload, social_account_id: selectedAccounts[0], platforms: acc?.platform ? [acc.platform] : [] });
+                const acc = accounts.find((a: SocialAccount) => a.id === selectedAccounts[0]);
+                await createPost.mutateAsync({
+                    ...payload,
+                    social_account_id: selectedAccounts[0],
+                    platforms: acc?.platform ? [acc.platform] : []
+                });
             }
             setIsDirty(false);
-            addToast('Draft saved!', 'draft');
+            addToast('Draft saved successfully', 'draft');
             onClose();
         } catch (err: any) {
             addToast('Error saving draft: ' + err.message, 'error');
@@ -208,7 +143,7 @@ export const PostBuilder = ({ onClose, initialReel }: PostBuilderProps) => {
     const handleSchedule = async () => {
         if (!session?.user) return;
         if (selectedAccounts.length === 0) {
-            alert('Please select at least one account.');
+            addToast('Please select at least one account.', 'error');
             return;
         }
 
@@ -228,31 +163,25 @@ export const PostBuilder = ({ onClose, initialReel }: PostBuilderProps) => {
                 visibility: postData.visibility
             };
 
-            if (initialReel?.id) {
-                const account = connectedAccounts.find(a => a.id === selectedAccounts[0]);
-                await updatePost.mutateAsync({
-                    id: initialReel.id,
-                    updates: { ...basePayload, social_account_id: account?.id, platforms: account?.platform ? [account.platform] : [] }
-                });
-                addToast('Post updated successfully!', 'success');
-            } else {
-                const promises = selectedAccounts.map(accountId => {
-                    const account = connectedAccounts.find(a => a.id === accountId);
-                    const settings = accountSettings[accountId] || {};
-                    return createPost.mutateAsync({
-                        ...basePayload,
-                        media_type: settings.type || basePayload.media_type,
-                        social_account_id: accountId,
-                        platforms: account?.platform ? [account.platform] : []
-                    });
-                });
-                await Promise.all(promises);
-                addToast(`Scheduled to ${selectedAccounts.length} account${selectedAccounts.length > 1 ? 's' : ''}!`, 'success');
-            }
+            const promises = selectedAccounts.map(accountId => {
+                const account = accounts.find((a: SocialAccount) => a.id === accountId);
+                const settings = accountSettings[accountId] || {};
+                const payload = {
+                    ...basePayload,
+                    media_type: settings.type || basePayload.media_type,
+                    social_account_id: accountId,
+                    platforms: account?.platform ? [account.platform] : []
+                };
+                return initialReel?.id && selectedAccounts.length === 1
+                    ? updatePost.mutateAsync({ id: initialReel.id, updates: payload })
+                    : createPost.mutateAsync(payload);
+            });
+
+            await Promise.all(promises);
+            addToast(`Successfully scheduled to ${selectedAccounts.length} channel${selectedAccounts.length > 1 ? 's' : ''}!`, 'success');
             setIsDirty(false);
             onClose();
         } catch (error: any) {
-            console.error('Error saving post:', error);
             addToast('Error: ' + error.message, 'error');
         } finally {
             setIsScheduling(false);
@@ -261,293 +190,290 @@ export const PostBuilder = ({ onClose, initialReel }: PostBuilderProps) => {
 
     const renderStep = () => {
         switch (currentStep) {
-            case 1: return <StepAccounts accounts={connectedAccounts} selected={selectedAccounts} onToggle={(id) => { setIsDirty(true); setSelectedAccounts(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]); }} />;
-            case 2: return <StepBasicInfo value={postData.title} onChange={(v) => { setIsDirty(true); setPostData(d => ({ ...d, title: v })); }} labels={labels} selectedLabel={postData.category} onLabelSelect={(l) => setPostData(d => ({ ...d, category: l }))} onAddLabel={(l) => setLabels(prev => [...prev, l])} />;
-            case 3: return <StepGenericContent caption={postData.caption} onCaptionChange={(v) => { setIsDirty(true); setPostData(d => ({ ...d, caption: v })); }} mediaUrl={postData.mediaUrl} mediaType={postData.mediaType} onMediaUpload={(url, type) => { setIsDirty(true); setPostData(d => ({ ...d, mediaUrl: url, mediaType: type, thumbnailUrl: url })); }} addToast={addToast} />;
-            case 4: return <StepFineTune accounts={connectedAccounts.filter(a => selectedAccounts.includes(a.id))} postData={postData} settings={accountSettings} onSettingChange={(id, key, val) => setAccountSettings(prev => ({ ...prev, [id]: { ...(prev[id] || {}), [key]: val } }))} />;
-            case 5: return <StepSettings hashtags={postData.hashtags} onHashtagsChange={(v) => { setIsDirty(true); setPostData(d => ({ ...d, hashtags: v })); }} visibility={postData.visibility} onVisibilityChange={(v) => setPostData(d => ({ ...d, visibility: v }))} />;
-            case 6: return <StepReview data={postData} accounts={connectedAccounts.filter(a => selectedAccounts.includes(a.id))} reach={formatReach(estimatedReach)} />;
-            case 7: return <StepSchedule value={postData.scheduledAt} timezone={userSettings?.timezone} onChange={(v) => { setIsDirty(true); setPostData(d => ({ ...d, scheduledAt: v })); }} />;
+            case 1: return <StepAccounts accounts={accounts} selected={selectedAccounts} onToggle={(id) => { setIsDirty(true); setSelectedAccounts(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]); }} />;
+            case 2: return <StepBasicInfo value={postData.title} onChange={(v) => { setIsDirty(true); setPostData(d => ({ ...d, title: v })); }} labels={labels} selectedLabel={postData.category} onLabelSelect={(l) => setPostData(d => ({ ...d, category: l }))} onAddLabel={(l) => setLabels(prev => [...prev, l])} error={titleError} />;
+            case 3: return <StepCreation caption={postData.caption} onCaptionChange={(v) => { setIsDirty(true); setPostData(d => ({ ...d, caption: v })); }} mediaUrl={postData.mediaUrl} mediaType={postData.mediaType} onMediaUpload={(url, type) => { setIsDirty(true); setPostData(d => ({ ...d, mediaUrl: url, mediaType: type as 'IMAGE' | 'VIDEO', thumbnailUrl: url })); }} addToast={addToast} />;
+            case 4: return <StepFineTune accounts={accounts.filter((a: SocialAccount) => selectedAccounts.includes(a.id))} postData={postData} settings={accountSettings} onSettingChange={(id, key, val) => setAccountSettings(prev => ({ ...prev, [id]: { ...(prev[id] || {}), [key]: val } }))} />;
+            case 5: return <StepOptimization hashtags={postData.hashtags} onHashtagsChange={(v) => { setIsDirty(true); setPostData(d => ({ ...d, hashtags: v })); }} visibility={postData.visibility} onVisibilityChange={(v) => setPostData(d => ({ ...d, visibility: v }))} />;
+            case 6: return <StepReview data={postData} accounts={accounts.filter((a: SocialAccount) => selectedAccounts.includes(a.id))} />;
+            case 7: return <StepLaunch value={postData.scheduledAt} onChange={(v) => { setIsDirty(true); setPostData(d => ({ ...d, scheduledAt: v })); }} />;
             default: return null;
         }
     };
 
     return (
-        <>
-            <InlineToast toasts={toasts} onRemove={(id) => setToasts(p => p.filter(t => t.id !== id))} />
+        <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden font-sans">
+            {/* Backdrop */}
+            <div className="absolute inset-0 bg-[#0f172a]/80 backdrop-blur-3xl animate-in fade-in duration-700" onClick={handleClose} />
 
+            {/* Toast Container */}
+            <div className="fixed top-8 left-1/2 -translate-x-1/2 z-[200] flex flex-col gap-3 w-full max-w-md pointer-events-none">
+                {toasts.map(t => (
+                    <div key={t.id} className={cn(
+                        "pointer-events-auto px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-top-4 duration-500 font-bold border",
+                        t.type === 'success' ? "bg-emerald-50 border-emerald-100 text-emerald-800" :
+                            t.type === 'error' ? "bg-red-50 border-red-100 text-red-800" :
+                                "bg-white border-slate-100 text-slate-800"
+                    )}>
+                        {t.type === 'success' && <Check className="w-5 h-5 text-emerald-500" />}
+                        {t.type === 'error' && <X className="w-5 h-5 text-red-500" />}
+                        {t.message}
+                    </div>
+                ))}
+            </div>
+
+            {/* Confirm Modal */}
             {showCloseConfirm && (
-                <div className="fixed inset-0 z-[150] flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" />
-                    <div className="bg-white rounded-[2rem] p-8 relative z-10 shadow-2xl max-w-sm w-full text-center space-y-4">
-                        <div className="w-14 h-14 bg-amber-50 rounded-2xl flex items-center justify-center mx-auto">
-                            <Save className="w-7 h-7 text-amber-500" />
+                <div className="fixed inset-0 z-[210] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" />
+                    <div className="bg-white rounded-[2.5rem] p-10 relative z-10 shadow-[0_32px_64px_-12px_rgba(0,0,0,0.2)] max-w-sm w-full text-center space-y-6 animate-in zoom-in-95 duration-300">
+                        <div className="w-20 h-20 bg-amber-50 rounded-3xl flex items-center justify-center mx-auto ring-8 ring-amber-50/50">
+                            <Save className="w-10 h-10 text-amber-500" />
                         </div>
-                        <h3 className="text-lg font-black text-slate-900">Save before closing?</h3>
-                        <p className="text-sm text-slate-500">You have unsaved changes. Would you like to save a draft?</p>
-                        <div className="flex gap-3 pt-2">
-                            <button onClick={() => { setShowCloseConfirm(false); onClose(); }} className="flex-1 py-3 rounded-xl text-sm font-bold text-slate-500 hover:bg-slate-100 transition-colors">Discard</button>
-                            <button onClick={() => { setShowCloseConfirm(false); handleSaveDraft(); }} className="flex-1 py-3 rounded-xl text-sm font-black bg-slate-900 text-white hover:bg-slate-800 transition-colors">Save Draft</button>
+                        <div className="space-y-2">
+                            <h3 className="text-2xl font-black text-slate-900 tracking-tight">Save Progress?</h3>
+                            <p className="text-slate-500 font-medium leading-relaxed">You have unsaved changes. Keep as a draft before leaving?</p>
+                        </div>
+                        <div className="flex gap-4 pt-4">
+                            <button onClick={() => { setShowCloseConfirm(false); onClose(); }} className="flex-1 py-4 rounded-2xl text-sm font-black text-slate-500 hover:bg-slate-100 transition-all active:scale-95">Discard</button>
+                            <button onClick={handleSaveDraft} className="flex-1 py-4 rounded-2xl text-sm font-black bg-slate-900 text-white hover:bg-slate-800 transition-all shadow-xl active:scale-95">Save Draft</button>
                         </div>
                     </div>
                 </div>
             )}
 
-            <div className="fixed inset-0 z-[70] flex items-center justify-center p-0 sm:p-6 md:p-8 animate-in fade-in zoom-in-95 duration-500 overflow-hidden">
-                <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-xl" onClick={handleClose}></div>
-
-                <div className="bg-slate-50 w-full h-full max-w-[1200px] sm:max-h-[92vh] sm:rounded-[3rem] shadow-[0_0_80px_rgba(0,0,0,0.15)] relative flex flex-col overflow-hidden ring-1 ring-slate-200">
-                    {/* Header with Progress Bar */}
-                    <div className="p-4 sm:p-8 border-b border-slate-200/60 bg-white sticky top-0 z-10">
-                        <div className="flex items-center justify-between mb-4 sm:mb-8">
-                            <div className="flex items-center gap-3 md:gap-4">
-                                <div className="w-10 h-10 md:w-12 md:h-12 bg-teal-500 rounded-xl md:rounded-2xl flex items-center justify-center text-white shadow-lg shadow-teal-200 shrink-0">
-                                    <Plus className="w-5 h-5 md:w-6 md:h-6" />
-                                </div>
-                                <div className="min-w-0">
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                        <h2 className="text-lg md:text-2xl font-black text-slate-900 tracking-tight truncate">{initialReel?.id ? 'Edit Post' : 'Build New Post'}</h2>
-                                        {postData.status === 'Draft' && (
-                                            <span className="px-2.5 py-0.5 bg-amber-100 text-amber-700 text-[9px] font-black uppercase tracking-widest rounded-full border border-amber-200">Draft</span>
-                                        )}
-                                    </div>
-                                    <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mt-0.5 truncate">Multi-Channel Distribution</p>
-                                </div>
-                            </div>
-                            <button onClick={handleClose} className="p-2 sm:p-3 hover:bg-slate-50 rounded-xl transition-all text-slate-400 hover:text-slate-600">
-                                <X className="w-5 h-5 md:w-6 md:h-6" />
-                            </button>
+            {/* Main Builder UI */}
+            <div className="relative w-full h-full max-w-[1400px] lg:h-[92vh] lg:rounded-[4rem] bg-[#f7f9fb] shadow-[0_0_100px_rgba(0,0,0,0.2)] flex flex-col overflow-hidden ring-1 ring-white/20 animate-in slide-in-from-bottom-8 duration-700">
+                {/* Header (Bento Style) */}
+                <div className="p-8 border-b border-slate-200/50 bg-white/50 backdrop-blur-md flex items-center justify-between shrink-0">
+                    <div className="flex items-center gap-6">
+                        <div className="w-14 h-14 bg-gradient-to-br from-[#006c49] to-[#10b981] rounded-3xl flex items-center justify-center text-white shadow-lg shadow-emerald-500/20">
+                            <Plus className="w-8 h-8" />
                         </div>
-
-                        <div className="flex items-center justify-between relative px-1 sm:px-2">
-                            {/* Progress Line Background */}
-                            <div className="absolute top-[16px] sm:top-[18px] left-0 right-0 h-1 bg-slate-100 -z-10 rounded-full mx-6 sm:mx-12"></div>
-                            {/* Progress Line Active */}
-                            <div
-                                className="absolute top-[16px] sm:top-[18px] left-0 h-1 bg-teal-500 -z-10 transition-all duration-500 ease-out rounded-full mx-6 sm:mx-12"
-                                style={{ width: `${((currentStep - 1) / (STEPS.length - 1)) * 100}%` }}
-                            ></div>
-
-                            {STEPS.map((step, i) => {
-                                const stepNum = i + 1;
-                                const isActive = currentStep === stepNum;
-                                const isPast = currentStep > stepNum;
-
-                                return (
-                                    <div key={step} className="flex flex-col items-center gap-2 sm:gap-3 relative">
-                                        <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl flex items-center justify-center text-[10px] sm:text-sm font-black transition-all duration-300 ${isActive ? 'bg-teal-500 text-white shadow-xl shadow-teal-200 scale-110 ring-4 ring-teal-50' :
-                                            isPast ? 'bg-teal-50 text-teal-600' :
-                                                'bg-white text-slate-300 border-2 border-slate-100'
-                                            }`}>
-                                            {isPast ? <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5" /> : stepNum}
-                                        </div>
-                                        <span className={cn(
-                                            "text-[8px] sm:text-[10px] font-bold uppercase tracking-tighter",
-                                            isActive ? 'text-teal-600' : 'text-slate-400',
-                                            !isActive && "hidden xs:inline-block" // Hide labels for inactive steps on mobile
-                                        )}>{step}</span>
-                                    </div>
-                                );
-                            })}
+                        <div>
+                            <div className="flex items-center gap-3">
+                                <h2 className="text-3xl font-black text-slate-900 tracking-tighter">Build New Post</h2>
+                                {isDirty && <span className="bg-amber-100 text-amber-700 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest animate-pulse">Unsaved</span>}
+                            </div>
+                            <p className="text-sm font-bold text-slate-400 uppercase tracking-widest mt-1">Multi-Channel Distribution</p>
                         </div>
                     </div>
 
-                    {/* Content Area */}
-                    <div className="flex-1 overflow-y-auto bg-slate-50/50 p-4 sm:p-8 md:p-12">
-                        {titleError && (
-                            <div className="mb-4 flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-600 font-bold">
-                                <AlertCircle className="w-4 h-4 shrink-0" />
-                                {titleError}
+                    {/* Stepper (Minimalist) */}
+                    <div className="hidden lg:flex items-center gap-3">
+                        {steps.map(s => (
+                            <div key={s.id} className="flex items-center">
+                                <div className={cn(
+                                    "w-10 h-10 rounded-2xl flex items-center justify-center transition-all duration-500 font-black text-sm border-2",
+                                    currentStep === s.id ? "bg-slate-900 border-slate-900 text-white shadow-xl scale-110" :
+                                        currentStep > s.id ? "bg-emerald-500 border-emerald-500 text-white" :
+                                            "bg-white border-slate-100 text-slate-300"
+                                )}>
+                                    {currentStep > s.id ? <Check className="w-5 h-5" /> : s.id}
+                                </div>
+                                {s.id < 7 && <div className={cn("w-6 h-1 rounded-full mx-1", currentStep > s.id ? "bg-emerald-200" : "bg-slate-100")} />}
                             </div>
-                        )}
+                        ))}
+                    </div>
+
+                    <button onClick={handleClose} className="w-12 h-12 flex items-center justify-center rounded-2xl bg-white border border-slate-100 text-slate-400 hover:text-slate-900 hover:rotate-90 transition-all shadow-sm">
+                        <X className="w-6 h-6" />
+                    </button>
+                </div>
+
+                {/* Main Content Area */}
+                <div className="flex-1 overflow-y-auto overflow-x-hidden p-6 lg:p-12 scroll-smooth">
+                    <div className="max-w-6xl mx-auto h-full">
                         {renderStep()}
                     </div>
+                </div>
 
-                    {/* Footer Navigation */}
-                    <div className="p-4 sm:p-8 border-t border-slate-200/60 bg-white/80 backdrop-blur-xl flex items-center justify-between sticky bottom-0 z-20">
+                {/* Footer (Floating Style) */}
+                <div className="p-8 pb-10 border-t border-slate-200/50 bg-white/50 backdrop-blur-md flex items-center justify-between shrink-0">
+                    <button
+                        onClick={prevStep}
+                        disabled={currentStep === 1}
+                        className="flex items-center gap-3 px-8 py-5 rounded-[2rem] font-black text-slate-600 hover:bg-slate-100 transition-all disabled:opacity-0 disabled:pointer-events-none group"
+                    >
+                        <ChevronLeft className="w-6 h-6 group-hover:-translate-x-2 transition-transform" />
+                        Previous
+                    </button>
+
+                    <div className="flex items-center gap-6">
                         <button
-                            onClick={prevStep}
-                            disabled={currentStep === 1}
-                            className={cn(
-                                "flex items-center gap-2 px-3 sm:px-8 py-3 sm:py-4 rounded-xl sm:rounded-2xl font-bold transition-all text-sm",
-                                currentStep === 1 ? 'opacity-0 pointer-events-none' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
-                            )}
+                            onClick={handleSaveDraft}
+                            disabled={isSavingDraft}
+                            className="hidden sm:flex items-center gap-3 px-8 py-5 rounded-[2rem] border-2 border-slate-200 font-black text-slate-600 hover:border-slate-400 hover:bg-white transition-all active:scale-95"
                         >
-                            <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
-                            <span className="hidden sm:inline">Back to {STEPS[currentStep - 2]}</span>
-                            <span className="sm:hidden">Back</span>
+                            <Save className={cn("w-5 h-5", isSavingDraft && "animate-spin")} />
+                            {initialReel ? 'Save Changes' : 'Save as Draft'}
                         </button>
 
-                        <div className="flex items-center gap-2 sm:gap-4">
+                        {currentStep < 7 ? (
                             <button
-                                onClick={handleSaveDraft}
-                                disabled={isScheduling || isSavingDraft}
-                                className="flex items-center gap-1.5 px-3 sm:px-8 py-3 sm:py-4 text-slate-500 font-bold hover:bg-slate-100 rounded-xl sm:rounded-2xl transition-all text-xs sm:text-sm disabled:opacity-40"
+                                onClick={nextStep}
+                                className="flex items-center gap-3 px-12 py-5 rounded-[2rem] bg-gradient-to-br from-[#006c49] to-[#10b981] text-white font-black shadow-[0_20px_40px_-10px_rgba(16,185,129,0.3)] hover:scale-105 active:scale-95 hover:shadow-[0_20px_50px_-10px_rgba(16,185,129,0.5)] transition-all group lg:min-w-[200px] justify-center"
                             >
-                                <Save className="w-3.5 h-3.5" />
-                                <span className="hidden sm:inline">{isSavingDraft ? 'Saving…' : 'Save as Draft'}</span>
-                                <span className="sm:hidden">Draft</span>
+                                Continue
+                                <ChevronRight className="w-6 h-6 group-hover:translate-x-2 transition-transform" />
                             </button>
-                            <button
-                                onClick={currentStep === 7 ? handleSchedule : nextStep}
-                                disabled={isScheduling || isSavingDraft}
-                                className={cn(
-                                    "flex items-center gap-2 px-5 sm:px-10 py-3 sm:py-4 bg-teal-500 text-white rounded-xl sm:rounded-[1.5rem] font-black hover:bg-teal-600 transition-all shadow-lg active:scale-95 text-xs sm:text-base shrink-0",
-                                    isScheduling ? 'opacity-50 cursor-not-allowed' : ''
-                                )}
-                            >
-                                {isScheduling ? '...' : currentStep === 7 ? 'Schedule' : (
-                                    <>
-                                        <span className="hidden sm:inline">Next: {STEPS[currentStep]}</span>
-                                        <span className="sm:hidden">Next</span>
-                                    </>
-                                )}
-                                <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </>
-    );
-};
-
-const StepAccounts = ({ accounts, selected, onToggle }: { accounts: any[], selected: string[], onToggle: (id: string) => void }) => {
-    const groupedAccounts = accounts.reduce((acc, current) => {
-        if (!acc[current.platform]) acc[current.platform] = [];
-        acc[current.platform].push(current);
-        return acc;
-    }, {} as Record<string, any[]>);
-
-    return (
-        <div className="space-y-6 md:space-y-8 animate-in slide-in-from-bottom-4 duration-500">
-            <div className="text-center space-y-2">
-                <h3 className="text-xl md:text-3xl font-black text-slate-900">Select Accounts</h3>
-                <p className="text-sm text-slate-500 font-medium">Choose where you want to publish this content.</p>
-            </div>
-
-            {accounts.length === 0 ? (
-                <div className="py-12 text-center text-slate-400 italic">No social accounts connected yet. Please connect an account in the Connections tab.</div>
-            ) : (
-                <div className="max-w-5xl mx-auto space-y-10 pb-8">
-                    {Object.entries(groupedAccounts).map(([platform, platformAccounts]: [string, any]) => (
-                        <div key={platform} className="space-y-6">
-                            <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
-                                <div className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-center shrink-0 shadow-sm">
-                                    {platform === 'instagram' && <Instagram className="w-4 h-4 text-pink-500" />}
-                                    {platform === 'facebook' && <Facebook className="w-4 h-4 text-blue-600" />}
-                                    {platform === 'tiktok' && <Smartphone className="w-4 h-4 text-slate-900" />}
-                                    {platform === 'youtube' && <Youtube className="w-4 h-4 text-red-500" />}
-                                    {!['instagram', 'facebook', 'tiktok', 'youtube'].includes(platform) && <Globe className="w-4 h-4 text-slate-400" />}
-                                </div>
-                                <h4 className="text-sm md:text-base font-black text-slate-900 capitalize uppercase tracking-widest">{platform} <span className="text-slate-400 font-bold ml-1">({platformAccounts.length})</span></h4>
-                            </div>
-
-                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-                                {platformAccounts.map((acc: any) => {
-                                    const isSelected = selected.includes(acc.id);
-                                    return (
-                                        <button
-                                            key={acc.id}
-                                            onClick={() => onToggle(acc.id)}
-                                            className={`p-4 xl:p-6 rounded-[1.5rem] md:rounded-[2rem] border-2 transition-all flex flex-col items-center gap-2 sm:gap-4 group ${isSelected ? 'border-teal-500 bg-teal-50 ring-4 ring-teal-500/10 shadow-xl' : 'border-slate-100 bg-white hover:border-slate-300 hover:shadow-md'
-                                                }`}
-                                        >
-                                            <div className={`w-12 h-12 sm:w-16 sm:h-16 rounded-xl md:rounded-2xl flex items-center justify-center transition-all ${isSelected ? 'bg-teal-500 text-white shadow-lg' : 'bg-slate-50 text-slate-300 group-hover:text-slate-400'
-                                                }`}>
-                                                {acc.platform === 'instagram' && <Instagram className="w-5 h-5 sm:w-8 sm:h-8" />}
-                                                {acc.platform === 'facebook' && <Facebook className="w-5 h-5 sm:w-8 sm:h-8" />}
-                                                {acc.platform === 'tiktok' && <Smartphone className="w-5 h-5 sm:w-8 sm:h-8" />}
-                                                {acc.platform === 'youtube' && <Youtube className="w-5 h-5 sm:w-8 sm:h-8" />}
-                                                {!['instagram', 'facebook', 'tiktok', 'youtube'].includes(acc.platform) && <Globe className="w-5 h-5 sm:w-8 sm:h-8" />}
-                                            </div>
-                                            <span className={`font-black text-[10px] sm:text-xs uppercase tracking-widest truncate w-full ${isSelected ? 'text-teal-700' : 'text-slate-400'}`}>
-                                                {acc.username || acc.platform}
-                                            </span>
-                                            <div className={`w-5 h-5 sm:w-6 sm:h-6 flex shrink-0 items-center justify-center rounded-full border-2 transition-all ${isSelected ? 'border-teal-500 bg-teal-500 text-white shadow-md' : 'border-slate-200'
-                                                }`}>
-                                                {isSelected && <CheckCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 active:scale-90 transition-transform" />}
-                                            </div>
-                                        </button>
-                                    )
-                                })}
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            )}
-        </div>
-    );
-};
-
-const StepBasicInfo = ({ value, onChange, labels, selectedLabel, onLabelSelect, onAddLabel }: { value: string, onChange: (v: string) => void, labels: string[], selectedLabel: string, onLabelSelect: (l: string) => void, onAddLabel: (l: string) => void }) => {
-    const [isAdding, setIsAdding] = useState(false);
-    const [newLabel, setNewLabel] = useState('');
-
-    const handleAdd = () => {
-        if (newLabel.trim()) {
-            onAddLabel(newLabel.trim());
-            onLabelSelect(newLabel.trim());
-            setNewLabel('');
-            setIsAdding(false);
-        }
-    };
-
-    return (
-        <div className="max-w-2xl mx-auto space-y-8 animate-in slide-in-from-bottom-4 duration-500">
-            <div className="text-center space-y-2">
-                <h3 className="text-3xl font-black text-slate-900">Post Definitions</h3>
-                <p className="text-slate-500 font-medium">Set an internal name and category for this post.</p>
-            </div>
-            <div className="space-y-6 bg-white p-10 rounded-[2.5rem] shadow-sm border border-slate-100">
-                <div className="space-y-3">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Post Name (Internal)</label>
-                    <input
-                        type="text"
-                        value={value}
-                        onChange={(e) => onChange(e.target.value)}
-                        placeholder="e.g., Summer Campaign - Reel 1"
-                        className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-5 text-lg font-bold outline-none focus:ring-4 focus:ring-teal-500/5 focus:border-teal-500/20"
-                    />
-                </div>
-                <div className="space-y-3">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Labels</label>
-                    <div className="flex flex-wrap gap-2">
-                        {labels.map(l => (
-                            <button
-                                key={l}
-                                onClick={() => onLabelSelect(l)}
-                                className={cn(
-                                    "px-5 py-2.5 rounded-xl border-2 text-sm font-bold transition-all",
-                                    selectedLabel === l ? 'border-teal-500 bg-teal-50 text-teal-600 shadow-sm' : 'border-slate-100 text-slate-500 hover:border-teal-200'
-                                )}
-                            >{l}</button>
-                        ))}
-                        {isAdding ? (
-                            <div className="flex items-center gap-2">
-                                <input
-                                    autoFocus
-                                    className="px-4 py-2 text-sm bg-slate-50 border border-teal-200 rounded-xl outline-none font-bold"
-                                    value={newLabel}
-                                    onChange={(e) => setNewLabel(e.target.value)}
-                                    onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
-                                />
-                                <button onClick={handleAdd} className="p-2 bg-teal-500 text-white rounded-lg"><Plus className="w-4 h-4" /></button>
-                            </div>
                         ) : (
                             <button
-                                onClick={() => setIsAdding(true)}
-                                className="px-5 py-2.5 rounded-xl border-2 border-dashed border-slate-200 text-sm font-bold text-slate-400 flex items-center gap-2 hover:bg-slate-50 hover:border-teal-300 hover:text-teal-500 transition-all"
-                            ><Plus className="w-4 h-4" /> Add Label</button>
+                                onClick={handleSchedule}
+                                disabled={isScheduling}
+                                className="flex items-center gap-4 px-12 py-5 rounded-[2rem] bg-slate-900 text-white font-black shadow-2xl hover:scale-105 active:scale-95 transition-all group lg:min-w-[240px] justify-center"
+                            >
+                                {isScheduling ? (
+                                    <div className="flex items-center gap-3"><Clock className="w-5 h-5 animate-spin" /> Scheduling...</div>
+                                ) : (
+                                    <>Schedule Post <Send className="w-5 h-5 group-hover:translate-x-2 group-hover:-translate-y-2 transition-transform" /></>
+                                )}
+                            </button>
                         )}
                     </div>
                 </div>
             </div>
         </div>
     );
+
+    function nextStep() {
+        if (currentStep === 2 && !postData.title.trim()) {
+            setTitleError('Project name is required.');
+            return;
+        }
+        setTitleError('');
+        setCurrentStep(s => Math.min(s + 1, 7));
+    }
+
+    function prevStep() {
+        setCurrentStep(s => Math.max(s - 1, 1));
+    }
 };
 
-const StepGenericContent = ({ caption, onCaptionChange, mediaUrl, mediaType, onMediaUpload, addToast }: { caption: string, onCaptionChange: (v: string) => void, mediaUrl: string, mediaType: string, onMediaUpload: (url: string, type: string) => void, addToast: (msg: string, type: any) => void }) => {
+// --- Step Components (High-Fidelity Bento Style) ---
+
+const StepAccounts = ({ accounts, selected, onToggle }: { accounts: any[], selected: string[], onToggle: (id: string) => void }) => (
+    <div className="space-y-12 animate-in slide-in-from-bottom-8 duration-700">
+        <div className="text-center max-w-2xl mx-auto space-y-4">
+            <h3 className="text-4xl font-black text-slate-900 tracking-tighter">Choose Distribution</h3>
+            <p className="text-lg font-medium text-slate-500 leading-relaxed">Select the social channels where your content will be pushed.</p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+            {accounts.map(acc => (
+                <div
+                    key={acc.id}
+                    onClick={() => onToggle(acc.id)}
+                    className={cn(
+                        "group relative bg-white rounded-[2.5rem] p-8 border-2 transition-all cursor-pointer hover:shadow-2xl active:scale-95",
+                        selected.includes(acc.id) ? "border-emerald-500 ring-4 ring-emerald-500/10" : "border-transparent hover:border-slate-200 shadow-sm"
+                    )}
+                >
+                    <div className="flex items-center justify-between mb-8">
+                        <div className={cn(
+                            "w-16 h-16 rounded-2xl flex items-center justify-center text-white shadow-lg",
+                            acc.platform === 'instagram' ? "bg-gradient-to-tr from-yellow-400 via-pink-500 to-purple-600" :
+                                acc.platform === 'facebook' ? "bg-blue-600" :
+                                    acc.platform === 'tiktok' ? "bg-slate-900" : "bg-red-600"
+                        )}>
+                            {acc.platform === 'instagram' && <Instagram className="w-8 h-8" />}
+                            {acc.platform === 'facebook' && <Facebook className="w-8 h-8" />}
+                            {acc.platform === 'tiktok' && <Smartphone className="w-8 h-8" />}
+                            {acc.platform === 'youtube' && <Youtube className="w-8 h-8" />}
+                        </div>
+                        <div className={cn(
+                            "w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all",
+                            selected.includes(acc.id) ? "bg-emerald-500 border-emerald-500 text-white" : "border-slate-100"
+                        )}>
+                            {selected.includes(acc.id) && <Check className="w-5 h-5" />}
+                        </div>
+                    </div>
+                    <div className="space-y-1">
+                        <p className="text-xl font-black text-slate-900 tracking-tight capitalize">{acc.username || acc.platform}</p>
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{acc.platform} Account</p>
+                    </div>
+                    {selected.includes(acc.id) && (
+                        <div className="absolute top-4 right-4 animate-in zoom-in-50 duration-300">
+                            <span className="bg-emerald-100 text-emerald-700 text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-tighter">Ready</span>
+                        </div>
+                    )}
+                </div>
+            ))}
+            {accounts.length === 0 && (
+                <div className="col-span-full py-20 text-center border-4 border-dashed border-slate-200 rounded-[3rem] space-y-4">
+                    <Shield className="w-16 h-16 text-slate-300 mx-auto" />
+                    <p className="text-slate-500 font-bold">No accounts connected. Go to settings to link platforms.</p>
+                </div>
+            )}
+        </div>
+    </div>
+);
+
+const StepBasicInfo = ({ value, onChange, labels, selectedLabel, onLabelSelect, onAddLabel, error }: { value: string, onChange: (v: string) => void, labels: string[], selectedLabel: string, onLabelSelect: (v: string) => void, onAddLabel: (v: string) => void, error: string }) => {
+    const [newLabel, setNewLabel] = useState('');
+    return (
+        <div className="max-w-4xl mx-auto space-y-12 animate-in slide-in-from-bottom-8 duration-700">
+            <div className="text-center space-y-4">
+                <h3 className="text-4xl font-black text-slate-900 tracking-tighter">Core Essentials</h3>
+                <p className="text-lg font-medium text-slate-500 leading-relaxed">Name your campaign and file it correctly.</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="bg-white rounded-[2.5rem] p-10 shadow-sm border border-slate-100 space-y-8">
+                    <div className="space-y-4">
+                        <label className="text-xs font-black text-slate-400 uppercase tracking-widest">Project Name</label>
+                        <input
+                            value={value}
+                            onChange={(e) => onChange(e.target.value)}
+                            placeholder="e.g., Summer Launch 2026"
+                            className={cn(
+                                "w-full bg-[#f7f9fb] border-2 rounded-2xl p-6 text-xl font-bold outline-none transition-all placeholder:text-slate-300",
+                                error ? "border-red-100 focus:border-red-200" : "border-transparent focus:border-emerald-500 ring-emerald-500/5 focus:ring-8"
+                            )}
+                        />
+                        {error && <p className="text-red-500 text-xs font-bold pl-2">{error}</p>}
+                    </div>
+                </div>
+
+                <div className="bg-white rounded-[2.5rem] p-10 shadow-sm border border-slate-100 space-y-8">
+                    <div className="space-y-6">
+                        <label className="text-xs font-black text-slate-400 uppercase tracking-widest">Post Category</label>
+                        <div className="flex flex-wrap gap-3">
+                            {labels.map(l => (
+                                <button
+                                    key={l}
+                                    onClick={() => onLabelSelect(l)}
+                                    className={cn(
+                                        "px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all",
+                                        selectedLabel === l ? "bg-slate-900 text-white shadow-lg scale-105" : "bg-[#f7f9fb] text-slate-400 hover:bg-slate-100"
+                                    )}
+                                >
+                                    {l}
+                                </button>
+                            ))}
+                        </div>
+                        <div className="flex gap-2">
+                            <input
+                                value={newLabel}
+                                onChange={(e) => setNewLabel(e.target.value)}
+                                placeholder="New category..."
+                                className="flex-1 bg-[#f7f9fb] border-transparent border-2 focus:border-emerald-500 rounded-xl px-4 py-3 text-sm font-bold outline-none"
+                            />
+                            <button
+                                onClick={() => { if (newLabel) { onAddLabel(newLabel); setNewLabel(''); } }}
+                                className="bg-white border-2 border-slate-100 text-slate-600 hover:text-emerald-600 hover:border-emerald-200 px-4 rounded-xl font-black transition-all"
+                            >
+                                Add
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+const StepCreation = ({ caption, onCaptionChange, mediaUrl, mediaType, onMediaUpload, addToast }: { caption: string, onCaptionChange: (v: string) => void, mediaUrl: string, mediaType: string, onMediaUpload: (url: string, type: string) => void, addToast: (m: string, t: any) => void }) => {
     const [isUploading, setIsUploading] = useState(false);
     const [dragActive, setDragActive] = useState(false);
 
@@ -559,376 +485,328 @@ const StepGenericContent = ({ caption, onCaptionChange, mediaUrl, mediaType, onM
             const filePath = `post_media/${fileName}`;
             const type = file.type.startsWith('video') ? 'VIDEO' : 'IMAGE';
 
-            const { error: uploadError } = await supabase.storage
-                .from('media')
-                .upload(filePath, file);
-
+            const { error: uploadError } = await supabase.storage.from('media').upload(filePath, file);
             if (uploadError) throw uploadError;
 
             const { data } = supabase.storage.from('media').getPublicUrl(filePath);
             onMediaUpload(data.publicUrl, type);
+            addToast('Media uploaded successfully!', 'success');
         } catch (error: any) {
-            console.error('Error uploading media:', error);
             addToast('Upload failed: ' + error.message, 'error');
         } finally {
             setIsUploading(false);
         }
     };
 
-    const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) handleFile(file);
-    };
-
-    const handleDrag = (e: React.DragEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        if (e.type === "dragenter" || e.type === "dragover") {
-            setDragActive(true);
-        } else if (e.type === "dragleave") {
-            setDragActive(false);
-        }
-    };
-
-    const handleDrop = (e: React.DragEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        setDragActive(false);
-        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-            handleFile(e.dataTransfer.files[0]);
-        }
-    };
-
     return (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-12 animate-in slide-in-from-bottom-4 duration-500">
-            <div className="space-y-6 md:space-y-8">
-                <div className="space-y-2">
-                    <h3 className="text-xl md:text-3xl font-black text-slate-900">Core Content</h3>
-                    <p className="text-sm text-slate-500 font-medium">This will be the default copy for all selected platforms.</p>
+        <div className="space-y-8 lg:space-y-12 animate-in slide-in-from-bottom-8 duration-700">
+            <div className="text-center space-y-4">
+                <h3 className="text-4xl font-black text-slate-900 tracking-tighter">Creation Hub</h3>
+            </div>
+
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-10">
+                {/* Left side: Assets */}
+                <div className="space-y-8">
+                    <div className="flex items-center justify-between px-2">
+                        <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 bg-purple-50 rounded-lg flex items-center justify-center text-purple-600"><Plus className="w-4 h-4" /></div>
+                            <h4 className="font-black text-slate-900 uppercase tracking-widest text-[10px]">Media Assets</h4>
+                        </div>
+                        {mediaUrl && (
+                            <button onClick={() => onMediaUpload('', 'IMAGE')} className="text-xs font-bold text-red-500 flex items-center gap-1.5 hover:bg-red-50 px-3 py-1 rounded-lg transition-all"><Trash2 className="w-3.5 h-3.5" /> Remove</button>
+                        )}
+                    </div>
+
+                    <div
+                        onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
+                        onDragLeave={() => setDragActive(false)}
+                        onDrop={(e) => { e.preventDefault(); setDragActive(false); if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); }}
+                        className={cn(
+                            "relative bg-white border-4 border-dashed rounded-[3rem] p-12 h-[500px] flex flex-col items-center justify-center transition-all group overflow-hidden shadow-sm",
+                            dragActive ? "border-emerald-500 bg-emerald-50/30" : "border-slate-100 hover:border-emerald-200"
+                        )}
+                    >
+                        {mediaUrl ? (
+                            <div className="absolute inset-4 rounded-[2.5rem] overflow-hidden shadow-2xl bg-slate-900 group/media">
+                                {mediaType === 'VIDEO' ? (
+                                    <video src={mediaUrl} className="w-full h-full object-contain" autoPlay muted loop />
+                                ) : (
+                                    <img src={mediaUrl} className="w-full h-full object-contain" />
+                                )}
+                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/media:opacity-100 flex items-center justify-center transition-all backdrop-blur-sm">
+                                    <label className="bg-white text-slate-900 px-8 py-4 rounded-2xl font-black flex items-center gap-3 cursor-pointer hover:scale-105 active:scale-95 transition-all shadow-xl">
+                                        <Edit3 className="w-5 h-5" /> Change Media
+                                        <input type="file" className="hidden" accept="image/*,video/*" onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])} />
+                                    </label>
+                                </div>
+                            </div>
+                        ) : (
+                            <label className="flex flex-col items-center gap-6 cursor-pointer">
+                                {isUploading ? (
+                                    <div className="flex flex-col items-center gap-4">
+                                        <div className="w-16 h-16 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                                        <p className="text-emerald-500 font-black animate-pulse">Uploading...</p>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div className="w-24 h-24 bg-slate-50 rounded-[2.5rem] flex items-center justify-center text-slate-300 group-hover:scale-110 group-hover:bg-emerald-50 group-hover:text-emerald-500 transition-all">
+                                            <ImageIcon className="w-10 h-10" />
+                                        </div>
+                                        <div className="text-center space-y-2">
+                                            <p className="text-xl font-black text-slate-900 tracking-tight">Drop your visual story</p>
+                                            <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Image or Video up to 2GB</p>
+                                        </div>
+                                        <div className="px-10 py-4 bg-slate-900 text-white rounded-2xl font-black text-sm shadow-xl hover:scale-105 transition-all">Browse Library</div>
+                                    </>
+                                )}
+                                <input type="file" className="hidden" accept="image/*,video/*" onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])} disabled={isUploading} />
+                            </label>
+                        )}
+                    </div>
                 </div>
-                <div className="bg-white p-6 md:p-8 rounded-[1.5rem] md:rounded-[2.5rem] shadow-sm border border-slate-100 space-y-4 md:space-y-6">
-                    <div className="space-y-3">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                            <FileText className="w-4 h-4 text-teal-500" /> Master Caption
-                        </label>
+
+                {/* Right side: Editor */}
+                <div className="space-y-8">
+                    <div className="flex items-center gap-3 px-2">
+                        <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center text-blue-600"><Edit3 className="w-4 h-4" /></div>
+                        <h4 className="font-black text-slate-900 uppercase tracking-widest text-[10px]">Caption & Hook</h4>
+                    </div>
+
+                    <div className="bg-white rounded-[3rem] p-10 shadow-sm border border-slate-100 space-y-6 h-[500px] flex flex-col">
                         <textarea
                             value={caption}
                             onChange={(e) => onCaptionChange(e.target.value)}
-                            placeholder="Write your primary message here..."
-                            className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 md:p-6 text-sm outline-none focus:ring-4 focus:ring-teal-500/5 min-h-[150px] md:min-h-[200px] leading-relaxed font-medium"
+                            placeholder="Write a caption that moves people..."
+                            className="flex-1 w-full bg-[#f7f9fb] border-transparent border-2 focus:border-emerald-500 rounded-[2rem] p-8 text-lg font-medium leading-relaxed resize-none outline-none transition-all placeholder:text-slate-300"
                         />
-                    </div>
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-[10px] md:text-[11px] font-bold text-slate-400">
-                        <span className="flex items-center gap-2 text-teal-600 bg-teal-50 px-3 py-1.5 rounded-lg"><Sparkles className="w-3 h-3" /> AI Optimized</span>
-                        <span>{caption.length} / 2200 characters</span>
-                    </div>
-                </div>
-            </div>
-            <div className="space-y-6 md:space-y-8">
-                <div className="space-y-2">
-                    <h3 className="text-xl md:text-3xl font-black text-slate-900">Main Assets</h3>
-                    <p className="text-sm text-slate-500 font-medium">Upload the primary video or images.</p>
-                </div>
-                <div
-                    onDragEnter={handleDrag}
-                    onDragLeave={handleDrag}
-                    onDragOver={handleDrag}
-                    onDrop={handleDrop}
-                    className={cn(
-                        "bg-white border-4 border-dashed rounded-[1.5rem] md:rounded-[2.5rem] p-6 md:p-12 flex flex-col items-center justify-center text-center space-y-4 md:space-y-6 h-[300px] md:h-[400px] group transition-all relative overflow-hidden",
-                        dragActive ? "border-teal-500 bg-teal-50/50" : "border-slate-100 hover:border-teal-200"
-                    )}
-                >
-                    {mediaUrl ? (
-                        <div className="relative w-full h-full rounded-2xl overflow-hidden shadow-xl bg-slate-900 flex items-center justify-center">
-                            {mediaType === 'VIDEO' ? (
-                                <video src={mediaUrl} className="w-full h-full object-contain" autoPlay muted loop />
-                            ) : (
-                                <img src={mediaUrl} className="w-full h-full object-cover" />
-                            )}
-                            <label className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
-                                <span className="bg-white text-slate-900 px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-xl"><ImageIcon className="w-4 h-4" /> Change</span>
-                                <input type="file" className="hidden" accept="image/*,video/*" onChange={handleUpload} disabled={isUploading} />
-                            </label>
-                            {isUploading && (
-                                <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center">
-                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-500"></div>
-                                </div>
-                            )}
+                        <div className="flex items-center justify-between pb-2">
+                            <div className="flex gap-4">
+                                <button className="p-3 bg-slate-50 text-slate-600 rounded-xl hover:bg-emerald-50 hover:text-emerald-600 transition-all"><Sparkles className="w-5 h-5" /></button>
+                                <button className="p-3 bg-slate-50 text-slate-600 rounded-xl hover:bg-emerald-50 hover:text-emerald-600 transition-all"><Hash className="w-5 h-5" /></button>
+                            </div>
+                            <span className={cn(
+                                "text-[10px] font-black uppercase tracking-widest",
+                                caption.length > 2000 ? "text-red-500" : "text-slate-400"
+                            )}>{caption.length} / 2200</span>
                         </div>
-                    ) : (
-                        <label className="w-full h-full flex flex-col items-center justify-center cursor-pointer relative z-10">
-                            {isUploading ? (
-                                <div className="space-y-4 flex flex-col items-center">
-                                    <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-teal-500"></div>
-                                    <p className="text-slate-500 font-bold animate-pulse">Uploading Media...</p>
-                                </div>
-                            ) : (
-                                <>
-                                    <div className="w-16 h-16 md:w-20 md:h-20 bg-slate-50 rounded-2xl md:rounded-3xl flex items-center justify-center text-slate-300 group-hover:scale-110 group-hover:bg-teal-50 group-hover:text-teal-500 transition-all mb-4 mt-4">
-                                        <Upload className="w-8 h-8 md:w-10 md:h-10" />
-                                    </div>
-                                    <div className="mb-6 px-4">
-                                        <p className="text-base md:text-lg font-black text-slate-900">Drag & Drop Media</p>
-                                        <p className="text-xs text-slate-400 mt-1">Videos up to 2GB or high-res images.</p>
-                                    </div>
-                                    <span className="bg-slate-900 text-white px-6 md:px-8 py-3 md:py-4 rounded-xl md:rounded-2xl font-black hover:bg-slate-800 transition-all shadow-xl text-xs sm:text-sm">Browse Files</span>
-                                </>
-                            )}
-                            <input type="file" className="hidden" accept="image/*,video/*" onChange={handleUpload} disabled={isUploading} />
-                        </label>
-                    )}
+                    </div>
                 </div>
             </div>
         </div>
     );
-};
+}
 
 const StepFineTune = ({ accounts, postData, settings, onSettingChange }: { accounts: any[], postData: any, settings: Record<string, any>, onSettingChange: (id: string, key: string, val: any) => void }) => {
     const [selectedId, setSelectedId] = useState(accounts[0]?.id);
-
-    const activeSettings = settings[selectedId] || { type: 'REEL', shareToFeed: true, addToGrid: false };
+    const activeSettings = settings[selectedId] || { type: 'REEL', shareToFeed: true };
 
     return (
-        <div className="space-y-6 md:space-y-10 animate-in slide-in-from-bottom-4 duration-500 pb-8">
-            <div className="text-center space-y-2">
-                <h3 className="text-xl md:text-3xl font-black text-slate-900">Fine-Tune by Channel</h3>
-                <p className="text-sm text-slate-500 font-medium">Customise descriptions and media for each social network.</p>
+        <div className="space-y-12 animate-in slide-in-from-bottom-8 duration-700 pb-10">
+            <div className="text-center space-y-4">
+                <h3 className="text-4xl font-black text-slate-900 tracking-tighter">Channel Tuning</h3>
+                <p className="text-lg font-medium text-slate-500">Perfect your post for each social algorithm.</p>
             </div>
 
-            <div className="flex flex-col lg:flex-row gap-6 md:gap-8">
-                <div className="w-full lg:w-64 space-y-2 flex lg:flex-col overflow-x-auto lg:overflow-x-visible pb-2 lg:pb-0 scrollbar-hide">
-                    {accounts.length === 0 ? (
-                        <div className="p-4 text-center text-slate-400 italic font-medium text-sm">Please select accounts first.</div>
-                    ) : accounts.map(a => (
+            <div className="flex flex-col xl:flex-row gap-10">
+                {/* Channel List */}
+                <div className="w-full xl:w-80 flex xl:flex-col gap-4 overflow-x-auto pb-4 xl:pb-0 scrollbar-hide">
+                    {accounts.map(acc => (
                         <button
-                            key={a.id}
-                            onClick={() => setSelectedId(a.id)}
-                            className={`flex shrink-0 lg:w-full items-center justify-between p-3 md:p-4 border rounded-xl md:rounded-[1.5rem] shadow-sm transition-all text-left group ${selectedId === a.id ? 'bg-teal-50 border-teal-200' : 'bg-white border-slate-100 hover:shadow-md'} mr-2 lg:mr-0`}
+                            key={acc.id}
+                            onClick={() => setSelectedId(acc.id)}
+                            className={cn(
+                                "shrink-0 xl:w-full flex items-center justify-between p-6 rounded-[2rem] border-2 transition-all",
+                                selectedId === acc.id ? "bg-white border-emerald-500 shadow-xl" : "bg-white border-transparent text-slate-500 hover:border-slate-200"
+                            )}
                         >
-                            <div className="flex items-center gap-3">
-                                <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl flex items-center justify-center ${selectedId === a.id ? 'bg-teal-500 text-white' : 'bg-slate-50 text-slate-400 group-hover:bg-teal-50 group-hover:text-teal-600'}`}>
-                                    {a.platform === 'instagram' && <Instagram className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
-                                    {a.platform === 'facebook' && <Facebook className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
-                                    {a.platform === 'tiktok' && <Smartphone className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
-                                    {a.platform === 'youtube' && <Youtube className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
+                            <div className="flex items-center gap-4">
+                                <div className={cn(
+                                    "w-12 h-12 rounded-xl flex items-center justify-center text-white",
+                                    acc.platform === 'instagram' ? "bg-gradient-to-tr from-pink-500 to-purple-600" : "bg-slate-900"
+                                )}>
+                                    {acc.platform === 'instagram' ? <Instagram className="w-6 h-6" /> : <Smartphone className="w-6 h-6" />}
                                 </div>
-                                <span className={`text-xs sm:text-sm font-black capitalize ${selectedId === a.id ? 'text-teal-900' : 'text-slate-700'}`}>{a.username || a.platform}</span>
+                                <span className={cn("font-black tracking-tight", selectedId === acc.id ? "text-slate-900" : "text-slate-400")}>{acc.username}</span>
                             </div>
-                            <ChevronRight className={`w-4 h-4 hidden lg:block ${selectedId === a.id ? 'text-teal-400' : 'text-slate-300'}`} />
+                            {selectedId === acc.id && <ChevronRight className="w-5 h-5 text-emerald-500" />}
                         </button>
                     ))}
                 </div>
 
-                <div className="flex-1 bg-white border border-slate-100 rounded-[1.5rem] md:rounded-[2.5rem] shadow-xl overflow-hidden flex flex-col min-h-[400px] md:min-h-[500px]">
-                    {accounts.length === 0 ? (
-                        <div className="flex items-center justify-center flex-1 text-slate-400 italic">No account selected for fine-tuning.</div>
-                    ) : (
-                        <div className="p-6 md:p-10 flex-1 grid grid-cols-1 xl:grid-cols-2 gap-8 md:gap-12">
-                            <div className="space-y-6">
-                                <div className="flex items-center justify-between">
-                                    <h4 className="text-base md:text-lg font-black text-slate-900">Version Content</h4>
-                                    <div className="flex items-center gap-2 p-1 bg-slate-50 rounded-lg">
-                                        {(PLATFORM_POST_TYPES[accounts.find(a => a.id === selectedId)?.platform || 'instagram'] || ['POST']).map(t => (
-                                            <button
-                                                key={t}
-                                                onClick={() => onSettingChange(selectedId, 'type', t)}
-                                                className={cn(
-                                                    "px-3 py-2 shadow-sm rounded-md text-[9px] md:text-[10px] font-black uppercase transition-all",
-                                                    activeSettings.type === t ? "bg-white text-teal-600" : "text-slate-400"
-                                                )}
-                                            >{t}</button>
-                                        ))}
-                                    </div>
-                                </div>
-                                <textarea
-                                    className="w-full h-[150px] md:h-[250px] bg-slate-50/50 border border-slate-100 rounded-2xl p-4 md:p-6 text-sm font-medium outline-none focus:ring-4 focus:ring-teal-500/5 shadow-inner"
-                                    placeholder="Version specific caption..."
-                                    defaultValue={postData.caption}
-                                />
-                                <div className="bg-slate-50 p-4 md:p-6 rounded-2xl border border-slate-100 space-y-4">
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Platform Specifics</p>
-                                    {selectedId && accounts.find(a => a.id === selectedId)?.platform === 'instagram' && activeSettings.type === 'STORY' ? (
-                                        <div className="flex items-center gap-3 p-3 bg-amber-50 rounded-xl border border-amber-100">
-                                            <Sparkles className="w-4 h-4 text-amber-500" />
-                                            <p className="text-[10px] font-bold text-amber-700">Stories are temporary and visible for 24h.</p>
-                                        </div>
-                                    ) : (
-                                        <>
-                                            <label className="flex items-center gap-3 cursor-pointer group">
-                                                <div
-                                                    onClick={() => onSettingChange(selectedId, 'shareToFeed', !activeSettings.shareToFeed)}
-                                                    className={cn("w-10 h-5 rounded-full relative transition-all", activeSettings.shareToFeed ? "bg-teal-500" : "bg-slate-200")}
-                                                >
-                                                    <div className={cn("absolute top-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-all", activeSettings.shareToFeed ? "right-0.5" : "left-0.5")} />
-                                                </div>
-                                                <span className="text-[10px] md:text-xs font-bold text-slate-700">Share to Feed</span>
-                                            </label>
-                                            <label className="flex items-center gap-3 cursor-pointer group">
-                                                <div
-                                                    onClick={() => onSettingChange(selectedId, 'addToGrid', !activeSettings.addToGrid)}
-                                                    className={cn("w-10 h-5 rounded-full relative transition-all", activeSettings.addToGrid ? "bg-teal-500" : "bg-slate-200")}
-                                                >
-                                                    <div className={cn("absolute top-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-all", activeSettings.addToGrid ? "right-0.5" : "left-0.5")} />
-                                                </div>
-                                                <span className="text-[10px] md:text-xs font-bold text-slate-700">Add to Profile Grid</span>
-                                            </label>
-                                        </>
-                                    )}
-                                </div>
-                            </div>
-                            <div className="flex flex-col items-center justify-center bg-slate-50/50 rounded-[1.5rem] md:rounded-[2rem] border border-slate-100 p-6 md:p-8">
-                                <div className={cn(
-                                    "w-[200px] h-[350px] md:w-[280px] md:h-[500px] bg-white rounded-[2rem] md:rounded-[2.5rem] shadow-2xl border-[4px] md:border-[6px] border-white relative overflow-hidden ring-4 ring-slate-100 shrink-0",
-                                    activeSettings.type === 'STORY' && "ring-purple-500/20"
-                                )}>
-                                    <div className="absolute top-0 left-0 right-0 h-10 md:h-12 bg-gradient-to-b from-black/20 to-transparent z-10 flex items-center justify-between px-4 md:px-6">
-                                        <div className="flex items-center gap-2"><div className="w-5 h-5 md:w-6 md:h-6 rounded-full bg-slate-200" /><span className="text-[8px] md:text-[10px] text-white font-bold">Your Store</span></div>
-                                        <Instagram className="w-3.5 h-3.5 md:w-4 md:h-4 text-white" />
-                                    </div>
-                                    <div className="w-full h-full bg-slate-200 overflow-hidden relative">
-                                        {postData.mediaUrl ? (
-                                            postData.mediaType === 'VIDEO' ? (
-                                                <video src={postData.mediaUrl} className="w-full h-full object-cover" muted />
-                                            ) : (
-                                                <img src={postData.mediaUrl} className="w-full h-full object-cover" />
-                                            )
-                                        ) : (
-                                            <div className="w-full h-full flex items-center justify-center italic text-slate-400 text-[10px] md:text-xs bg-slate-100 underline decoration-dotted">Feed Preview Placeholder</div>
-                                        )}
-                                        {postData.caption && (
-                                            <div className="absolute bottom-4 left-4 right-4 bg-black/40 backdrop-blur-sm p-3 rounded-xl border border-white/10 shadow-2xl">
-                                                <p className="text-[8px] md:text-[10px] text-white/90 font-medium line-clamp-2 leading-relaxed">{postData.caption}</p>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                                <p className="mt-4 text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><Smartphone className="w-3.5 h-3.5" /> Mobile Feed Preview</p>
-                            </div>
+                {/* Options Bento */}
+                <div className="flex-1 bg-white rounded-[3rem] p-12 border border-slate-100 shadow-sm grid grid-cols-1 md:grid-cols-2 gap-12">
+                    <div className="space-y-8">
+                        <div className="space-y-2">
+                            <h4 className="text-xl font-black text-slate-900 tracking-tight">Format Settings</h4>
+                            <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Select your post style</p>
                         </div>
-                    )}
+                        <div className="grid grid-cols-2 gap-4">
+                            {['POST', 'REEL', 'STORY', 'SHORTS'].map(type => (
+                                <button
+                                    key={type}
+                                    onClick={() => onSettingChange(selectedId, 'type', type)}
+                                    className={cn(
+                                        "p-5 rounded-2xl border-2 font-black transition-all text-xs tracking-widest uppercase",
+                                        activeSettings.type === type ? "bg-slate-900 text-white border-slate-900 shadow-xl" : "bg-[#f7f9fb] border-transparent text-slate-400 hover:border-slate-200"
+                                    )}
+                                >
+                                    {type}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="space-y-8">
+                        <div className="space-y-2">
+                            <h4 className="text-xl font-black text-slate-900 tracking-tight">Post Properties</h4>
+                            <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Visibility and feed controls</p>
+                        </div>
+                        <div className="space-y-4">
+                            {[
+                                { k: 'shareToFeed', l: 'Share to Grid/Feed' },
+                                { k: 'allowRemix', l: 'Enable Remixing' },
+                                { k: 'hideLikeCount', l: 'Hide Like Count' }
+                            ].map(opt => (
+                                <button
+                                    key={opt.k}
+                                    onClick={() => onSettingChange(selectedId, opt.k, !activeSettings[opt.k])}
+                                    className="w-full flex items-center justify-between p-5 bg-[#f7f9fb] rounded-2xl hover:bg-slate-100 transition-all border-2 border-transparent hover:border-slate-200"
+                                >
+                                    <span className="text-sm font-bold text-slate-700">{opt.l}</span>
+                                    <div className={cn(
+                                        "w-12 h-6 rounded-full relative transition-all duration-300",
+                                        activeSettings[opt.k] ? "bg-emerald-500" : "bg-slate-300"
+                                    )}>
+                                        <div className={cn(
+                                            "absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-300 shadow-sm",
+                                            activeSettings[opt.k] ? "right-1" : "left-1"
+                                        )} />
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     );
-};
+}
 
-const StepSettings = ({ hashtags, onHashtagsChange, visibility, onVisibilityChange }: { hashtags: string, onHashtagsChange: (v: string) => void, visibility: string, onVisibilityChange: (v: string) => void }) => (
-    <div className="max-w-3xl mx-auto space-y-8 md:space-y-12 animate-in slide-in-from-bottom-4 duration-500 pb-4">
-        <div className="text-center space-y-2">
-            <h3 className="text-xl md:text-3xl font-black text-slate-900">Posting Settings</h3>
-            <p className="text-sm text-slate-500 font-medium">Fine-tune the technical metadata for your social posts.</p>
+const StepOptimization = ({ hashtags, onHashtagsChange, visibility, onVisibilityChange }: { hashtags: string, onHashtagsChange: (v: string) => void, visibility: string, onVisibilityChange: (v: string) => void }) => (
+    <div className="max-w-5xl mx-auto space-y-12 animate-in slide-in-from-bottom-8 duration-700">
+        <div className="text-center space-y-4">
+            <h3 className="text-4xl font-black text-slate-900 tracking-tighter">Post Strategy</h3>
+            <p className="text-lg font-medium text-slate-500">Fine-tune discoverability and privacy.</p>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 md:gap-8">
-            <div className="bg-white p-6 md:p-8 rounded-[1.5rem] md:rounded-[2rem] shadow-sm border border-slate-100 space-y-4 md:space-y-6">
-                <div className="w-10 h-10 md:w-12 md:h-12 bg-teal-50 rounded-xl md:rounded-2xl flex items-center justify-center text-teal-600"><Globe className="w-5 h-5 md:w-6 md:h-6" /></div>
-                <div className="space-y-4">
-                    <h4 className="font-black text-slate-900 text-sm md:text-base">Visibility Settings</h4>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+            <div className="bg-white rounded-[3rem] p-10 shadow-sm border border-slate-100 space-y-8">
+                <div className="w-16 h-16 bg-purple-50 rounded-[1.5rem] flex items-center justify-center text-purple-600"><Zap className="w-8 h-8" /></div>
+                <div className="space-y-6">
+                    <div className="space-y-1">
+                        <h4 className="text-xl font-black text-slate-900">Visibility</h4>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Who can see this post?</p>
+                    </div>
                     <div className="space-y-3">
-                        {['Public (Recommended)', 'Team Only', 'Private Draft'].map(o => (
-                            <label key={o} onClick={() => onVisibilityChange(o)} className={cn("flex items-center gap-3 p-3 md:p-4 rounded-xl cursor-pointer transition-all border", visibility === o ? "bg-teal-50 border-teal-200 ring-2 ring-teal-500/10" : "bg-slate-50 border-transparent hover:bg-slate-100")}>
-                                <div className={cn("w-4 h-4 md:w-5 md:h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all", visibility === o ? 'border-teal-500' : 'border-slate-200')}>
-                                    {visibility === o && <div className="w-2 md:w-2.5 h-2 md:h-2.5 bg-teal-500 rounded-full animate-in zoom-in-50" />}
-                                </div>
-                                <span className={cn("text-[10px] md:text-xs font-bold transition-colors", visibility === o ? "text-teal-700" : "text-slate-700")}>{o}</span>
-                            </label>
+                        {['Public', 'Close Friends', 'Team Only', 'Private Draft'].map(v => (
+                            <button
+                                key={v}
+                                onClick={() => onVisibilityChange(v)}
+                                className={cn(
+                                    "w-full flex items-center justify-between p-5 rounded-2xl border-2 transition-all",
+                                    visibility === v ? "bg-white border-emerald-500 shadow-lg" : "bg-slate-50 border-transparent text-slate-500 hover:bg-slate-100"
+                                )}
+                            >
+                                <span className={cn("text-sm font-bold", visibility === v ? "text-slate-900" : "text-slate-600")}>{v}</span>
+                                {visibility === v && <div className="w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center text-white animate-in zoom-in-50"><Check className="w-4 h-4" /></div>}
+                            </button>
                         ))}
                     </div>
                 </div>
             </div>
-            <div className="bg-white p-6 md:p-8 rounded-[1.5rem] md:rounded-[2rem] shadow-sm border border-slate-100 space-y-4 md:space-y-6">
-                <div className="w-10 h-10 md:w-12 md:h-12 bg-purple-50 rounded-xl md:rounded-2xl flex items-center justify-center text-purple-600"><Settings className="w-5 h-5 md:w-6 md:h-6" /></div>
-                <div className="space-y-4">
-                    <h4 className="font-black text-slate-900 text-sm md:text-base">Optimization</h4>
-                    <div className="space-y-4">
-                        <label className="flex flex-col gap-2">
-                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Hashtags</span>
-                            <textarea
-                                value={hashtags}
-                                onChange={(e) => onHashtagsChange(e.target.value)}
-                                placeholder="#socialmedia #marketing"
-                                className="w-full bg-slate-50 border border-slate-100 rounded-xl p-3 md:p-4 text-xs font-bold outline-none focus:ring-4 focus:ring-purple-500/5 shadow-inner"
-                            />
-                        </label>
-                        <label className="flex items-center justify-between p-3 md:p-4 bg-slate-50 rounded-xl mt-2">
-                            <span className="text-[10px] md:text-xs font-bold text-slate-700">Auto-Suggest Hashtags</span>
-                            <div className="w-9 h-4.5 md:w-10 md:h-5 bg-purple-500 rounded-full relative"><div className="absolute right-0.5 top-0.5 w-3.5 h-3.5 md:w-4 md:h-4 bg-white rounded-full shadow-sm"></div></div>
-                        </label>
+
+            <div className="bg-white rounded-[3rem] p-10 shadow-sm border border-slate-100 space-y-8">
+                <div className="w-16 h-16 bg-blue-50 rounded-[1.5rem] flex items-center justify-center text-blue-600"><Hash className="w-8 h-8" /></div>
+                <div className="space-y-6">
+                    <div className="space-y-1">
+                        <h4 className="text-xl font-black text-slate-900">Tag Strategy</h4>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Boost discoverability</p>
                     </div>
+                    <textarea
+                        value={hashtags}
+                        onChange={(e) => onHashtagsChange(e.target.value)}
+                        placeholder="#summer #vibes #marketing"
+                        className="w-full h-48 bg-[#f7f9fb] border-transparent border-2 focus:border-emerald-500 rounded-2xl p-6 text-sm font-bold resize-none outline-none transition-all"
+                    />
+                    <button className="w-full py-4 bg-emerald-50 text-emerald-700 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-emerald-100 transition-all flex items-center justify-center gap-2">
+                        <Sparkles className="w-4 h-4" /> Smart Suggest Tags
+                    </button>
                 </div>
             </div>
         </div>
     </div>
 );
 
-const StepReview = ({ data, accounts, reach }: { data: any, accounts: any[], reach: string }) => (
-    <div className="max-w-4xl mx-auto space-y-6 md:space-y-8 animate-in slide-in-from-bottom-4 duration-500 pb-8">
-        <div className="text-center space-y-2">
-            <h3 className="text-xl md:text-3xl font-black text-slate-900">Final Review</h3>
-            <p className="text-sm text-slate-500 font-medium">Verify all platform versions before commitment.</p>
+const StepReview = ({ data, accounts }: { data: any, accounts: any[] }) => (
+    <div className="max-w-5xl mx-auto space-y-12 animate-in slide-in-from-bottom-8 duration-700">
+        <div className="text-center space-y-4">
+            <h3 className="text-4xl font-black text-slate-900 tracking-tighter">Quality Assurance</h3>
+            <p className="text-lg font-medium text-slate-500">Verification before distribution.</p>
         </div>
-        <div className="bg-white p-6 md:p-10 rounded-[1.5rem] md:rounded-[3rem] shadow-xl border border-slate-100 overflow-hidden">
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-6 mb-8 pb-8 border-b border-slate-50">
-                <div className="flex flex-col sm:flex-row items-center gap-4 md:gap-6 text-center sm:text-left">
-                    <div className="w-20 h-20 md:w-24 md:h-24 bg-slate-900 rounded-[1.5rem] md:rounded-[2rem] overflow-hidden shadow-lg border border-slate-200 shrink-0 flex items-center justify-center">
+
+        <div className="bg-white rounded-[3.5rem] p-12 shadow-2xl border border-slate-100">
+            <div className="flex flex-col lg:flex-row gap-12">
+                {/* Media Preview Bento */}
+                <div className="w-full lg:w-80 space-y-6">
+                    <div className="aspect-[4/5] bg-slate-900 rounded-[2.5rem] overflow-hidden shadow-2xl relative ring-8 ring-slate-50">
                         {data.mediaUrl ? (
                             data.mediaType === 'VIDEO' ? (
-                                <video src={data.mediaUrl} className="w-full h-full object-cover" muted />
+                                <video src={data.mediaUrl} className="w-full h-full object-cover" muted autoPlay loop />
                             ) : (
                                 <img src={data.mediaUrl} className="w-full h-full object-cover" />
                             )
                         ) : (
-                            <div className="w-full h-full bg-slate-50 flex flex-col items-center justify-center text-slate-400 italic text-[9px] md:text-[10px]"><ImageIcon className="w-5 h-5 md:w-6 md:h-6 mb-1 text-slate-300" />No Asset</div>
+                            <div className="w-full h-full flex flex-col items-center justify-center text-slate-500 italic"><ImageIcon className="w-10 h-10 mb-2 opacity-20" /> No assets</div>
                         )}
-                    </div>
-                    <div>
-                        <h4 className="text-lg md:text-2xl font-black text-slate-900 leading-tight">{data.title || 'Untitled Post'}</h4>
-                        <div className="flex flex-wrap justify-center sm:justify-start gap-2 mt-3">
-                            {accounts.length ? accounts.map(a => (
-                                <span key={a.id} className="flex items-center gap-1.5 px-2 md:px-3 py-1 md:py-1.5 bg-slate-50 text-slate-600 border border-slate-200 text-[9px] md:text-[10px] font-black rounded-lg uppercase tracking-widest shadow-sm">
-                                    {a.platform === 'instagram' && <Instagram className="w-3 h-3 text-pink-500" />}
-                                    {a.platform === 'facebook' && <Facebook className="w-3 h-3 text-blue-600" />}
-                                    {a.platform === 'tiktok' && <Smartphone className="w-3 h-3 text-slate-900" />}
-                                    {a.platform === 'youtube' && <Youtube className="w-3 h-3 text-red-500" />}
-                                    {a.username || a.platform}
-                                </span>
-                            )) : <span className="text-slate-400 text-xs italic font-medium">No accounts selected</span>}
+                        <div className="absolute top-4 right-4 bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/20">
+                            <span className="text-[10px] text-white font-black uppercase tracking-tighter">{data.category}</span>
                         </div>
                     </div>
                 </div>
-                <div className="text-center sm:text-right shrink-0">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Est. Reach</p>
-                    <p className="text-2xl md:text-3xl font-black text-teal-500">{reach}</p>
-                    <div className="flex flex-col gap-1 mt-2">
-                        {accounts.map(a => (
-                            <div key={a.id} className="flex items-center justify-end gap-2">
-                                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">{a.platform}</span>
-                                <div className="h-1 bg-slate-100 rounded-full w-12 overflow-hidden">
-                                    <div className="h-full bg-teal-400" style={{ width: `${Math.random() * 40 + 60}%` }}></div>
+
+                {/* Summary Bento */}
+                <div className="flex-1 space-y-10">
+                    <div className="space-y-3">
+                        <h4 className="text-4xl font-black text-slate-900 tracking-tighter leading-none">{data.title || 'Untitled Post'}</h4>
+                        <div className="flex flex-wrap gap-2 pt-2">
+                            {accounts.map(acc => (
+                                <div key={acc.id} className="flex items-center gap-2 bg-slate-50 border border-slate-100 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-600">
+                                    {acc.platform === 'instagram' && <Instagram className="w-3.5 h-3.5 text-pink-500" />}
+                                    {acc.platform === 'tiktok' && <Smartphone className="w-3.5 h-3.5 text-slate-900" />}
+                                    {acc.username}
                                 </div>
-                            </div>
-                        ))}
+                            ))}
+                        </div>
                     </div>
-                </div>
-            </div>
-            <div className="space-y-6">
-                <div className="p-4 md:p-6 bg-slate-50/50 rounded-[1.5rem] border border-slate-100 relative shadow-sm">
-                    <span className="absolute top-0 right-8 -translate-y-1/2 bg-white px-2 text-[9px] md:text-[10px] font-black text-slate-400 tracking-widest uppercase">Caption</span>
-                    <p className="text-xs md:text-sm text-slate-600 leading-relaxed font-medium whitespace-pre-wrap">{data.caption || 'No caption provided.'}</p>
-                    {data.hashtags && <p className="mt-4 text-[10px] md:text-xs font-bold text-teal-600">{data.hashtags}</p>}
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6">
-                    <div className="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-slate-100 space-y-1 md:space-y-2">
-                        <p className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest">Publish Date</p>
-                        <p className="text-xs md:text-sm font-bold text-slate-900">{new Date(data.scheduledAt).toLocaleDateString(undefined, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}</p>
+
+                    <div className="bg-slate-50/50 rounded-[2.5rem] p-10 space-y-6 border border-slate-100">
+                        <p className="text-lg font-medium text-slate-600 leading-relaxed italic">"{data.caption}"</p>
+                        {data.hashtags && <p className="text-sm font-black text-emerald-600 tracking-tight">{data.hashtags}</p>}
                     </div>
-                    <div className="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-slate-100 space-y-1 md:space-y-2">
-                        <p className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest">Time</p>
-                        <p className="text-xs md:text-sm font-bold text-slate-900">{new Date(data.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
-                    </div>
-                    <div className="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-slate-100 space-y-1 md:space-y-2">
-                        <p className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest">Approval</p>
-                        <p className="text-xs md:text-sm font-bold text-orange-500">Auto-Post Mode</p>
+
+                    <div className="grid grid-cols-3 gap-6">
+                        <div className="bg-white p-6 rounded-3xl border border-slate-100">
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Launch Date</p>
+                            <p className="text-sm font-bold text-slate-900">{new Date(data.scheduledAt).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</p>
+                        </div>
+                        <div className="bg-white p-6 rounded-3xl border border-slate-100">
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">T-Minus</p>
+                            <p className="text-sm font-bold text-slate-900">Scheduled</p>
+                        </div>
+                        <div className="bg-white p-6 rounded-3xl border border-slate-100">
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Impact Scale</p>
+                            <p className="text-sm font-bold text-slate-900">High Feed Priority</p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -936,34 +814,45 @@ const StepReview = ({ data, accounts, reach }: { data: any, accounts: any[], rea
     </div>
 );
 
-const StepSchedule = ({ value, timezone, onChange }: { value: string, timezone?: string, onChange: (v: string) => void }) => (
-    <div className="max-w-2xl mx-auto space-y-8 md:space-y-12 animate-in slide-in-from-bottom-4 duration-500 pb-12">
-        <div className="text-center space-y-2">
-            <h3 className="text-xl md:text-3xl font-black text-slate-900">Set Schedule</h3>
-            <p className="text-sm text-slate-500 font-medium">When should this post go live across the world?</p>
+const StepLaunch = ({ value, onChange }: { value: string, onChange: (v: string) => void }) => (
+    <div className="max-w-4xl mx-auto space-y-12 animate-in slide-in-from-bottom-8 duration-700 pb-16">
+        <div className="text-center space-y-4">
+            <h3 className="text-4xl font-black text-slate-900 tracking-tighter">The Launch</h3>
+            <p className="text-lg font-medium text-slate-500">Seal the date your content goes live across the world.</p>
         </div>
-        <div className="bg-white p-6 md:p-12 rounded-[1.5rem] md:rounded-[3rem] shadow-2xl border border-slate-100 space-y-8 md:space-y-10">
-            <div className="grid grid-cols-1 gap-6 md:gap-10">
-                <div className="space-y-3">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Publish Date & Time ({timezone || 'UTC'})</label>
-                    <div className="relative">
-                        <Calendar className="absolute left-5 md:left-6 top-1/2 -translate-y-1/2 w-4 md:w-5 h-4 md:h-5 text-green-500" />
-                        <input
-                            type="datetime-local"
-                            value={value}
-                            onChange={(e) => onChange(e.target.value)}
-                            className="w-full bg-slate-50 border border-slate-100 rounded-2xl pl-12 md:pl-16 pr-4 md:pr-6 py-4 md:py-5 text-xs md:text-sm font-black outline-none focus:ring-4 focus:ring-green-500/5 shadow-inner"
-                        />
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+            <div className="bg-white rounded-[3rem] p-10 shadow-sm border border-slate-100 space-y-8">
+                <div className="w-16 h-16 bg-emerald-50 rounded-[1.5rem] flex items-center justify-center text-emerald-600"><Calendar className="w-8 h-8" /></div>
+                <div className="space-y-6">
+                    <div className="space-y-1">
+                        <h4 className="text-xl font-black text-slate-900">Distribution Window</h4>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Select date and time</p>
                     </div>
+                    <input
+                        type="datetime-local"
+                        value={value}
+                        onChange={(e) => onChange(e.target.value)}
+                        className="w-full bg-[#f7f9fb] border-2 border-transparent focus:border-emerald-500 rounded-2xl p-6 text-xl font-black outline-none transition-all shadow-inner"
+                    />
                 </div>
             </div>
-            <div className="p-4 md:p-8 bg-green-50 border border-green-100 rounded-[1.5rem] md:rounded-[2rem] flex flex-col sm:flex-row items-center gap-4 md:gap-6">
-                <div className="w-12 h-12 md:w-14 md:h-14 bg-green-500 rounded-full flex items-center justify-center text-white shadow-lg shrink-0"><Clock className="w-6 md:w-7 h-6 md:h-7" /></div>
-                <div className="text-center sm:text-left">
-                    <h5 className="text-base md:text-lg font-black text-green-900">Optimal Time ({timezone || 'UTC'})</h5>
-                    <p className="text-[10px] md:text-sm font-medium text-green-600">Engagement peaks at **09:00 AM**.</p>
+
+            <div className="bg-white rounded-[3rem] p-10 shadow-sm border border-slate-100 space-y-8">
+                <div className="w-16 h-16 bg-blue-50 rounded-[1.5rem] flex items-center justify-center text-blue-600"><Monitor className="w-8 h-8" /></div>
+                <div className="space-y-6">
+                    <div className="space-y-1">
+                        <h4 className="text-xl font-black text-slate-900">Optimal Time Peak</h4>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">AI Suggested Window</p>
+                    </div>
+                    <div className="bg-emerald-50 rounded-2xl p-6 border border-emerald-100 flex items-center justify-between">
+                        <div>
+                            <p className="text-emerald-800 font-black text-lg tracking-tight">Today 7:45 PM</p>
+                            <p className="text-emerald-600/70 text-[10px] font-bold uppercase tracking-widest mt-1">High audience intent</p>
+                        </div>
+                        <button className="bg-emerald-500 text-white px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-emerald-500/20 active:scale-95 transition-all">Use Optimal</button>
+                    </div>
                 </div>
-                <button className="sm:ml-auto w-full sm:w-auto bg-green-600 text-white px-6 py-3 rounded-xl font-black text-[10px] md:text-xs hover:bg-green-700 shadow-lg">Use Optimal</button>
             </div>
         </div>
     </div>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, Layout, Calendar, Library, Settings, Inbox, Plus, ChevronRight, LogOut, Search, Command, Users, TrendingUp, Zap, HelpCircle, UserCircle } from 'lucide-react';
+import { Home, Layout, Calendar, Library, Settings, Inbox, Plus, ChevronRight, LogOut, Search, Command, Users, TrendingUp, Zap, HelpCircle, UserCircle, Check } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -18,7 +18,6 @@ const navItems = [
     { icon: Search, label: 'Competitor Insights', path: '/competitor-insights' },
     { icon: Calendar, label: 'Calendar', path: '/calendar' },
     { icon: Zap, label: 'Workflow', path: '/workflow' },
-    { icon: Settings, label: 'Settings', path: '/settings' },
 ];
 
 const contentItems = [
@@ -50,11 +49,14 @@ export const Sidebar = ({
         )}>
             <div className="p-6 flex items-center justify-between border-b border-slate-100 mb-2 shrink-0">
                 <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 bg-gradient-to-br from-teal-500 to-purple-500 rounded-xl flex items-center justify-center text-white font-bold">P</div>
-                    <div>
-                        <h1 className="font-bold text-slate-900 leading-none text-sm md:text-base">Pie</h1>
-                        <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider mt-1">Social Pro</p>
+                    <div className="relative">
+                        <h1 className="font-black text-slate-900 leading-none text-xl md:text-2xl tracking-tighter">Pie</h1>
+                        <div className="absolute -top-1 -right-4 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white shadow-sm ring-2 ring-white">
+                            <Check className="w-3.5 h-3.5" />
+                        </div>
                     </div>
+                    <div className="h-6 w-[1px] bg-slate-200 mx-1"></div>
+                    <p className="text-[10px] text-slate-400 font-extrabold uppercase tracking-[0.2em] mt-0.5">Social Pro</p>
                 </div>
                 <button
                     onClick={onClose}
@@ -131,7 +133,15 @@ export const Sidebar = ({
                         <p className="text-xs font-black text-slate-900 truncate uppercase tracking-tight">{profile?.full_name || 'Pie Team'}</p>
                         <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{profile?.role || 'Pro Manager'}</p>
                     </div>
-                    <Settings className="w-4 h-4 text-slate-300 group-hover:text-slate-900 group-hover:rotate-90 transition-all duration-300" />
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            navigate('/settings');
+                        }}
+                        className="p-2 hover:bg-white rounded-xl transition-all shadow-sm border border-transparent hover:border-slate-100 group/btn"
+                    >
+                        <Settings className="w-4 h-4 text-slate-300 group-hover/btn:text-teal-600 group-hover/btn:rotate-90 transition-all duration-500" />
+                    </button>
                 </div>
             </div>
         </aside>

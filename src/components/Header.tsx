@@ -88,11 +88,14 @@ export const Header = ({
                                 </div>
                                 <div className="max-h-96 overflow-y-auto">
                                     {notifications.length === 0 ? (
-                                        <div className="p-10 text-center space-y-2">
-                                            <div className="w-10 h-10 bg-slate-50 rounded-full flex items-center justify-center mx-auto">
-                                                <Bell className="w-5 h-5 text-slate-300" />
+                                        <div className="p-10 text-center space-y-4">
+                                            <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mx-auto ring-4 ring-slate-50/50">
+                                                <Bell className="w-6 h-6 text-slate-300" />
                                             </div>
-                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">No new alerts</p>
+                                            <div className="space-y-1">
+                                                <p className="text-[11px] font-black text-slate-900 uppercase tracking-widest">No new alerts</p>
+                                                <p className="text-[10px] font-medium text-slate-400">We'll notify you when your posts are live.</p>
+                                            </div>
                                         </div>
                                     ) : (
                                         notifications.map((notif) => (
@@ -100,7 +103,7 @@ export const Header = ({
                                                 {!notif.read && <div className="absolute left-0 top-0 bottom-0 w-1 bg-teal-500" />}
                                                 <div className="flex gap-3">
                                                     <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${notif.type === 'success' ? 'bg-emerald-50 text-emerald-500' :
-                                                            notif.type === 'error' ? 'bg-red-50 text-red-500' : 'bg-blue-50 text-blue-500'
+                                                        notif.type === 'error' ? 'bg-red-50 text-red-500' : 'bg-blue-50 text-blue-500'
                                                         }`}>
                                                         {notif.type === 'success' ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
                                                     </div>

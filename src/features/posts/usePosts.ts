@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
 import { useEffect } from 'react';
 import { useAccountContext } from '../accounts/AccountContext';
@@ -50,4 +50,41 @@ export function usePosts(statusFilter?: string) {
     }, [queryClient]);
 
     return query;
+}
+
+export function useCreatePost() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: async (newPost: any) => {
+            const { data, error } = await supabase
+                .from('posts')
+                .insert([newPost])
+                .select()
+                .single();
+            if (error) throw error;
+            return data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['posts'] });
+        },
+    });
+}
+
+export function useUpdatePost() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: async ({ id, updates }: { id: string; updates: any }) => {
+            const { data, error } = await supabase
+                .from('posts')
+                .update(updates)
+                .eq('id', id)
+                .select()
+                .single();
+            if (error) throw error;
+            return data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['posts'] });
+        },
+    });
 }

@@ -24,13 +24,19 @@ model SocialAccount {
 }
 
 model Post {
-  id          String   @id @default(cuid())
-  title       String?
-  caption     String
-  mediaUrl    String?
-  platforms   String   // Stored as comma-separated string: "instagram,tiktok"
-  status      String   @default("Scheduled") // "Scheduled", "Published", "Draft", "Failed"
-  scheduledAt DateTime
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id            String   @id @default(cuid())
+  title         String?
+  caption       String
+  mediaUrl      String?
+  mediaType     String   @default("IMAGE")
+  thumbnailUrl  String?
+  category      String   @default("Uncategorized")
+  tags          String[] // Prisma supports arrays for many providers
+  platforms     String   // Stored as comma-separated string or JSON string
+  visibility    String   @default("Public")
+  status        String   @default("Scheduled") // "Scheduled", "Published", "Draft", "Failed"
+  externalId    String?
+  scheduledAt   DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
