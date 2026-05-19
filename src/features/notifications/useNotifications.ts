@@ -77,7 +77,7 @@ export const useNotifications = () => {
                 if (notification) {
                     setNotifications(prev => {
                         const updated = [notification!, ...prev].slice(0, 50);
-                        localStorage.setItem(`notifications_${session.user.id}`, JSON.stringify(updated));
+                        localStorage.setItem(`notifications_${session?.user?.id || 'guest'}`, JSON.stringify(updated));
                         return updated;
                     });
                 }

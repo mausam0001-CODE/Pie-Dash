@@ -191,7 +191,7 @@ export const PostBuilder = ({ onClose, initialReel }: PostBuilderProps) => {
                 for (const id of postIds) {
                     supabase.functions.invoke('ig-publish', {
                         body: { postId: id }
-                    }).catch(err => console.error('Silent invoke error:', err));
+                    }).catch((err: any) => console.error('Silent invoke error:', err));
                 }
             } else {
                 addToast(`Successfully scheduled for ${selectedAccounts.length} channel${selectedAccounts.length > 1 ? 's' : ''}!`, 'success');
