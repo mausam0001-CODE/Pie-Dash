@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Calendar, Hash, FileText, Smartphone, MessageCircle, Heart, Share2, Trash2, Edit, Instagram, Facebook, Youtube, Globe } from 'lucide-react';
+import { X, Calendar, Hash, FileText, Smartphone, MessageCircle, Heart, Share2, Trash2, Edit, Instagram, Facebook, Youtube, Globe, ExternalLink } from 'lucide-react';
 import { usePostMutations } from '../features/posts/usePostMutations';
 
 interface PostDrawerProps {
@@ -134,9 +134,22 @@ export const PostDrawer = ({ post, onClose, onEdit }: PostDrawerProps) => {
 
                     <div className="space-y-6 text-sm">
                         <div className="flex items-center justify-between">
-                            <span className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border ${statusStyles}`}>
-                                {post.status}
-                            </span>
+                            <div className="flex items-center gap-3">
+                                <span className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border ${statusStyles}`}>
+                                    {post.status}
+                                </span>
+                                {post.media_url && (
+                                    <a
+                                        href={post.media_url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="flex items-center gap-2 px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest bg-slate-900 text-white hover:bg-slate-800 transition-all shadow-sm"
+                                    >
+                                        <ExternalLink className="w-3 h-3" />
+                                        Direct Link
+                                    </a>
+                                )}
+                            </div>
                             <span className="text-slate-400 font-black uppercase text-[10px] tracking-widest">Type: {post.category || 'Post'}</span>
                         </div>
 
