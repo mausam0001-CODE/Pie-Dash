@@ -8,6 +8,16 @@ const corsHeaders = {
 
 async function getAccessToken(serviceAccount: any) {
     const { client_email, private_key } = serviceAccount;
+
+    if (!private_key) {
+        console.error('Sync - Service Account JSON is missing "private_key" field');
+        throw new Error('Google Service Account JSON is malformed: missing "private_key"');
+    }
+    if (!client_email) {
+        console.error('Sync - Service Account JSON is missing "client_email" field');
+        throw new Error('Google Service Account JSON is malformed: missing "client_email"');
+    }
+
     const header = { alg: "RS256", typ: "JWT" };
     const now = Math.floor(Date.now() / 1000);
     const claimSet = {
