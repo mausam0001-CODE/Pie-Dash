@@ -82,8 +82,26 @@ serve(async (req) => {
         console.log(`Uploading file: ${file.name} (${file.size} bytes)`)
 
         const serviceAccount = JSON.parse(serviceAccountRaw)
+        console.log(`Upload - Project ID: ${serviceAccount.project_id}`)
+        console.log(`Upload - Service Account Email: ${serviceAccount.client_email}`)
+
         const accessToken = await getAccessToken(serviceAccount)
-        console.log('Upload - Access token acquired')
+        console.log('Upload - Access token acquired successfully')
+
+        if (folderId) {
+            console.log(`Upload - Checking visibility for Folder ID: ${folderId}`)
+            const folderCheck = await fetch(`https://www.googleapis.com/drive/v3/files/${folderId}?fields=id,name`, {
+                headers: { Authorization: `Bearer ${accessToken}` }
+            })
+
+            if (folderCheck.status !== 200) {
+                const err = await folderCheck.json()
+                console.error('Folder Visibility Check Failed:', JSON.stringify(err, null, 2))
+                throw new Error(`Cannot see folder: ${err.error?.message || 'Check Folder ID and Permissions'}`)
+            }
+            const folderMeta = await folderCheck.json()
+            console.log(`Upload - Target folder confirmed: "${folderMeta.name}"`)
+        }
 
         // 1. Upload File Metadata
         const metadata = {
@@ -92,7 +110,7 @@ serve(async (req) => {
         }
 
         console.log('Attempting Google Drive multipart upload...')
-        const uploadResp = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+        const uploadResp = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true', {
             method: 'POST',
             headers: {
                 Authorization: `Bearer ${accessToken}`,
@@ -109,7 +127,7 @@ serve(async (req) => {
         }
 
         // 2. Set Public Permissions (Anyone with link can view - required for publishing)
-        await fetch(`https://www.googleapis.com/drive/v3/files/${uploadData.id}/permissions`, {
+        await fetch(`https://www.googleapis.com/drive/v3/files/${uploadData.id}/permissions?supportsAllDrives=true`, {
             method: 'POST',
             headers: {
                 Authorization: `Bearer ${accessToken}`,

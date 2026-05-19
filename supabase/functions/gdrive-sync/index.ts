@@ -54,8 +54,25 @@ serve(async (req) => {
         if (!serviceAccountRaw) throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON is missing from Supabase Secrets')
 
         const serviceAccount = JSON.parse(serviceAccountRaw)
+        console.log(`Sync - Project ID: ${serviceAccount.project_id}`)
+        console.log(`Sync - Service Account Email: ${serviceAccount.client_email}`)
+
         const accessToken = await getAccessToken(serviceAccount)
-        console.log('Access token acquired successfully')
+        console.log('Sync - Access token acquired successfully')
+
+        // 0. Verify Folder Visibility
+        console.log(`Sync - Checking visibility for Folder ID: ${folderId}`)
+        const folderCheck = await fetch(`https://www.googleapis.com/drive/v3/files/${folderId}?fields=id,name`, {
+            headers: { Authorization: `Bearer ${accessToken}` }
+        })
+
+        if (folderCheck.status !== 200) {
+            const err = await folderCheck.json()
+            console.error('Folder Visibility Check Failed:', JSON.stringify(err, null, 2))
+            throw new Error(`Cannot see folder: ${err.error?.message || 'Check Folder ID and Permissions'}`)
+        }
+        const folderMeta = await folderCheck.json()
+        console.log(`Sync - Folder found: "${folderMeta.name}" (${folderMeta.id})`)
 
         // 1. List files in the folder
         const listResp = await fetch(`https://www.googleapis.com/drive/v3/files?q='${folderId}'+in+parents+and+trashed=false&fields=files(id,name,mimeType,thumbnailLink,webContentLink,createdTime)&pageSize=100`, {
