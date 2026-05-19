@@ -24,8 +24,11 @@ async function waitForContainer(igUserId: string, containerId: string, accessTok
 serve(async (req) => {
     if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
+    let postId: string | undefined;
+
     try {
-        const { postId } = await req.json()
+        const body = await req.json()
+        postId = body.postId;
         if (!postId) throw new Error('No postId provided')
 
         // 1. Initialize Supabase Admin Client
@@ -127,7 +130,6 @@ serve(async (req) => {
 
         // Try to mark the post as Failed so the user knows
         try {
-            const { postId } = await new Response(req.body).json().catch(() => ({})) as any
             if (postId) {
                 const supabase = createClient(
                     Deno.env.get('SUPABASE_URL') ?? '',

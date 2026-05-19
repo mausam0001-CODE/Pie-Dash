@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     X, Instagram, Facebook, Smartphone, Youtube,
     Calendar, Image as ImageIcon, Send, Clock,
@@ -58,6 +58,7 @@ export const PostBuilder = ({ onClose, initialReel }: PostBuilderProps) => {
     const { accounts, activeAccount } = useAccountContext();
     const createPost = useCreatePost();
     const updatePost = useUpdatePost();
+    const isSubmittingRef = useRef(false);
 
     const [currentStep, setCurrentStep] = useState(1);
     const [publishNow, setPublishNow] = useState(false);
@@ -145,12 +146,14 @@ export const PostBuilder = ({ onClose, initialReel }: PostBuilderProps) => {
     };
 
     const handleSchedule = async () => {
+        if (isSubmittingRef.current) return;
         if (!session?.user) return;
         if (selectedAccounts.length === 0) {
             addToast('Please select at least one account.', 'error');
             return;
         }
 
+        isSubmittingRef.current = true;
         setIsScheduling(true);
         try {
             const basePayload = {
@@ -202,6 +205,7 @@ export const PostBuilder = ({ onClose, initialReel }: PostBuilderProps) => {
             addToast('Error: ' + error.message, 'error');
         } finally {
             setIsScheduling(false);
+            isSubmittingRef.current = false;
         }
     };
 
