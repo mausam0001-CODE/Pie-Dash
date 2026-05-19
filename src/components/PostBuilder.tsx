@@ -105,7 +105,9 @@ export const PostBuilder = ({ onClose, initialReel }: PostBuilderProps) => {
         hashtags.split(/[ ,]+/).filter(Boolean).map(t => t.startsWith('#') ? t.substring(1).toLowerCase() : t.toLowerCase());
 
     const handleSaveDraft = async () => {
+        if (isSubmittingRef.current) return;
         if (!session?.user) return;
+        isSubmittingRef.current = true;
         setIsSavingDraft(true);
         try {
             const payload = {
@@ -142,6 +144,7 @@ export const PostBuilder = ({ onClose, initialReel }: PostBuilderProps) => {
             addToast('Error saving draft: ' + err.message, 'error');
         } finally {
             setIsSavingDraft(false);
+            isSubmittingRef.current = false;
         }
     };
 
@@ -355,6 +358,10 @@ export const PostBuilder = ({ onClose, initialReel }: PostBuilderProps) => {
                     </div>
                 </div>
             </div>
+
+            {showPublishingOverlay && publishingPosts && publishingPosts.length > 0 && (
+                <PublishingOverlay posts={publishingPosts} onClose={onClose} />
+            )}
         </div>
     );
 
