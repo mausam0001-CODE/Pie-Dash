@@ -496,7 +496,10 @@ const StepCreation = ({ caption, onCaptionChange, mediaUrl, mediaType, onMediaUp
                     body: formData,
                 });
 
-                if (error) throw new Error(`GDrive Upload Error: ${error.message}`);
+                if (error) {
+                    const body = await error.context?.json().catch(() => null);
+                    throw new Error(body?.error || error.message);
+                }
                 finalUrl = data.url;
             } else {
                 // Upload to Supabase Storage for Images

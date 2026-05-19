@@ -67,7 +67,11 @@ export const Library = () => {
         setIsSyncingDrive(true);
         try {
             const { data, error } = await supabase.functions.invoke('gdrive-sync');
-            if (error) throw error;
+            if (error) {
+                // Try to get detailed error from body
+                const body = await error.context?.json().catch(() => null);
+                throw new Error(body?.error || error.message);
+            }
             notify(`Synced ${data.count} new videos from Google Drive`, 'success');
         } catch (e: any) {
             console.error('Sync failed', e);

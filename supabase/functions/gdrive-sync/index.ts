@@ -12,7 +12,7 @@ async function getAccessToken(serviceAccount: any) {
     const now = Math.floor(Date.now() / 1000);
     const claimSet = {
         iss: client_email,
-        scope: "https://www.googleapis.com/auth/drive.readonly",
+        scope: "https://www.googleapis.com/auth/drive",
         aud: "https://oauth2.googleapis.com/token",
         exp: now + 3600,
         iat: now,
