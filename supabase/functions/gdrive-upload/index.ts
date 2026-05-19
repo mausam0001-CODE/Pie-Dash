@@ -1,0 +1,152 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+
+const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+async function getAccessToken(serviceAccount: any) {
+    const { client_email, private_key } = serviceAccount;
+
+    // Minimal JWT header and claim set
+    const header = { alg: "RS256", typ: "JWT" };
+    const now = Math.floor(Date.now() / 1000);
+    const claimSet = {
+        iss: client_email,
+        scope: "https://www.googleapis.com/auth/drive.file",
+        aud: "https://oauth2.googleapis.com/token",
+        exp: now + 3600,
+        iat: now,
+    };
+
+    const encodedHeader = btoa(JSON.stringify(header));
+    const encodedClaimSet = btoa(JSON.stringify(claimSet));
+    const unsignedToken = `${encodedHeader}.${encodedClaimSet}`;
+
+    // Import the private key for signing
+    const pemHeader = "-----BEGIN PRIVATE KEY-----";
+    const pemFooter = "-----END PRIVATE KEY-----";
+    const pemContents = private_key.replace(pemHeader, "").replace(pemFooter, "").replace(/\s/g, "");
+    const binaryKey = Uint8Array.from(atob(pemContents), c => c.charCodeAt(0));
+
+    const key = await crypto.subtle.importKey(
+        "pkcs8",
+        binaryKey,
+        { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+        false,
+        ["sign"]
+    );
+
+    const signature = await crypto.subtle.sign(
+        "RSASSA-PKCS1-v1_5",
+        key,
+        new TextEncoder().encode(unsignedToken)
+    );
+
+    const encodedSignature = btoa(String.fromCharCode(...new Uint8Array(signature)))
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=+$/, "");
+
+    const jwt = `${unsignedToken}.${encodedSignature}`;
+
+    const resp = await fetch("https://oauth2.googleapis.com/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+            grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+            assertion: jwt,
+        }),
+    });
+
+    const data = await resp.json();
+    return data.access_token;
+}
+
+serve(async (req) => {
+    if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+
+    try {
+        const formData = await req.formData()
+        const file = formData.get('file') as File
+        const folderId = formData.get('folderId') as string || Deno.env.get('GOOGLE_DRIVE_FOLDER_ID')
+
+        if (!file) throw new Error('No file provided')
+
+        const serviceAccount = JSON.parse(Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON') || '{}')
+        if (!serviceAccount.client_email) throw new Error('Google Service Account not configured')
+
+        const accessToken = await getAccessToken(serviceAccount)
+
+        // 1. Upload File Metadata
+        const metadata = {
+            name: file.name,
+            parents: folderId ? [folderId] : []
+        }
+
+        const uploadResp = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${accessToken}`,
+            },
+            body: createMultipartBody(metadata, file)
+        })
+
+        const uploadData = await uploadResp.json()
+        if (uploadData.error) throw new Error(`Upload error: ${uploadData.error.message}`)
+
+        // 2. Set Public Permissions (Anyone with link can view - required for publishing)
+        await fetch(`https://www.googleapis.com/drive/v3/files/${uploadData.id}/permissions`, {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${accessToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                role: 'reader',
+                type: 'anyone'
+            })
+        })
+
+        // 3. Get Direct Link
+        const fileInfoResp = await fetch(`https://www.googleapis.com/drive/v3/files/${uploadData.id}?fields=webContentLink`, {
+            headers: { Authorization: `Bearer ${accessToken}` }
+        })
+        const fileInfo = await fileInfoResp.json()
+
+        return new Response(JSON.stringify({
+            success: true,
+            id: uploadData.id,
+            url: fileInfo.webContentLink.replace('&export=download', '') // Web content link for preview
+        }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 200,
+        })
+
+    } catch (error: any) {
+        return new Response(JSON.stringify({ error: error.message }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 400,
+        })
+    }
+})
+
+function createMultipartBody(metadata: any, file: File) {
+    const boundary = '-------314159265358979323846';
+    const delimiter = "\r\n--" + boundary + "\r\n";
+    const closeDelimiter = "\r\n--" + boundary + "--";
+
+    // Use a simpler approach for multipart in Deno
+    const metadataPart = 'Content-Type: application/json; charset=UTF-8\r\n\r\n' + JSON.stringify(metadata);
+    // Note: This simple concatenation might not be efficient for very large files > 10MB
+    // but for reels it should be okay.
+    return new Blob([
+        delimiter,
+        metadataPart,
+        delimiter,
+        'Content-Type: ' + file.type + '\r\n\r\n',
+        file,
+        closeDelimiter
+    ], { type: 'multipart/related; boundary=' + boundary });
+}

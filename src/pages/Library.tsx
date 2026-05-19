@@ -4,9 +4,10 @@ import { usePosts } from '../features/posts/usePosts';
 import { PostCard } from '../components/PostCard';
 import { PostDrawer } from '../components/PostDrawer';
 import { PostBuilder } from '../components/PostBuilder';
-import { Film, Tag, Folder, X, ExternalLink, Search, ChevronRight, Plus, Loader2, Video, Image, LayoutGrid } from 'lucide-react';
+import { Film, Tag, Folder, X, ExternalLink, Search, ChevronRight, Plus, Loader2, Video, Image, LayoutGrid, Globe } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabase';
+import { useNotification } from '../context/NotificationContext';
 
 // ── Predefined smart folders (tags → groups) ──────────────────────────
 const DEFAULT_SMART_FOLDERS: any[] = [];
@@ -52,6 +53,7 @@ export const Library = () => {
     const [mediaTypeFilter, setMediaTypeFilter] = useState<'all' | 'video' | 'image' | 'reel'>('all');
 
     const { session } = useAuth();
+    const { notify } = useNotification();
     const [folders, setFolders] = useState<any[]>(DEFAULT_SMART_FOLDERS);
     const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
     const [newFolder, setNewFolder] = useState({ label: '', emoji: '📁', tags: '' });
@@ -59,6 +61,21 @@ export const Library = () => {
     const [customTags, setCustomTags] = useState<string[]>([]);
     const [isAddingTag, setIsAddingTag] = useState(false);
     const [newTagInput, setNewTagInput] = useState('');
+    const [isSyncingDrive, setIsSyncingDrive] = useState(false);
+
+    const handleSyncDrive = async () => {
+        setIsSyncingDrive(true);
+        try {
+            const { data, error } = await supabase.functions.invoke('gdrive-sync');
+            if (error) throw error;
+            notify(`Synced ${data.count} new videos from Google Drive`, 'success');
+        } catch (e: any) {
+            console.error('Sync failed', e);
+            notify('Drive Sync failed: ' + e.message, 'error');
+        } finally {
+            setIsSyncingDrive(false);
+        }
+    };
 
     React.useEffect(() => {
         if (!session?.user?.id) return;
@@ -205,6 +222,18 @@ export const Library = () => {
                     <p className="text-xs text-slate-500 mt-1">Organize, tag, and find your best content instantly</p>
                 </div>
                 <div className="flex items-center gap-2">
+                    <button
+                        onClick={handleSyncDrive}
+                        disabled={isSyncingDrive}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${isSyncingDrive ? 'bg-slate-50 text-slate-400' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100 shadow-sm border border-emerald-100'}`}
+                    >
+                        {isSyncingDrive ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                            <Globe className="w-3.5 h-3.5" />
+                        )}
+                        {isSyncingDrive ? 'Syncing...' : 'Sync Drive'}
+                    </button>
                     <div className="flex items-center gap-1 bg-slate-100 rounded-xl p-1">
                         <button onClick={() => setView('grid')} className={`px-3 py-1.5 text-[10px] font-bold rounded-lg transition-all ${view === 'grid' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}>Grid</button>
                         <button onClick={() => setView('list')} className={`px-3 py-1.5 text-[10px] font-bold rounded-lg transition-all ${view === 'list' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}>List</button>
@@ -229,8 +258,8 @@ export const Library = () => {
                         key={id}
                         onClick={() => setMediaTypeFilter(id as any)}
                         className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all border ${mediaTypeFilter === id
-                                ? 'bg-teal-500 text-white border-teal-500 shadow-lg shadow-teal-500/20'
-                                : 'bg-white text-slate-500 border-slate-200 hover:border-teal-300 hover:text-teal-600'
+                            ? 'bg-teal-500 text-white border-teal-500 shadow-lg shadow-teal-500/20'
+                            : 'bg-white text-slate-500 border-slate-200 hover:border-teal-300 hover:text-teal-600'
                             }`}
                     >
                         <Icon className="w-3.5 h-3.5" />

@@ -482,17 +482,37 @@ const StepCreation = ({ caption, onCaptionChange, mediaUrl, mediaType, onMediaUp
     const handleFile = async (file: File) => {
         setIsUploading(true);
         try {
-            const fileExt = file.name.split('.').pop();
-            const fileName = `${Math.random()}.${fileExt}`;
-            const filePath = `post_media/${fileName}`;
-            const type = file.type.startsWith('video') ? 'VIDEO' : 'IMAGE';
+            const isVideo = file.type.startsWith('video');
+            const type = isVideo ? 'VIDEO' : 'IMAGE';
 
-            const { error: uploadError } = await supabase.storage.from('media').upload(filePath, file);
-            if (uploadError) throw uploadError;
+            let finalUrl = '';
 
-            const { data } = supabase.storage.from('media').getPublicUrl(filePath);
-            onMediaUpload(data.publicUrl, type);
-            addToast('Media uploaded successfully!', 'success');
+            if (isVideo) {
+                // Upload to Google Drive Bucket via Edge Function
+                const formData = new FormData();
+                formData.append('file', file);
+
+                const { data, error } = await supabase.functions.invoke('gdrive-upload', {
+                    body: formData,
+                });
+
+                if (error) throw new Error(`GDrive Upload Error: ${error.message}`);
+                finalUrl = data.url;
+            } else {
+                // Upload to Supabase Storage for Images
+                const fileExt = file.name.split('.').pop();
+                const fileName = `${Math.random()}.${fileExt}`;
+                const filePath = `post_media/${fileName}`;
+
+                const { error: uploadError } = await supabase.storage.from('media').upload(filePath, file);
+                if (uploadError) throw uploadError;
+
+                const { data } = supabase.storage.from('media').getPublicUrl(filePath);
+                finalUrl = data.publicUrl;
+            }
+
+            onMediaUpload(finalUrl, type);
+            addToast(`${type} uploaded to ${isVideo ? 'Google Drive' : 'Vault'}!`, 'success');
         } catch (error: any) {
             addToast('Upload failed: ' + error.message, 'error');
         } finally {
