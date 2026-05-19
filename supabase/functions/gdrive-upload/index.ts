@@ -154,21 +154,21 @@ serve(async (req) => {
             })
         })
 
-        // 3. Get Direct Link
-        const fileInfoResp = await fetch(`https://www.googleapis.com/drive/v3/files/${uploadData.id}?fields=webContentLink&supportsAllDrives=true`, {
+        // 3. Get Direct Link & Thumbnail
+        const fileInfoResp = await fetch(`https://www.googleapis.com/drive/v3/files/${uploadData.id}?fields=webContentLink,thumbnailLink&supportsAllDrives=true`, {
             headers: { Authorization: `Bearer ${accessToken}` }
         })
         const fileInfo = await fileInfoResp.json()
 
         if (!fileInfo.webContentLink) {
             console.error('No webContentLink received:', fileInfo)
-            // Fallback to a constructed preview link if needed
         }
 
         return new Response(JSON.stringify({
             success: true,
             id: uploadData.id,
-            url: (fileInfo.webContentLink || '').replace('&export=download', '') // Web content link for preview
+            url: fileInfo.webContentLink || '', // Keep full link for direct download/stream
+            thumbnailUrl: (fileInfo.thumbnailLink || '').replace(/=s220$/, '=s1000') // Higher res thumbnail
         }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             status: 200,

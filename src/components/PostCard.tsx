@@ -8,6 +8,17 @@ interface PostCardProps {
 }
 
 export const PostCard = ({ post, onClick, mode = 'grid' }: PostCardProps) => {
+    const getDriveThumbnail = (url: string) => {
+        if (!url) return null;
+        const match = url.match(/[?&]id=([^&]+)/) || url.match(/\/files\/([^?]+)/);
+        if (match && (url.includes('drive.google.com') || url.includes('googleapis.com/drive'))) {
+            return `https://drive.google.com/thumbnail?id=${match[1]}&sz=w1000`;
+        }
+        return url;
+    };
+
+    const mediaUrl = post.thumbnail_url || getDriveThumbnail(post.media_url);
+
     if (mode === 'list') {
         return (
             <div
@@ -15,8 +26,8 @@ export const PostCard = ({ post, onClick, mode = 'grid' }: PostCardProps) => {
                 onClick={onClick}
             >
                 <div className="w-full sm:w-28 h-28 shrink-0 rounded-[1.5rem] overflow-hidden bg-slate-100 relative aspect-video sm:aspect-square">
-                    {post.thumbnail_url || post.media_url ? (
-                        <img src={post.thumbnail_url || post.media_url} alt={post.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                    {mediaUrl ? (
+                        <img src={mediaUrl} alt={post.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
                     ) : (
                         <div className="w-full h-full flex items-center justify-center text-slate-300 italic text-xs">No Preview</div>
                     )}
@@ -63,10 +74,11 @@ export const PostCard = ({ post, onClick, mode = 'grid' }: PostCardProps) => {
         >
             {/* Media Preview */}
             <div className="relative aspect-[4/5] overflow-hidden bg-slate-100">
-                {post.thumbnail_url || post.media_url ? (
+                {mediaUrl ? (
                     (post.media_type?.toUpperCase() === 'VIDEO' || post.media_url?.match(/\.(mp4|webm|ogg|mov)$ /i)) ? (
                         <video
                             src={post.media_url}
+                            poster={mediaUrl}
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                             muted
                             autoPlay
@@ -75,7 +87,7 @@ export const PostCard = ({ post, onClick, mode = 'grid' }: PostCardProps) => {
                         />
                     ) : (
                         <img
-                            src={post.thumbnail_url || post.media_url}
+                            src={mediaUrl}
                             alt={post.title}
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                         />

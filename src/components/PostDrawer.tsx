@@ -36,6 +36,17 @@ export const PostDrawer = ({ post, onClose, onEdit }: PostDrawerProps) => {
             ? 'bg-teal-50 text-teal-600 border-teal-100'
             : 'bg-slate-50 text-slate-400 border-slate-100';
 
+    const getDriveThumbnail = (url: string) => {
+        if (!url) return null;
+        const match = url.match(/[?&]id=([^&]+)/) || url.match(/\/files\/([^?]+)/);
+        if (match && (url.includes('drive.google.com') || url.includes('googleapis.com/drive'))) {
+            return `https://drive.google.com/thumbnail?id=${match[1]}&sz=w1000`;
+        }
+        return url;
+    };
+
+    const mediaUrl = post.thumbnail_url || getDriveThumbnail(post.media_url);
+
     return (
         <div className="fixed inset-0 z-50 flex justify-end animate-in fade-in duration-200">
             <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={onClose}></div>
@@ -62,10 +73,11 @@ export const PostDrawer = ({ post, onClose, onEdit }: PostDrawerProps) => {
                             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-6 bg-slate-900 rounded-b-2xl z-20"></div>
 
                             <div className="absolute inset-0">
-                                {post.thumbnail_url || post.media_url ? (
+                                {mediaUrl ? (
                                     (post.media_type?.toUpperCase() === 'VIDEO' || post.media_url?.match(/\.(mp4|webm|ogg|mov)$/i)) ? (
                                         <video
                                             src={post.media_url}
+                                            poster={mediaUrl}
                                             className="w-full h-full object-cover opacity-90"
                                             muted
                                             autoPlay
@@ -74,7 +86,7 @@ export const PostDrawer = ({ post, onClose, onEdit }: PostDrawerProps) => {
                                         />
                                     ) : (
                                         <img
-                                            src={post.thumbnail_url || post.media_url}
+                                            src={mediaUrl}
                                             alt={post.title}
                                             className="w-full h-full object-cover opacity-90"
                                         />

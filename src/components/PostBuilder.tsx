@@ -60,6 +60,7 @@ export const PostBuilder = ({ onClose, initialReel }: PostBuilderProps) => {
     const updatePost = useUpdatePost();
 
     const [currentStep, setCurrentStep] = useState(1);
+    const [publishNow, setPublishNow] = useState(false);
     const [selectedAccounts, setSelectedAccounts] = useState<string[]>(
         initialReel?.social_account_id ? [initialReel.social_account_id] :
             activeAccount?.id ? [activeAccount.id] : []
@@ -157,8 +158,8 @@ export const PostBuilder = ({ onClose, initialReel }: PostBuilderProps) => {
                 media_url: postData.mediaUrl,
                 media_type: postData.mediaType,
                 thumbnail_url: postData.thumbnailUrl,
-                scheduled_at: new Date(postData.scheduledAt).toISOString(),
-                status: 'Scheduled',
+                scheduled_at: publishNow ? new Date().toISOString() : new Date(postData.scheduledAt).toISOString(),
+                status: publishNow ? 'Published' : 'Scheduled',
                 category: postData.category,
                 tags: buildTagsArr(postData.hashtags),
                 visibility: postData.visibility
@@ -179,7 +180,7 @@ export const PostBuilder = ({ onClose, initialReel }: PostBuilderProps) => {
             });
 
             await Promise.all(promises);
-            addToast(`Successfully scheduled to ${selectedAccounts.length} channel${selectedAccounts.length > 1 ? 's' : ''}!`, 'success');
+            addToast(`Successfully ${publishNow ? 'published' : 'scheduled'} to ${selectedAccounts.length} channel${selectedAccounts.length > 1 ? 's' : ''}!`, 'success');
             setIsDirty(false);
             onClose();
         } catch (error: any) {
@@ -193,11 +194,11 @@ export const PostBuilder = ({ onClose, initialReel }: PostBuilderProps) => {
         switch (currentStep) {
             case 1: return <StepAccounts accounts={accounts} selected={selectedAccounts} onToggle={(id) => { setIsDirty(true); setSelectedAccounts(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]); }} />;
             case 2: return <StepBasicInfo value={postData.title} onChange={(v) => { setIsDirty(true); setPostData(d => ({ ...d, title: v })); }} labels={labels} selectedLabel={postData.category} onLabelSelect={(l) => setPostData(d => ({ ...d, category: l }))} onAddLabel={(l) => setLabels(prev => [...prev, l])} error={titleError} />;
-            case 3: return <StepCreation caption={postData.caption} onCaptionChange={(v) => { setIsDirty(true); setPostData(d => ({ ...d, caption: v })); }} mediaUrl={postData.mediaUrl} mediaType={postData.mediaType} onMediaUpload={(url, type) => { setIsDirty(true); setPostData(d => ({ ...d, mediaUrl: url, mediaType: type as 'IMAGE' | 'VIDEO', thumbnailUrl: url })); }} addToast={addToast} />;
+            case 3: return <StepCreation caption={postData.caption} onCaptionChange={(v) => { setIsDirty(true); setPostData(d => ({ ...d, caption: v })); }} mediaUrl={postData.mediaUrl} mediaType={postData.mediaType} onMediaUpload={(url, type, thumb) => { setIsDirty(true); setPostData(d => ({ ...d, mediaUrl: url, mediaType: type as 'IMAGE' | 'VIDEO', thumbnailUrl: thumb || url })); }} addToast={addToast} />;
             case 4: return <StepFineTune accounts={accounts.filter((a: SocialAccount) => selectedAccounts.includes(a.id))} postData={postData} settings={accountSettings} onSettingChange={(id, key, val) => setAccountSettings(prev => ({ ...prev, [id]: { ...(prev[id] || {}), [key]: val } }))} />;
             case 5: return <StepOptimization hashtags={postData.hashtags} onHashtagsChange={(v) => { setIsDirty(true); setPostData(d => ({ ...d, hashtags: v })); }} visibility={postData.visibility} onVisibilityChange={(v) => setPostData(d => ({ ...d, visibility: v }))} />;
             case 6: return <StepReview data={postData} accounts={accounts.filter((a: SocialAccount) => selectedAccounts.includes(a.id))} />;
-            case 7: return <StepLaunch value={postData.scheduledAt} onChange={(v) => { setIsDirty(true); setPostData(d => ({ ...d, scheduledAt: v })); }} />;
+            case 7: return <StepLaunch value={postData.scheduledAt} onChange={(v) => { setIsDirty(true); setPostData(d => ({ ...d, scheduledAt: v })); }} publishNow={publishNow} onPublishNowChange={setPublishNow} />;
             default: return null;
         }
     };
@@ -321,14 +322,15 @@ export const PostBuilder = ({ onClose, initialReel }: PostBuilderProps) => {
                         ) : (
                             <button
                                 onClick={handleSchedule}
-                                disabled={isScheduling}
-                                className="flex items-center gap-4 px-12 py-5 rounded-[2rem] bg-slate-900 text-white font-black shadow-2xl hover:scale-105 active:scale-95 transition-all group lg:min-w-[240px] justify-center"
+                                disabled={isScheduling || !postData.title}
+                                className="bg-slate-900 text-white px-10 py-5 rounded-[2rem] font-black text-sm flex items-center gap-3 hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed shadow-2xl transition-all active:scale-95"
                             >
                                 {isScheduling ? (
-                                    <div className="flex items-center gap-3"><Clock className="w-5 h-5 animate-spin" /> Scheduling...</div>
+                                    <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
                                 ) : (
-                                    <>Schedule Post <Send className="w-5 h-5 group-hover:translate-x-2 group-hover:-translate-y-2 transition-transform" /></>
+                                    publishNow ? <Send className="w-5 h-5" /> : <Clock className="w-5 h-5" />
                                 )}
+                                {publishNow ? 'Publish Now' : 'Schedule Post'}
                             </button>
                         )}
                     </div>
@@ -474,7 +476,7 @@ const StepBasicInfo = ({ value, onChange, labels, selectedLabel, onLabelSelect, 
     );
 }
 
-const StepCreation = ({ caption, onCaptionChange, mediaUrl, mediaType, onMediaUpload, addToast }: { caption: string, onCaptionChange: (v: string) => void, mediaUrl: string, mediaType: string, onMediaUpload: (url: string, type: string) => void, addToast: (m: string, t: any) => void }) => {
+const StepCreation = ({ caption, onCaptionChange, mediaUrl, mediaType, onMediaUpload, addToast }: { caption: string, onCaptionChange: (v: string) => void, mediaUrl: string, mediaType: string, onMediaUpload: (url: string, type: string, thumb?: string) => void, addToast: (m: string, t: any) => void }) => {
     const [isUploading, setIsUploading] = useState(false);
     const [dragActive, setDragActive] = useState(false);
     const { openPicker } = useGoogleDrive();
@@ -486,6 +488,7 @@ const StepCreation = ({ caption, onCaptionChange, mediaUrl, mediaType, onMediaUp
             const type = isVideo ? 'VIDEO' : 'IMAGE';
 
             let finalUrl = '';
+            let thumbnailUrl = '';
 
             if (isVideo) {
                 // Upload to Google Drive Bucket via Edge Function
@@ -501,6 +504,7 @@ const StepCreation = ({ caption, onCaptionChange, mediaUrl, mediaType, onMediaUp
                     throw new Error(body?.error || error.message);
                 }
                 finalUrl = data.url;
+                thumbnailUrl = data.thumbnailUrl;
             } else {
                 // Upload to Supabase Storage for Images
                 const fileExt = file.name.split('.').pop();
@@ -512,9 +516,10 @@ const StepCreation = ({ caption, onCaptionChange, mediaUrl, mediaType, onMediaUp
 
                 const { data } = supabase.storage.from('media').getPublicUrl(filePath);
                 finalUrl = data.publicUrl;
+                thumbnailUrl = data.publicUrl;
             }
 
-            onMediaUpload(finalUrl, type);
+            onMediaUpload(finalUrl, type, thumbnailUrl);
             addToast(`${type} uploaded to ${isVideo ? 'Google Drive' : 'Vault'}!`, 'success');
         } catch (error: any) {
             addToast('Upload failed: ' + error.message, 'error');
@@ -839,15 +844,36 @@ const StepReview = ({ data, accounts }: { data: any, accounts: any[] }) => (
     </div>
 );
 
-const StepLaunch = ({ value, onChange }: { value: string, onChange: (v: string) => void }) => (
+const StepLaunch = ({ value, onChange, publishNow, onPublishNowChange }: { value: string, onChange: (v: string) => void, publishNow: boolean, onPublishNowChange: (v: boolean) => void }) => (
     <div className="max-w-4xl mx-auto space-y-12 animate-in slide-in-from-bottom-8 duration-700 pb-16">
         <div className="text-center space-y-4">
             <h3 className="text-4xl font-black text-slate-900 tracking-tighter">The Launch</h3>
             <p className="text-lg font-medium text-slate-500">Seal the date your content goes live across the world.</p>
+
+            <div className="flex items-center justify-center gap-4 pt-4">
+                <button
+                    onClick={() => onPublishNowChange(true)}
+                    className={cn(
+                        "px-8 py-4 rounded-2xl font-black text-sm transition-all flex items-center gap-2",
+                        publishNow ? "bg-slate-900 text-white shadow-xl scale-105" : "bg-white text-slate-400 hover:bg-slate-50"
+                    )}
+                >
+                    <Zap className={cn("w-4 h-4", publishNow ? "text-yellow-400" : "text-slate-300")} /> Post Now
+                </button>
+                <button
+                    onClick={() => onPublishNowChange(false)}
+                    className={cn(
+                        "px-8 py-4 rounded-2xl font-black text-sm transition-all flex items-center gap-2",
+                        !publishNow ? "bg-slate-900 text-white shadow-xl scale-105" : "bg-white text-slate-400 hover:bg-slate-50"
+                    )}
+                >
+                    <Clock className={cn("w-4 h-4", !publishNow ? "text-blue-400" : "text-slate-300")} /> Schedule Later
+                </button>
+            </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-            <div className="bg-white rounded-[3rem] p-10 shadow-sm border border-slate-100 space-y-8">
+            <div className={cn("bg-white rounded-[3rem] p-10 shadow-sm border border-slate-100 space-y-8 transition-all", publishNow && "opacity-40 grayscale pointer-events-none")}>
                 <div className="w-16 h-16 bg-emerald-50 rounded-[1.5rem] flex items-center justify-center text-emerald-600"><Calendar className="w-8 h-8" /></div>
                 <div className="space-y-6">
                     <div className="space-y-1">
@@ -863,7 +889,7 @@ const StepLaunch = ({ value, onChange }: { value: string, onChange: (v: string) 
                 </div>
             </div>
 
-            <div className="bg-white rounded-[3rem] p-10 shadow-sm border border-slate-100 space-y-8">
+            <div className={cn("bg-white rounded-[3rem] p-10 shadow-sm border border-slate-100 space-y-8 transition-all", publishNow && "opacity-40 grayscale pointer-events-none")}>
                 <div className="w-16 h-16 bg-blue-50 rounded-[1.5rem] flex items-center justify-center text-blue-600"><Monitor className="w-8 h-8" /></div>
                 <div className="space-y-6">
                     <div className="space-y-1">
