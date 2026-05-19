@@ -10,6 +10,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { usePosts, useCreatePost, useUpdatePost } from '../features/posts/usePosts';
 import { useAccountContext } from '../features/accounts/AccountContext';
+import { useGoogleDrive } from '../hooks/useGoogleDrive';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -476,6 +477,7 @@ const StepBasicInfo = ({ value, onChange, labels, selectedLabel, onLabelSelect, 
 const StepCreation = ({ caption, onCaptionChange, mediaUrl, mediaType, onMediaUpload, addToast }: { caption: string, onCaptionChange: (v: string) => void, mediaUrl: string, mediaType: string, onMediaUpload: (url: string, type: string) => void, addToast: (m: string, t: any) => void }) => {
     const [isUploading, setIsUploading] = useState(false);
     const [dragActive, setDragActive] = useState(false);
+    const { openPicker } = useGoogleDrive();
 
     const handleFile = async (file: File) => {
         setIsUploading(true);
@@ -549,14 +551,26 @@ const StepCreation = ({ caption, onCaptionChange, mediaUrl, mediaType, onMediaUp
                                     </div>
                                 ) : (
                                     <>
-                                        <div className="w-24 h-24 bg-slate-50 rounded-[2.5rem] flex items-center justify-center text-slate-300 group-hover:scale-110 group-hover:bg-emerald-50 group-hover:text-emerald-500 transition-all">
-                                            <ImageIcon className="w-10 h-10" />
+                                        <div className="flex flex-col sm:flex-row gap-4">
+                                            <div className="px-10 py-4 bg-slate-900 text-white rounded-2xl font-black text-sm shadow-xl hover:scale-105 transition-all">Browse Library</div>
+                                            <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    openPicker((url, name) => {
+                                                        onMediaUpload(url, 'VIDEO');
+                                                        addToast(`Selected: ${name}`, 'success');
+                                                    }).catch(err => {
+                                                        console.error(err);
+                                                        addToast('Google Drive integration requires configuration.', 'info');
+                                                    });
+                                                }}
+                                                className="px-8 py-4 bg-white border-2 border-slate-100 text-slate-600 rounded-2xl font-black text-sm shadow-sm hover:border-blue-200 hover:text-blue-600 transition-all flex items-center gap-2 hover:bg-blue-50/30"
+                                            >
+                                                <Globe className="w-5 h-5 text-blue-500" /> Google Drive
+                                            </button>
                                         </div>
-                                        <div className="text-center space-y-2">
-                                            <p className="text-xl font-black text-slate-900 tracking-tight">Drop your visual story</p>
-                                            <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Image or Video up to 2GB</p>
-                                        </div>
-                                        <div className="px-10 py-4 bg-slate-900 text-white rounded-2xl font-black text-sm shadow-xl hover:scale-105 transition-all">Browse Library</div>
                                     </>
                                 )}
                                 <input type="file" className="hidden" accept="image/*,video/*" onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])} disabled={isUploading} />

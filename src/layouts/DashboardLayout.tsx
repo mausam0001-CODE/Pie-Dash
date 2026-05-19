@@ -21,7 +21,7 @@ export const DashboardLayout = () => {
                 />
             )}
 
-            <div className="flex-1 flex flex-col min-w-0">
+            <div className="flex-1 flex flex-col min-w-0 lg:pl-64">
                 <Header
                     onOpenPostBuilder={() => setIsPostBuilderOpen(true)}
                     onMenuClick={() => setIsSidebarOpen(true)}

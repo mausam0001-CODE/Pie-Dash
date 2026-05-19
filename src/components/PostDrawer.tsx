@@ -63,11 +63,22 @@ export const PostDrawer = ({ post, onClose, onEdit }: PostDrawerProps) => {
 
                             <div className="absolute inset-0">
                                 {post.thumbnail_url || post.media_url ? (
-                                    <img
-                                        src={post.thumbnail_url || post.media_url}
-                                        alt={post.title}
-                                        className="w-full h-full object-cover opacity-90"
-                                    />
+                                    (post.media_type?.toUpperCase() === 'VIDEO' || post.media_url?.match(/\.(mp4|webm|ogg|mov)$/i)) ? (
+                                        <video
+                                            src={post.media_url}
+                                            className="w-full h-full object-cover opacity-90"
+                                            muted
+                                            autoPlay
+                                            loop
+                                            playsInline
+                                        />
+                                    ) : (
+                                        <img
+                                            src={post.thumbnail_url || post.media_url}
+                                            alt={post.title}
+                                            className="w-full h-full object-cover opacity-90"
+                                        />
+                                    )
                                 ) : (
                                     <div className="w-full h-full bg-slate-800 flex items-center justify-center text-slate-500 italic text-[10px]">No Media Uploaded</div>
                                 )}

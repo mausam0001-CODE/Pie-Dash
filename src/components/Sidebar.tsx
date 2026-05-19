@@ -44,7 +44,7 @@ export const Sidebar = ({
 
     return (
         <aside className={cn(
-            "fixed inset-y-0 left-0 w-64 bg-white border-r border-slate-200 flex flex-col z-40 transition-transform duration-300 lg:translate-x-0 lg:sticky lg:top-0 lg:h-screen",
+            "fixed inset-y-0 left-0 w-64 bg-white border-r border-slate-200 flex flex-col z-40 transition-transform duration-300 lg:translate-x-0 lg:h-screen",
             isOpen ? "translate-x-0" : "-translate-x-full"
         )}>
             <div className="p-6 flex items-center justify-between border-b border-slate-100 mb-2 shrink-0">

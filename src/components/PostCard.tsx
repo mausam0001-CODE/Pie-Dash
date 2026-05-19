@@ -64,13 +64,31 @@ export const PostCard = ({ post, onClick, mode = 'grid' }: PostCardProps) => {
             {/* Media Preview */}
             <div className="relative aspect-[4/5] overflow-hidden bg-slate-100">
                 {post.thumbnail_url || post.media_url ? (
-                    <img
-                        src={post.thumbnail_url || post.media_url}
-                        alt={post.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                    />
+                    (post.media_type?.toUpperCase() === 'VIDEO' || post.media_url?.match(/\.(mp4|webm|ogg|mov)$ /i)) ? (
+                        <video
+                            src={post.media_url}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                            muted
+                            autoPlay
+                            loop
+                            playsInline
+                        />
+                    ) : (
+                        <img
+                            src={post.thumbnail_url || post.media_url}
+                            alt={post.title}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                        />
+                    )
                 ) : (
                     <div className="w-full h-full flex items-center justify-center text-slate-300 italic text-xs">No Preview</div>
+                )}
+                {post.media_type?.toUpperCase() === 'VIDEO' && (
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <div className="w-12 h-12 rounded-full bg-black/20 backdrop-blur-md flex items-center justify-center border border-white/30 group-hover:scale-110 transition-transform">
+                            <Share2 className="w-6 h-6 text-white fill-white rotate-90" /> {/* Using share icon as a makeshift play icon for now or I could use Play if I import it */}
+                        </div>
+                    </div>
                 )}
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 via-transparent to-transparent opacity-60"></div>
 
