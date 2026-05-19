@@ -79,6 +79,8 @@ serve(async (req) => {
         if (!file) throw new Error('No file provided')
         if (!serviceAccountRaw) throw new Error('Google Service Account not configured in Supabase Secrets')
 
+        console.log(`Uploading file: ${file.name} (${file.size} bytes)`)
+
         const serviceAccount = JSON.parse(serviceAccountRaw)
         const accessToken = await getAccessToken(serviceAccount)
         console.log('Upload - Access token acquired')
@@ -89,6 +91,7 @@ serve(async (req) => {
             parents: folderId ? [folderId] : []
         }
 
+        console.log('Attempting Google Drive multipart upload...')
         const uploadResp = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
             method: 'POST',
             headers: {
@@ -97,8 +100,13 @@ serve(async (req) => {
             body: createMultipartBody(metadata, file)
         })
 
+        console.log('Upload response status:', uploadResp.status)
+
         const uploadData = await uploadResp.json()
-        if (uploadData.error) throw new Error(`Upload error: ${uploadData.error.message}`)
+        if (uploadData.error) {
+            console.error('Google Upload Error details:', JSON.stringify(uploadData.error, null, 2))
+            throw new Error(`Upload error: ${uploadData.error.message}`)
+        }
 
         // 2. Set Public Permissions (Anyone with link can view - required for publishing)
         await fetch(`https://www.googleapis.com/drive/v3/files/${uploadData.id}/permissions`, {
