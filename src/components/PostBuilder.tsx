@@ -17,8 +17,8 @@ const InlineToast = ({ toasts, onRemove }: { toasts: ToastItem[], onRemove: (id:
     <div className="fixed top-6 right-6 z-[200] flex flex-col gap-3 pointer-events-none">
         {toasts.map(t => (
             <div key={t.id} className={`pointer-events-auto flex items-center gap-3 px-5 py-4 rounded-2xl shadow-2xl border text-sm font-bold animate-in slide-in-from-right-4 duration-300 max-w-sm ${t.type === 'success' ? 'bg-emerald-500 text-white border-emerald-400' :
-                    t.type === 'draft' ? 'bg-slate-800 text-white border-slate-700' :
-                        'bg-red-500 text-white border-red-400'
+                t.type === 'draft' ? 'bg-slate-800 text-white border-slate-700' :
+                    'bg-red-500 text-white border-red-400'
                 }`}>
                 {t.type === 'success' && <CheckCircle className="w-4 h-4 shrink-0" />}
                 {t.type === 'draft' && <Save className="w-4 h-4 shrink-0" />}
@@ -263,7 +263,7 @@ export const PostBuilder = ({ onClose, initialReel }: PostBuilderProps) => {
         switch (currentStep) {
             case 1: return <StepAccounts accounts={connectedAccounts} selected={selectedAccounts} onToggle={(id) => { setIsDirty(true); setSelectedAccounts(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]); }} />;
             case 2: return <StepBasicInfo value={postData.title} onChange={(v) => { setIsDirty(true); setPostData(d => ({ ...d, title: v })); }} labels={labels} selectedLabel={postData.category} onLabelSelect={(l) => setPostData(d => ({ ...d, category: l }))} onAddLabel={(l) => setLabels(prev => [...prev, l])} />;
-            case 3: return <StepGenericContent caption={postData.caption} onCaptionChange={(v) => { setIsDirty(true); setPostData(d => ({ ...d, caption: v })); }} mediaUrl={postData.mediaUrl} mediaType={postData.mediaType} onMediaUpload={(url, type) => { setIsDirty(true); setPostData(d => ({ ...d, mediaUrl: url, mediaType: type, thumbnailUrl: url })); }} />;
+            case 3: return <StepGenericContent caption={postData.caption} onCaptionChange={(v) => { setIsDirty(true); setPostData(d => ({ ...d, caption: v })); }} mediaUrl={postData.mediaUrl} mediaType={postData.mediaType} onMediaUpload={(url, type) => { setIsDirty(true); setPostData(d => ({ ...d, mediaUrl: url, mediaType: type, thumbnailUrl: url })); }} addToast={addToast} />;
             case 4: return <StepFineTune accounts={connectedAccounts.filter(a => selectedAccounts.includes(a.id))} postData={postData} settings={accountSettings} onSettingChange={(id, key, val) => setAccountSettings(prev => ({ ...prev, [id]: { ...(prev[id] || {}), [key]: val } }))} />;
             case 5: return <StepSettings hashtags={postData.hashtags} onHashtagsChange={(v) => { setIsDirty(true); setPostData(d => ({ ...d, hashtags: v })); }} visibility={postData.visibility} onVisibilityChange={(v) => setPostData(d => ({ ...d, visibility: v }))} />;
             case 6: return <StepReview data={postData} accounts={connectedAccounts.filter(a => selectedAccounts.includes(a.id))} reach={formatReach(estimatedReach)} />;
@@ -547,13 +547,11 @@ const StepBasicInfo = ({ value, onChange, labels, selectedLabel, onLabelSelect, 
     );
 };
 
-const StepGenericContent = ({ caption, onCaptionChange, mediaUrl, mediaType, onMediaUpload }: { caption: string, onCaptionChange: (v: string) => void, mediaUrl: string, mediaType: string, onMediaUpload: (url: string, type: string) => void }) => {
+const StepGenericContent = ({ caption, onCaptionChange, mediaUrl, mediaType, onMediaUpload, addToast }: { caption: string, onCaptionChange: (v: string) => void, mediaUrl: string, mediaType: string, onMediaUpload: (url: string, type: string) => void, addToast: (msg: string, type: any) => void }) => {
     const [isUploading, setIsUploading] = useState(false);
+    const [dragActive, setDragActive] = useState(false);
 
-    const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-
+    const handleFile = async (file: File) => {
         setIsUploading(true);
         try {
             const fileExt = file.name.split('.').pop();
@@ -571,9 +569,33 @@ const StepGenericContent = ({ caption, onCaptionChange, mediaUrl, mediaType, onM
             onMediaUpload(data.publicUrl, type);
         } catch (error: any) {
             console.error('Error uploading media:', error);
-            alert('Upload failed: ' + error.message);
+            addToast('Upload failed: ' + error.message, 'error');
         } finally {
             setIsUploading(false);
+        }
+    };
+
+    const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) handleFile(file);
+    };
+
+    const handleDrag = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.type === "dragenter" || e.type === "dragover") {
+            setDragActive(true);
+        } else if (e.type === "dragleave") {
+            setDragActive(false);
+        }
+    };
+
+    const handleDrop = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setDragActive(false);
+        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+            handleFile(e.dataTransfer.files[0]);
         }
     };
 
@@ -607,7 +629,16 @@ const StepGenericContent = ({ caption, onCaptionChange, mediaUrl, mediaType, onM
                     <h3 className="text-xl md:text-3xl font-black text-slate-900">Main Assets</h3>
                     <p className="text-sm text-slate-500 font-medium">Upload the primary video or images.</p>
                 </div>
-                <div className="bg-white border-4 border-dashed border-slate-100 rounded-[1.5rem] md:rounded-[2.5rem] p-6 md:p-12 flex flex-col items-center justify-center text-center space-y-4 md:space-y-6 h-[300px] md:h-[400px] group hover:border-teal-200 transition-all relative overflow-hidden">
+                <div
+                    onDragEnter={handleDrag}
+                    onDragLeave={handleDrag}
+                    onDragOver={handleDrag}
+                    onDrop={handleDrop}
+                    className={cn(
+                        "bg-white border-4 border-dashed rounded-[1.5rem] md:rounded-[2.5rem] p-6 md:p-12 flex flex-col items-center justify-center text-center space-y-4 md:space-y-6 h-[300px] md:h-[400px] group transition-all relative overflow-hidden",
+                        dragActive ? "border-teal-500 bg-teal-50/50" : "border-slate-100 hover:border-teal-200"
+                    )}
+                >
                     {mediaUrl ? (
                         <div className="relative w-full h-full rounded-2xl overflow-hidden shadow-xl bg-slate-900 flex items-center justify-center">
                             {mediaType === 'VIDEO' ? (
@@ -866,8 +897,18 @@ const StepReview = ({ data, accounts, reach }: { data: any, accounts: any[], rea
                     </div>
                 </div>
                 <div className="text-center sm:text-right shrink-0">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Estimated Reach</p>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Est. Reach</p>
                     <p className="text-2xl md:text-3xl font-black text-teal-500">{reach}</p>
+                    <div className="flex flex-col gap-1 mt-2">
+                        {accounts.map(a => (
+                            <div key={a.id} className="flex items-center justify-end gap-2">
+                                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">{a.platform}</span>
+                                <div className="h-1 bg-slate-100 rounded-full w-12 overflow-hidden">
+                                    <div className="h-full bg-teal-400" style={{ width: `${Math.random() * 40 + 60}%` }}></div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
                 </div>
             </div>
             <div className="space-y-6">

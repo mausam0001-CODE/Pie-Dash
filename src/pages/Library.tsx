@@ -61,12 +61,39 @@ export const Library = () => {
 
     React.useEffect(() => {
         if (!session?.user?.id) return;
+
         const loadSettings = async () => {
             const { data } = await supabase.from('user_settings').select('settings').eq('user_id', session.user.id).single();
             if (data?.settings?.folders) setFolders(data.settings.folders);
             if (Array.isArray(data?.settings?.customTags)) setCustomTags(data.settings.customTags);
         };
+
         loadSettings();
+
+        // Real-time synchronization for user settings (folders/tags)
+        const channel = supabase
+            .channel('user_settings_sync')
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'user_settings',
+                    filter: `user_id=eq.${session.user.id}`
+                },
+                (payload: any) => {
+                    const settings = payload.new?.settings;
+                    if (settings) {
+                        if (settings.folders) setFolders(settings.folders);
+                        if (Array.isArray(settings.customTags)) setCustomTags(settings.customTags);
+                    }
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
     }, [session?.user?.id]);
 
     const handleSaveTag = async () => {

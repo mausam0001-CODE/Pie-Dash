@@ -1,6 +1,7 @@
 import React from 'react';
-import { Search, Bell, HelpCircle, Plus, Menu, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Search, Bell, HelpCircle, Plus, Menu, AlertCircle, CheckCircle2, History, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useNotifications } from '../features/notifications/useNotifications';
 
 export const Header = ({
     onOpenPostBuilder,
@@ -9,7 +10,7 @@ export const Header = ({
     onOpenPostBuilder: () => void;
     onMenuClick: () => void;
 }) => {
-    const [hasNotifications, setHasNotifications] = React.useState(true);
+    const { notifications, markAllAsRead, hasUnread, clearHistory } = useNotifications();
     const [showNotifications, setShowNotifications] = React.useState(false);
     const [searchQuery, setSearchQuery] = React.useState('');
     const navigate = useNavigate();
@@ -27,8 +28,8 @@ export const Header = ({
 
     const handleNotifications = () => {
         setShowNotifications(!showNotifications);
-        if (hasNotifications) {
-            setHasNotifications(false);
+        if (hasUnread) {
+            markAllAsRead();
         }
     };
 
@@ -67,8 +68,8 @@ export const Header = ({
                         onClick={handleNotifications}
                         className={`p-2 transition-all relative rounded-xl ${showNotifications ? 'bg-slate-100 text-slate-900' : 'text-slate-400 hover:text-slate-900'}`}
                     >
-                        <Bell className="w-5 h-5" />
-                        {hasNotifications && <span className="absolute top-2 right-2 w-1.5 h-1.5 bg-red-500 rounded-full border border-white"></span>}
+                        <Bell className={`w-5 h-5 ${hasUnread ? 'animate-[bell-swing_2s_infinite]' : ''}`} />
+                        {hasUnread && <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>}
                     </button>
 
                     {showNotifications && (
@@ -76,35 +77,52 @@ export const Header = ({
                             <div className="fixed inset-0 z-40" onClick={() => setShowNotifications(false)} />
                             <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-2xl shadow-2xl border border-slate-100 z-50 overflow-hidden animate-in slide-in-from-top-2 fade-in duration-200">
                                 <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                                    <h4 className="font-black text-slate-900 text-sm uppercase tracking-widest">Notifications</h4>
-                                    <button onClick={() => setShowNotifications(false)} className="text-[10px] font-bold text-teal-600 hover:text-teal-700 uppercase tracking-widest">Mark All Read</button>
+                                    <h4 className="font-black text-slate-900 text-sm uppercase tracking-widest flex items-center gap-2">
+                                        Notifications
+                                        {hasUnread && <span className="w-1.5 h-1.5 bg-red-500 rounded-full"></span>}
+                                    </h4>
+                                    <div className="flex gap-3">
+                                        <button onClick={markAllAsRead} className="text-[10px] font-bold text-teal-600 hover:text-teal-700 uppercase tracking-widest">Mark All Read</button>
+                                        <button onClick={clearHistory} className="text-[10px] font-bold text-slate-400 hover:text-red-500 uppercase tracking-widest">Clear</button>
+                                    </div>
                                 </div>
                                 <div className="max-h-96 overflow-y-auto">
-                                    <div className="p-4 border-b border-slate-50 hover:bg-slate-50 transition-colors cursor-pointer group">
-                                        <div className="flex gap-3">
-                                            <div className="w-8 h-8 rounded-full bg-red-50 text-red-500 flex items-center justify-center shrink-0">
-                                                <AlertCircle className="w-4 h-4" />
+                                    {notifications.length === 0 ? (
+                                        <div className="p-10 text-center space-y-2">
+                                            <div className="w-10 h-10 bg-slate-50 rounded-full flex items-center justify-center mx-auto">
+                                                <Bell className="w-5 h-5 text-slate-300" />
                                             </div>
-                                            <div className="space-y-1">
-                                                <p className="text-xs font-medium text-slate-700"><span className="font-bold text-slate-900">Instagram</span> failed to publish your post "Summer Collection Drop".</p>
-                                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">10 mins ago</p>
-                                            </div>
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">No new alerts</p>
                                         </div>
-                                    </div>
-                                    <div className="p-4 hover:bg-slate-50 transition-colors cursor-pointer group">
-                                        <div className="flex gap-3">
-                                            <div className="w-8 h-8 rounded-full bg-emerald-50 text-emerald-500 flex items-center justify-center shrink-0">
-                                                <CheckCircle2 className="w-4 h-4" />
+                                    ) : (
+                                        notifications.map((notif) => (
+                                            <div key={notif.id} className={`p-4 border-b border-slate-50 hover:bg-slate-50 transition-colors cursor-pointer group relative ${!notif.read ? 'bg-teal-50/30' : ''}`}>
+                                                {!notif.read && <div className="absolute left-0 top-0 bottom-0 w-1 bg-teal-500" />}
+                                                <div className="flex gap-3">
+                                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${notif.type === 'success' ? 'bg-emerald-50 text-emerald-500' :
+                                                            notif.type === 'error' ? 'bg-red-50 text-red-500' : 'bg-blue-50 text-blue-500'
+                                                        }`}>
+                                                        {notif.type === 'success' ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
+                                                    </div>
+                                                    <div className="space-y-1">
+                                                        <p className="text-xs font-medium text-slate-700">
+                                                            {notif.platform && <span className="font-bold text-slate-900 capitalize">{notif.platform} </span>}
+                                                            {notif.message}
+                                                        </p>
+                                                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                                                            {new Date(notif.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                        </p>
+                                                    </div>
+                                                </div>
                                             </div>
-                                            <div className="space-y-1">
-                                                <p className="text-xs font-medium text-slate-700"><span className="font-bold text-slate-900">TikTok</span> successfully published your post.</p>
-                                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">2 hours ago</p>
-                                            </div>
-                                        </div>
-                                    </div>
+                                        ))
+                                    )}
                                 </div>
                                 <div className="p-3 border-t border-slate-100 bg-slate-50 text-center">
-                                    <button className="text-[10px] font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest">View History</button>
+                                    <button className="flex items-center gap-1.5 mx-auto text-[10px] font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest">
+                                        <History className="w-3 h-3" />
+                                        View History
+                                    </button>
                                 </div>
                             </div>
                         </>
