@@ -34,12 +34,15 @@ export const PostCard = ({ post, onClick, mode = 'grid' }: PostCardProps) => {
                 </div>
                 <div className="flex-1 min-w-0 w-full sm:w-auto">
                     <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
-                        <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${post.status === 'Published' ? 'bg-emerald-50 text-emerald-600' : post.status === 'Failed' ? 'bg-red-50 text-red-600' : 'bg-orange-50 text-orange-600'}`}>
+                        <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${post.status?.toLowerCase() === 'published' ? 'bg-emerald-50 text-emerald-600' :
+                                post.status?.toLowerCase() === 'failed' ? 'bg-red-50 text-red-600' :
+                                    'bg-orange-50 text-orange-600'
+                            }`}>
                             {post.status}
                         </span>
-                        {post.status === 'Failed' && post.error_message && (
-                            <span className="text-[10px] font-bold text-red-400 truncate max-w-[200px]" title={post.error_message}>
-                                {post.error_message}
+                        {post.status?.toLowerCase() === 'failed' && (
+                            <span className="text-[10px] font-bold text-red-400 truncate max-w-[200px]" title={post.error_message || 'Unknown Error'}>
+                                {post.error_message || 'Publishing Failed'}
                             </span>
                         )}
                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{post.category || 'Reel'}</span>
@@ -112,13 +115,18 @@ export const PostCard = ({ post, onClick, mode = 'grid' }: PostCardProps) => {
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 via-transparent to-transparent opacity-60"></div>
 
                 {/* Status Badge */}
-                <div className="absolute top-4 right-4">
-                    <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest backdrop-blur-md border ${post.status === 'Published'
-                        ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
-                        : 'bg-orange-500/20 text-orange-400 border-orange-500/30'
+                <div className="absolute top-4 right-4 flex flex-col items-end gap-1">
+                    <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest backdrop-blur-md border ${post.status?.toLowerCase() === 'published' ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' :
+                            post.status?.toLowerCase() === 'failed' ? 'bg-red-500/20 text-red-500 border-red-500/30 pt-[5px]' :
+                                'bg-orange-500/20 text-orange-400 border-orange-500/30'
                         }`}>
                         {post.status}
                     </span>
+                    {post.status?.toLowerCase() === 'failed' && (
+                        <div className="px-2 py-1 bg-red-500/90 backdrop-blur-md text-white border border-red-500/50 rounded-lg text-[9px] font-bold max-w-[180px] line-clamp-3 text-right shadow-lg leading-tight">
+                            {post.error_message || 'Check Instagram API logs'}
+                        </div>
+                    )}
                 </div>
 
                 {/* Metrics Overlay */}

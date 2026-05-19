@@ -126,7 +126,9 @@ serve(async (req) => {
         })
 
     } catch (error: any) {
-        console.error('ig-publish error:', error.message)
+        const errorMessage = error instanceof Error ? error.message :
+            (typeof error === 'string' ? error : JSON.stringify(error));
+        console.error('ig-publish error:', errorMessage)
 
         // Try to mark the post as Failed so the user knows
         try {
@@ -137,12 +139,12 @@ serve(async (req) => {
                 )
                 await supabase.from('posts').update({
                     status: 'Failed',
-                    error_message: error.message
+                    error_message: errorMessage
                 }).eq('id', postId)
             }
         } catch (_) { /* swallow secondary error */ }
 
-        return new Response(JSON.stringify({ error: error.message }), {
+        return new Response(JSON.stringify({ error: errorMessage }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             status: 400,
         })
