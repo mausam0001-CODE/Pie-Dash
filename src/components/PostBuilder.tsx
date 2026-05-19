@@ -571,25 +571,13 @@ const StepCreation = ({ caption, onCaptionChange, mediaUrl, mediaType, onMediaUp
                                     </div>
                                 ) : (
                                     <>
-                                        <div className="flex flex-col sm:flex-row gap-4">
-                                            <div className="px-10 py-4 bg-slate-900 text-white rounded-2xl font-black text-sm shadow-xl hover:scale-105 transition-all">Browse Library</div>
-                                            <button
-                                                type="button"
-                                                onClick={(e) => {
-                                                    e.preventDefault();
-                                                    e.stopPropagation();
-                                                    openPicker((url, name) => {
-                                                        onMediaUpload(url, 'VIDEO');
-                                                        addToast(`Selected: ${name}`, 'success');
-                                                    }).catch(err => {
-                                                        console.error(err);
-                                                        addToast('Google Drive integration requires configuration.', 'info');
-                                                    });
-                                                }}
-                                                className="px-8 py-4 bg-white border-2 border-slate-100 text-slate-600 rounded-2xl font-black text-sm shadow-sm hover:border-blue-200 hover:text-blue-600 transition-all flex items-center gap-2 hover:bg-blue-50/30"
-                                            >
-                                                <Globe className="w-5 h-5 text-blue-500" /> Google Drive
-                                            </button>
+                                        <div className="flex flex-col items-center gap-4">
+                                            <div className="px-10 py-4 bg-slate-900 text-white rounded-2xl font-black text-sm shadow-xl hover:scale-105 transition-all cursor-pointer">
+                                                Browse Media
+                                            </div>
+                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                                <Globe className="w-3 h-3 text-emerald-500" /> Videos stored in Google Drive
+                                            </p>
                                         </div>
                                     </>
                                 )}

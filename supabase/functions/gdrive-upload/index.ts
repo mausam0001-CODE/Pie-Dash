@@ -70,14 +70,18 @@ serve(async (req) => {
     try {
         const formData = await req.formData()
         const file = formData.get('file') as File
+        const serviceAccountRaw = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON')
         const folderId = formData.get('folderId') as string || Deno.env.get('GOOGLE_DRIVE_FOLDER_ID')
 
+        console.log('Upload - Folder ID:', folderId)
+        console.log('Upload - Service Account configured:', !!serviceAccountRaw)
+
         if (!file) throw new Error('No file provided')
+        if (!serviceAccountRaw) throw new Error('Google Service Account not configured in Supabase Secrets')
 
-        const serviceAccount = JSON.parse(Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON') || '{}')
-        if (!serviceAccount.client_email) throw new Error('Google Service Account not configured')
-
+        const serviceAccount = JSON.parse(serviceAccountRaw)
         const accessToken = await getAccessToken(serviceAccount)
+        console.log('Upload - Access token acquired')
 
         // 1. Upload File Metadata
         const metadata = {
