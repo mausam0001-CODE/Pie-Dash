@@ -952,7 +952,7 @@ const PublishingOverlay = ({ posts: initialPosts, onClose }: { posts: any[], onC
                     filter: `id=in.(${postIds.map(id => `'${id}'`).join(',')})`
                 },
                 (payload: any) => {
-                    setPosts(current => current.map(p => p.id === payload.new.id ? { ...p, ...payload.new } : p));
+                    setPosts(current => current.map(p => p.id === payload.new.id ? { ...p, ...payload.new, error_message: payload.new.error_message } : p));
                 }
             )
             .subscribe();
@@ -1035,6 +1035,11 @@ const PublishingOverlay = ({ posts: initialPosts, onClose }: { posts: any[], onC
                                         )}>
                                             {post.status || 'Scheduled'}
                                         </p>
+                                        {post.status === 'Failed' && post.error_message && (
+                                            <p className="text-[10px] text-red-400/80 mt-1 max-w-[200px] leading-tight font-medium">
+                                                {post.error_message}
+                                            </p>
+                                        )}
                                     </div>
                                 </div>
                                 {post.status === 'Published' ? (

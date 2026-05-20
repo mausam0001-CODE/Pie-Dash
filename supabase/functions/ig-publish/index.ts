@@ -66,40 +66,81 @@ serve(async (req) => {
 
         if (!mediaUrl) throw new Error('Post has no media_url to publish')
 
-        // 3. Create Media Container
-        const containerBody: Record<string, string> = {
-            caption,
-            access_token: account.access_token,
+        // 3. Helper to determine which API host to use
+        // Tokens from "Instagram Login" (modern) often need graph.instagram.com
+        // Tokens from "Facebook Login" (legacy) usually need graph.facebook.com
+        const getApiHost = (token: string) => {
+            if (token.startsWith('IGQ')) return 'graph.instagram.com'; // Basic Display (not for publishing, but for sync)
+            // Default to facebook.com as it's the standard for professional accounts
+            return 'graph.facebook.com';
         }
 
-        if (isVideo) {
-            containerBody.media_type = 'REELS'
-            containerBody.video_url = mediaUrl
-        } else {
-            containerBody.image_url = mediaUrl
+        let apiHost = getApiHost(account.access_token);
+
+        const createContainer = async (host: string) => {
+            const containerBody: Record<string, string> = {
+                caption,
+                access_token: account.access_token,
+            }
+
+            if (isVideo) {
+                containerBody.media_type = 'REELS'
+                containerBody.video_url = mediaUrl
+            } else {
+                containerBody.image_url = mediaUrl
+            }
+
+            console.log(`Creating media container on ${host} for IG user:`, igUserId)
+            const resp = await fetch(`https://${host}/v18.0/${igUserId}/media`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(containerBody)
+            })
+            return await resp.json()
         }
 
-        console.log('Creating media container for IG user:', igUserId, 'isVideo:', isVideo)
-        const containerResp = await fetch(`https://graph.facebook.com/v18.0/${igUserId}/media`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(containerBody)
-        })
-        const containerData = await containerResp.json()
+        // 4. Create Media Container with Fallback logic
+        let containerData = await createContainer(apiHost)
+
+        // FALLBACK: If standard facebook.com fails with code 190 (Invalid Token), try instagram.com
+        if (containerData.error?.code === 190 && apiHost === 'graph.facebook.com') {
+            console.log('Got code 190 on graph.facebook.com, trying fallback to graph.instagram.com...')
+            const fallbackData = await createContainer('graph.instagram.com')
+            if (!fallbackData.error) {
+                containerData = fallbackData
+                apiHost = 'graph.instagram.com'
+                console.log('Fallback successful! Using graph.instagram.com for this account.')
+            }
+        }
+
         console.log('Container response:', containerData)
 
         if (containerData.error) throw new Error(`IG container error: ${containerData.error.message} (code ${containerData.error.code})`)
         if (!containerData.id) throw new Error('No container ID returned from Instagram')
 
-        // 4. For videos: wait for processing to finish
+        // 5. For videos: wait for processing to finish
         if (isVideo) {
             console.log('Waiting for video container to process...')
-            await waitForContainer(igUserId, containerData.id, account.access_token)
+            // waitForContainer needs to use the same host
+            const waitForContainerWithHost = async (containerId: string) => {
+                for (let i = 0; i < 20; i++) {
+                    await new Promise(r => setTimeout(r, 3000));
+                    const resp = await fetch(`https://${apiHost}/v18.0/${containerId}?fields=status_code,status&access_token=${account.access_token}`);
+                    const data = await resp.json();
+                    console.log(`Container status check ${i + 1}:`, data.status_code);
+                    if (data.status_code === 'FINISHED') return;
+                    if (data.status_code === 'ERROR' || data.status_code === 'EXPIRED') {
+                        throw new Error(`Media container processing failed: ${data.status_code}`);
+                    }
+                }
+                throw new Error('Media container timed out after 60 seconds');
+            }
+            await waitForContainerWithHost(containerData.id)
         }
 
-        // 5. Publish the container
-        console.log('Publishing container:', containerData.id)
-        const publishResp = await fetch(`https://graph.facebook.com/v18.0/${igUserId}/media_publish`, {
+        // 6. Publish the container
+        console.log(`Publishing container on ${apiHost}:`, containerData.id)
+        const publishResp = await fetch(`https://${apiHost}/v18.0/${igUserId}/media_publish`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
