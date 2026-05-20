@@ -207,9 +207,7 @@ export const Settings = () => {
         { id: 'accounts', label: 'Social Accounts', icon: Link2 },
         { id: 'users', label: 'Users', icon: UserCircle },
         { id: 'groups', label: 'Calendar Groups', icon: Layers },
-        { id: 'branding', label: 'Custom Branding', icon: Smartphone },
         { id: 'export', label: 'Export', icon: Download },
-        { id: 'billing', label: 'Billing', icon: CreditCard },
     ];
 
     if (loading) return <div className="p-8 md:p-12 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px] md:text-xs animate-pulse">Retrieving Preferences...</div>;
@@ -531,7 +529,7 @@ export const Settings = () => {
                     )}
 
                     {/* Placeholders for other tabs */}
-                    {['security', 'notifications', 'users', 'groups', 'branding', 'billing'].includes(activeTab) && (
+                    {['security', 'notifications', 'users', 'groups'].includes(activeTab) && (
                         <div className="h-full flex flex-col items-center justify-center text-center space-y-4 py-20 opacity-40">
                             <Layers className="w-16 h-16 text-slate-200" />
                             <div>

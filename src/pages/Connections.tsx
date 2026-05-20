@@ -66,7 +66,7 @@ export const Connections = () => {
     }, [session?.user?.id]);
 
     const handleConnectClick = (platformId: string) => {
-        if (platformId === 'instagram' || platformId === 'facebook') {
+        if (platformId === 'instagram' || platformId === 'facebook' || platformId === 'tiktok') {
             setShowNotesModal(platformId);
         } else {
             // Placeholder for other platforms
@@ -85,24 +85,28 @@ export const Connections = () => {
 
         const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
         const projectRef = supabaseUrl.split('//')[1]?.split('.')[0];
+        const redirectPath = platformId === 'tiktok' ? 'tk-oauth' : 'ig-oauth';
         const redirectUri = projectRef
-            ? `https://${projectRef}.supabase.co/functions/v1/ig-oauth`
-            : "https://ivsytkzemjludwzhrdsu.supabase.co/functions/v1/ig-oauth";
+            ? `https://${projectRef}.supabase.co/functions/v1/${redirectPath}`
+            : `https://ivsytkzemjludwzhrdsu.supabase.co/functions/v1/${redirectPath}`;
 
         // State now includes loginMethod: userId:platform:loginMethod
         const state = `${session?.user?.id || 'team-user'}:${platformId}:${loginMethod}`;
 
         let oauthUrl = '';
 
-        if (platformId === 'instagram' && loginMethod === 'ig') {
+        if (platformId === 'tiktok') {
+            const clientKey = import.meta.env.VITE_TIKTOK_CLIENT_KEY || 'awgibaabchyy7i7m';
+            const scope = 'user.info.basic,video.upload,video.publish';
+            oauthUrl = `https://www.tiktok.com/v2/auth/authorize/?client_key=${clientKey}&scope=${encodeURIComponent(scope)}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}`;
+        } else if (platformId === 'instagram' && loginMethod === 'ig') {
             // NEW: Instagram Login — no Facebook Page required!
-            // USES THE DEDICATED INSTAGRAM APP ID
+            const igAppId = '997891079244802';
             const scope = 'instagram_business_basic,instagram_business_content_publish,instagram_business_manage_messages,instagram_business_manage_comments';
-            // Use www.instagram.com for the new Instagram Login flow as per Meta docs
             oauthUrl = `https://www.instagram.com/oauth/authorize?client_id=${igAppId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}&response_type=code&state=${state}`;
         } else {
-            // LEGACY: Facebook Login — requires a Facebook Page linked to Instagram
-            // USES THE STANDARD FACEBOOK APP ID
+            // LEGACY: Facebook Login
+            const fbAppId = import.meta.env.VITE_FB_APP_ID || '1247702890719706';
             const scope = platformId === 'instagram'
                 ? 'instagram_basic,pages_show_list,public_profile'
                 : 'pages_show_list,pages_read_engagement,public_profile';
@@ -265,14 +269,19 @@ export const Connections = () => {
                                     </div>
                                     <div className="text-center">
                                         <h4 className="text-xl font-bold text-slate-900">{PLATFORMS.find(p => p.id === showNotesModal)?.name} <span className="text-[10px] bg-slate-200 text-slate-500 px-2 py-0.5 rounded-full ml-1 vertical-middle uppercase tracking-tighter">Beta</span></h4>
-                                        <p className="text-sm text-slate-400 mt-1 max-w-xs">{showNotesModal === 'instagram' ? 'Connect your Instagram account to ideate, plan, and automatically publish content.' : 'Connect your Facebook Page to manage posts and engagement.'}</p>
+                                        <p className="text-sm text-slate-400 mt-1 max-w-xs">{
+                                            showNotesModal === 'instagram' ? 'Connect your Instagram account to ideate, plan, and automatically publish content.' :
+                                                showNotesModal === 'tiktok' ? 'Connect your TikTok account to publish videos directly or as drafts.' :
+                                                    'Connect your Facebook Page to manage posts and engagement.'
+                                        }</p>
                                     </div>
                                 </div>
-
-                                <div className="bg-white/60 p-4 rounded-xl border border-amber-100 flex gap-3 items-start">
-                                    <Info className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
-                                    <p className="text-[13px] text-amber-800 font-medium">You must have an <strong>Instagram Professional account</strong> to post directly.</p>
-                                </div>
+                                {showNotesModal !== 'tiktok' && (
+                                    <div className="bg-white/60 p-4 rounded-xl border border-amber-100 flex gap-3 items-start">
+                                        <Info className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                                        <p className="text-[13px] text-amber-800 font-medium">You must have an <strong>Instagram Professional account</strong> to post directly.</p>
+                                    </div>
+                                )}
 
                                 <div className="text-[10px] text-slate-400 font-mono text-center mb-[-16px]">
                                     DEBUG ID: {import.meta.env.VITE_FB_APP_ID || '1247702890719706'}

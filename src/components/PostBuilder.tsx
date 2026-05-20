@@ -192,9 +192,15 @@ export const PostBuilder = ({ onClose, initialReel }: PostBuilderProps) => {
 
             if (publishNow && postIds.length > 0) {
                 setPublishingPosts(posts);
-                const promises = postIds.map(async (id) => {
+                const resultsPromises = postIds.map(async (id) => {
                     try {
-                        const { data, error } = await supabase.functions.invoke('ig-publish', {
+                        const postObj = posts.find(p => p?.id === id);
+                        const platform = postObj?.platforms?.[0];
+                        const functionName = platform === 'tiktok' ? 'tk-publish' : 'ig-publish';
+
+                        console.log(`[Publishing] Invoking ${functionName} for post ${id} (${platform})`);
+
+                        const { data, error } = await supabase.functions.invoke(functionName, {
                             body: { postId: id }
                         });
                         if (error) throw error;
@@ -205,7 +211,7 @@ export const PostBuilder = ({ onClose, initialReel }: PostBuilderProps) => {
                     }
                 });
 
-                const results = await Promise.all(promises);
+                const results = await Promise.all(resultsPromises);
                 // Update publishingPosts with container status if needed
                 setPublishingPosts(current => current.map(p => {
                     const res = results.find(r => r.id === p.id);

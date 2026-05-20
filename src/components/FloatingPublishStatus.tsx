@@ -88,25 +88,36 @@ export const FloatingPublishStatus = () => {
 
                     try {
                         // 1. Check status
-                        const { data: checkData, error: checkError } = await supabase.functions.invoke('ig-publish', {
-                            body: { action: 'check', containerId: post.container_id, postId: post.id }
+                        const platform = post.platforms?.[0];
+                        const functionName = platform === 'tiktok' ? 'tk-publish' : 'ig-publish';
+                        const payload = platform === 'tiktok'
+                            ? { action: 'check', publishId: post.container_id, postId: post.id }
+                            : { action: 'check', containerId: post.container_id, postId: post.id };
+
+                        const { data: checkData, error: checkError } = await supabase.functions.invoke(functionName, {
+                            body: payload
                         });
 
                         if (checkError) throw checkError;
 
-                        if (checkData.status_code === 'FINISHED') {
-                            finished = true;
-                            console.log(`[Global Polling] Post ${post.id} ready! Triggering publish...`);
+                        // TikTok returns 'SUCCESS', Instagram returns 'FINISHED'
+                        const isFinished = checkData.status_code === 'FINISHED' || checkData.status_code === 'SUCCESS';
 
-                            // 2. Trigger final publish
-                            const { error: publishError } = await supabase.functions.invoke('ig-publish', {
-                                body: { action: 'publish', containerId: post.container_id, postId: post.id }
-                            });
-
-                            if (publishError) throw publishError;
-                        } else if (checkData.status_code === 'ERROR') {
+                        if (isFinished) {
                             finished = true;
-                            console.error(`[Global Polling] Container error for post ${post.id}`);
+                            console.log(`[Global Polling] Post ${post.id} ready!`);
+
+                            // 2. Trigger final publish for IG (TikTok finishes automatically or via status check)
+                            if (platform !== 'tiktok') {
+                                console.log(`[Global Polling] Triggering publish for IG...`);
+                                const { error: publishError } = await supabase.functions.invoke('ig-publish', {
+                                    body: { action: 'publish', containerId: post.container_id, postId: post.id }
+                                });
+                                if (publishError) throw publishError;
+                            }
+                        } else if (checkData.status_code === 'ERROR' || checkData.status_code === 'FAILED') {
+                            finished = true;
+                            console.error(`[Global Polling] Error for post ${post.id}`);
                         }
                     } catch (err: any) {
                         console.error(`[Global Polling] Error:`, err);
