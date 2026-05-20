@@ -83,14 +83,30 @@ serve(async (req) => {
             const igUserId = shortData.user_id
 
             // 2. Exchange for long-lived token
-            console.log('Exchanging for long-lived token...')
+            // CRITICAL: Use graph.facebook.com for the exchange to get a Professional/Graph token 
+            // if the app has the "Instagram Use Case" (Business Login)
+            console.log('Exchanging for long-lived token via Graph API...')
+            const v = 'v21.0'
             const longResp = await fetch(
-                `https://graph.instagram.com/access_token?grant_type=ig_exchange_token&client_secret=${IG_APP_SECRET}&access_token=${shortToken}`
+                `https://graph.facebook.com/${v}/access_token?grant_type=ig_exchange_token&client_secret=${IG_APP_SECRET}&access_token=${shortToken}`
             )
             const longData = await longResp.json()
-            console.log('IG Long Token:', JSON.stringify(longData))
-            if (longData.error) throw new Error(longData.error.message || 'Failed to get long-lived token')
-            accessToken = longData.access_token || shortToken
+            console.log('IG Long Token Resp:', JSON.stringify(longData))
+
+            if (longData.error) {
+                console.warn('Graph API long-lived exchange failed, falling back to graph.instagram.com...', longData.error.message)
+                const fallbackResp = await fetch(
+                    `https://graph.instagram.com/access_token?grant_type=ig_exchange_token&client_secret=${IG_APP_SECRET}&access_token=${shortToken}`
+                )
+                const fallbackData = await fallbackResp.json()
+                console.log('IG Fallback Long Token:', JSON.stringify(fallbackData))
+                if (fallbackData.error) throw new Error(fallbackData.error.message || 'Failed to get long-lived token')
+                accessToken = fallbackData.access_token || shortToken
+            } else {
+                accessToken = longData.access_token || shortToken
+            }
+
+            console.log(`Final Token Prefix: ${accessToken.substring(0, 8)}... (len: ${accessToken.length})`)
 
             // 3. Get Instagram profile using graph.instagram.com
             const profResp = await fetch(
