@@ -39,7 +39,7 @@ export const AccountSwitcher = () => {
                         className="fixed inset-0 z-30"
                         onClick={() => setIsOpen(false)}
                     />
-                    <div className="absolute left-3 right-3 mt-2 bg-white border border-slate-200 rounded-xl shadow-xl z-40 py-2 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className="absolute left-full top-0 ml-4 w-64 bg-white border border-slate-200 rounded-[1.5rem] shadow-[0_10px_40px_-10px_rgba(0,0,0,0.1)] z-40 py-3 animate-in fade-in slide-in-from-left-2 duration-300 ring-1 ring-slate-900/5">
                         <p className="px-4 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Switch Account</p>
                         {accounts.map((acc) => (
                             <button
