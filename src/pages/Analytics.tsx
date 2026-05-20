@@ -1,12 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { usePosts } from '../features/posts/usePosts';
 import { useMetrics } from '../features/accounts/useMetrics';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
     AreaChart, Area, LineChart, Line
 } from 'recharts';
-import { TrendingUp, TrendingDown, Users, Eye, BarChart3, ArrowUpRight, ArrowDownRight } from 'lucide-react';
-import { format, subMonths, startOfMonth, isSameMonth } from 'date-fns';
+import { TrendingUp, TrendingDown, Users, Eye, BarChart3, ArrowUpRight, ArrowDownRight, Clock } from 'lucide-react';
+import { format, subMonths, startOfMonth, isSameMonth, subDays, subHours, isAfter } from 'date-fns';
 
 // ── Helpers ──────────────────────────────────────────────────────────
 function momBadge(current: number, prev: number) {
@@ -18,52 +18,90 @@ function momBadge(current: number, prev: number) {
 export const Analytics = () => {
     const { data: posts = [], isLoading: postsLoading } = usePosts();
     const { data: metrics = [], isLoading: metricsLoading } = useMetrics();
+    const [timeRange, setTimeRange] = useState<'24h' | '7d' | '30d' | '90d' | 'all'>('30d');
 
     const isLoading = postsLoading || metricsLoading;
 
-    // Last 6 months for labels
-    const last6Months = React.useMemo(() => {
-        return Array.from({ length: 6 }).map((_, i) => {
-            const date = subMonths(new Date(), 5 - i);
-            return {
-                label: format(date, 'MMM'),
-                date: startOfMonth(date)
-            };
-        });
-    }, []);
+    // ── Filtering Logic ──────────────────────────────────────────────────
+    const dateLimit = React.useMemo(() => {
+        const now = new Date();
+        if (timeRange === '24h') return subHours(now, 24);
+        if (timeRange === '7d') return subDays(now, 7);
+        if (timeRange === '30d') return subDays(now, 30);
+        if (timeRange === '90d') return subDays(now, 90);
+        return new Date(0); // All time
+    }, [timeRange]);
 
-    // ── Audience Growth (Real metrics) ──────────────────────────────
+    const filteredPosts = React.useMemo(() => {
+        if (timeRange === 'all') return posts;
+        return posts.filter((p: any) => isAfter(new Date(p.scheduled_at || p.created_at), dateLimit));
+    }, [posts, dateLimit, timeRange]);
+
+    // ── Granular Data Generation ─────────────────────────────────────────
+    const chartTimePoints = React.useMemo(() => {
+        const points: { label: string, date: Date, isMonth?: boolean }[] = [];
+        const now = new Date();
+
+        if (timeRange === '24h') {
+            for (let i = 24; i >= 0; i -= 3) {
+                const d = subHours(now, i);
+                points.push({ label: format(d, 'HH:mm'), date: d });
+            }
+        } else if (timeRange === '7d') {
+            for (let i = 7; i >= 0; i--) {
+                const d = subDays(now, i);
+                points.push({ label: format(d, 'EEE'), date: d });
+            }
+        } else if (timeRange === '30d' || timeRange === '90d') {
+            const days = timeRange === '30d' ? 30 : 90;
+            const step = timeRange === '30d' ? 5 : 15;
+            for (let i = days; i >= 0; i -= step) {
+                const d = subDays(now, i);
+                points.push({ label: format(d, 'MMM d'), date: d });
+            }
+        } else {
+            // All time / 6 months
+            for (let i = 5; i >= 0; i--) {
+                const d = subMonths(now, i);
+                points.push({ label: format(d, 'MMM'), date: startOfMonth(d), isMonth: true });
+            }
+        }
+        return points;
+    }, [timeRange]);
+
     const audienceData = React.useMemo(() => {
-        return last6Months.map(({ label, date }) => {
-            const metricEntry = metrics.find(m => isSameMonth(new Date(m.month), date));
+        return chartTimePoints.map(({ label, date, isMonth }) => {
+            const metricEntry = metrics.find(m => {
+                const mDate = new Date(m.month);
+                return isMonth ? isSameMonth(mDate, date) : isAfter(new Date(m.month), subDays(date, 1));
+            });
             const followers = metricEntry?.follower_count || 0;
             const following = metricEntry?.following_count || 0;
 
-            // Try to find previous month for badge
-            const prevDate = subMonths(date, 1);
-            const prevEntry = metrics.find(m => isSameMonth(new Date(m.month), prevDate));
-            const prevFollowers = prevEntry?.follower_count || followers;
-
-            const { pct, up } = momBadge(followers, prevFollowers);
-            return { name: label, followers, following, momPct: pct, up };
+            return { name: label, followers, following };
         });
-    }, [last6Months, metrics]);
+    }, [chartTimePoints, metrics, timeRange]);
 
-    const latestMonth = audienceData[audienceData.length - 1];
-    const prevMonth = audienceData[audienceData.length - 2];
-    const followerMoM = momBadge(latestMonth.followers, prevMonth.followers);
+    const latestPoint = audienceData[audienceData.length - 1] || { followers: 0 };
+    const prevPoint = audienceData[audienceData.length - 2] || latestPoint;
+    const followerMoM = momBadge(latestPoint.followers, prevPoint.followers);
 
-    // ── Content Performance (Real posts per month) ──────────────────
     const growthData = React.useMemo(() => {
-        return last6Months.map(({ label, date }) => {
-            const monthPosts = posts.filter((p: any) => isSameMonth(new Date(p.scheduled_at || p.created_at), date));
+        return chartTimePoints.map(({ label, date, isMonth }) => {
+            const rangePosts = posts.filter((p: any) => {
+                const pDate = new Date(p.scheduled_at || p.created_at);
+                if (isMonth) return isSameMonth(pDate, date);
+                // For daily/hourly, check if it's within the window
+                const windowStart = timeRange === '24h' ? subHours(date, 3) : subDays(date, 1);
+                return isAfter(pDate, windowStart) && !isAfter(pDate, date);
+            });
             return {
                 name: label,
-                views: monthPosts.reduce((sum: number, p: any) => sum + (p.view_count || 0), 0),
-                likes: monthPosts.reduce((sum: number, p: any) => sum + (p.like_count || 0), 0),
+                views: rangePosts.reduce((sum: number, p: any) => sum + (p.view_count || 0), 0),
+                likes: rangePosts.reduce((sum: number, p: any) => sum + (p.like_count || 0), 0),
             };
         });
-    }, [last6Months, posts]);
+    }, [chartTimePoints, posts, timeRange]);
 
     const categoryData = React.useMemo(() => {
         if (!posts.length) return [];
@@ -78,7 +116,7 @@ export const Analytics = () => {
     }, [posts]);
 
     const topPosts = React.useMemo(() => {
-        return [...posts]
+        return [...filteredPosts]
             .sort((a: any, b: any) => (b.view_count || 0) - (a.view_count || 0))
             .slice(0, 5)
             .map((post: any) => ({
@@ -89,12 +127,12 @@ export const Analytics = () => {
     }, [posts]);
 
     const aggregates = React.useMemo(() => {
-        const totalViews = posts.reduce((s: number, p: any) => s + (p.view_count || 0), 0);
-        const totalLikes = posts.reduce((s: number, p: any) => s + (p.like_count || 0), 0);
+        const totalViews = filteredPosts.reduce((s: number, p: any) => s + (p.view_count || 0), 0);
+        const totalLikes = filteredPosts.reduce((s: number, p: any) => s + (p.like_count || 0), 0);
         const avgEngage = totalViews > 0 ? ((totalLikes / totalViews) * 100).toFixed(1) : '0';
         const fmt = (n: number) => n > 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M` : n > 1000 ? `${(n / 1000).toFixed(1)}K` : `${n}`;
         return { totalViews: fmt(totalViews), engagement: `${avgEngage}%`, growth: followerMoM.pct };
-    }, [posts, followerMoM]);
+    }, [filteredPosts, followerMoM]);
 
     if (isLoading) return <div className="p-8 text-slate-400 font-medium animate-pulse text-center">Crunching Data...</div>;
 
@@ -104,11 +142,11 @@ export const Analytics = () => {
             color: 'text-blue-600', bg: 'bg-blue-50', badge: '+4.2%', up: true
         },
         {
-            label: 'Followers', value: latestMonth.followers.toLocaleString(), icon: Users,
+            label: 'Followers', value: (latestPoint?.followers || 0).toLocaleString(), icon: Users,
             color: 'text-purple-600', bg: 'bg-purple-50', badge: followerMoM.pct, up: followerMoM.up
         },
         {
-            label: 'Following', value: latestMonth.following.toLocaleString(), icon: Users,
+            label: 'Following', value: (latestPoint?.following || 0).toLocaleString(), icon: Users,
             color: 'text-slate-600', bg: 'bg-slate-50', badge: 'Following', up: true
         },
         {
@@ -116,16 +154,33 @@ export const Analytics = () => {
             color: 'text-teal-600', bg: 'bg-teal-50', badge: '+1.8%', up: true
         },
         {
-            label: 'MoM Growth', value: followerMoM.pct, icon: BarChart3,
-            color: 'text-orange-600', bg: 'bg-orange-50', badge: `${posts.length} Posts`, up: true
+            label: 'Growth Rate', value: followerMoM.pct, icon: BarChart3,
+            color: 'text-orange-600', bg: 'bg-orange-50', badge: `${filteredPosts.length} Posts`, up: true
         },
     ];
 
     return (
         <div className="space-y-6 md:space-y-8 animate-in fade-in duration-700 pb-20">
-            <div>
-                <h2 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">Performance Analytics</h2>
-                <p className="text-slate-500 text-xs md:text-sm mt-1 font-medium italic">Strategic insights for your content ecosystem.</p>
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+                <div>
+                    <h2 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">Performance Analytics</h2>
+                    <p className="text-slate-500 text-xs md:text-sm mt-1 font-medium italic">Strategic insights for your content ecosystem.</p>
+                </div>
+
+                <div className="flex items-center bg-slate-100 p-1 rounded-xl w-fit">
+                    {(['24h', '7d', '30d', '90d', 'all'] as const).map((range) => (
+                        <button
+                            key={range}
+                            onClick={() => setTimeRange(range)}
+                            className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${timeRange === range
+                                ? 'bg-white text-slate-900 shadow-sm'
+                                : 'text-slate-400 hover:text-slate-600'
+                                }`}
+                        >
+                            {range}
+                        </button>
+                    ))}
+                </div>
             </div>
 
             {/* Quick Stats with MoM badges */}
@@ -157,18 +212,10 @@ export const Analytics = () => {
                         </div>
                         <span className={`flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full ${followerMoM.up ? 'text-emerald-600 bg-emerald-50' : 'text-red-500 bg-red-50'}`}>
                             {followerMoM.up ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                            {followerMoM.pct} MoM
+                            {followerMoM.pct} Growth
                         </span>
                     </div>
-                    {/* MoM badges per month */}
-                    <div className="flex gap-2 flex-wrap mb-4">
-                        {audienceData.map((m) => (
-                            <div key={m.name} className="text-center">
-                                <span className={`text-[8px] font-bold ${m.up ? 'text-emerald-500' : 'text-red-500'}`}>{m.momPct}</span>
-                                <p className="text-[8px] text-slate-300 font-medium">{m.name}</p>
-                            </div>
-                        ))}
-                    </div>
+                    {/* Summary badges are handled in the header */}
                     <div className="h-44 md:h-60">
                         <ResponsiveContainer width="100%" height="100%">
                             <AreaChart data={audienceData}>
