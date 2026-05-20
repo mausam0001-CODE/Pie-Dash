@@ -13,6 +13,8 @@ const queryClient = new QueryClient({
     },
 });
 
+import { FloatingPublishStatus } from '../components/FloatingPublishStatus';
+
 export const AppProviders = ({ children }: { children: React.ReactNode }) => {
     return (
         <QueryClientProvider client={queryClient}>
@@ -20,6 +22,7 @@ export const AppProviders = ({ children }: { children: React.ReactNode }) => {
                 <UserProvider>
                     <AccountProvider>
                         {children}
+                        <FloatingPublishStatus />
                     </AccountProvider>
                 </UserProvider>
             </NotificationProvider>

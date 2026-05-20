@@ -1050,6 +1050,15 @@ const PublishingOverlay = ({ posts: initialPosts, onClose }: { posts: any[], onC
                         ))}
                     </div>
 
+                    {!isComplete && (
+                        <button
+                            onClick={onClose}
+                            className="w-full py-4 rounded-2xl text-slate-400 hover:text-slate-600 font-bold text-xs uppercase tracking-widest transition-all"
+                        >
+                            Work in Background
+                        </button>
+                    )}
+
                     {isComplete && (
                         <button
                             onClick={onClose}

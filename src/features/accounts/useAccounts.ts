@@ -17,7 +17,7 @@ export function useAccounts() {
         queryFn: async () => {
             const { data, error } = await supabase
                 .from('social_accounts')
-                .select('id, platform, username')
+                .select('id, platform, username, avatar_url')
                 .order('created_at', { ascending: true });
 
             if (error) throw error;

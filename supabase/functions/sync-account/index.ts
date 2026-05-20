@@ -32,22 +32,39 @@ serve(async (req) => {
         // 2. Sync Logic
         if (platform === 'instagram') {
             // Get Follower/Following Count
-            console.log(`Fetching metrics for account ${metaAccountId}...`)
-            const metricsResponse = await fetch(`https://graph.instagram.com/${metaAccountId}?fields=followers_count,follows_count&access_token=${access_token}`)
-            const igMetrics = await metricsResponse.json()
+            // Get Follower/Following Count + Profile Info (Avatar)
+            console.log(`Fetching metrics and profile for account ${metaAccountId}...`)
+            const [metricsResp, profileResp] = await Promise.all([
+                fetch(`https://graph.facebook.com/v18.0/${metaAccountId}?fields=followers_count,follows_count&access_token=${access_token}`),
+                fetch(`https://graph.facebook.com/v18.0/${metaAccountId}?fields=profile_picture_url,username&access_token=${access_token}`)
+            ])
 
-            if (igMetrics.error) {
-                console.error('IG Metrics API Error:', igMetrics.error)
+            const igMetrics = await metricsResp.json()
+            const profileData = await profileResp.json()
+
+            if (profileData.profile_picture_url || profileData.username) {
+                await supabase.from('social_accounts').update({
+                    avatar_url: profileData.profile_picture_url,
+                    username: profileData.username
+                }).eq('id', accountId)
             }
 
             if (igMetrics.followers_count !== undefined || igMetrics.follows_count !== undefined) {
-                await supabase.from('account_metrics').upsert({
+                const metricData: any = {
                     social_account_id: accountId,
                     user_id: user_id,
                     follower_count: igMetrics.followers_count || 0,
-                    following_count: igMetrics.follows_count || 0, // NEW: Track following count
                     month: new Date().toISOString().split('T')[0].substring(0, 7) + '-01'
+                }
+
+                const { error: upsertError } = await supabase.from('account_metrics').upsert({
+                    ...metricData,
+                    following_count: igMetrics.follows_count || 0
                 })
+
+                if (upsertError && upsertError.code === '42703') {
+                    await supabase.from('account_metrics').upsert(metricData)
+                }
             }
 
             // Get Recent Posts
@@ -131,6 +148,34 @@ serve(async (req) => {
                     }
                 }))
                 await supabase.from('posts').upsert(postsToInsert, { onConflict: 'social_account_id,external_id' })
+
+                // --- Sync Interactions (Comments) ---
+                console.log(`Syncing comments for top posts...`)
+                const recentPosts = mediaData.data.slice(0, 5)
+                for (const mediaPost of recentPosts) {
+                    try {
+                        const commentsResp = await fetch(`https://graph.facebook.com/v18.0/${mediaPost.id}/comments?fields=id,text,from,timestamp&access_token=${access_token}`)
+                        const commentsData = await commentsResp.json()
+
+                        if (commentsData.data && commentsData.data.length > 0) {
+                            const interactionsToInsert = commentsData.data.map((c: any) => ({
+                                social_account_id: accountId,
+                                user_id: user_id,
+                                external_id: c.id,
+                                user_name: c.from?.username || 'IG User',
+                                user_avatar: null,
+                                content: c.text,
+                                platform: 'instagram',
+                                status: 'Open',
+                                created_at: c.timestamp
+                            }))
+
+                            await supabase.from('interactions').upsert(interactionsToInsert, { onConflict: 'social_account_id,external_id' })
+                        }
+                    } catch (e) {
+                        console.error(`Failed to sync comments for post ${mediaPost.id}:`, e)
+                    }
+                }
             }
         } else {
             // Facebook

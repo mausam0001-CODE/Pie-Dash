@@ -16,8 +16,12 @@ export const AccountSwitcher = () => {
                 className="w-full flex items-center justify-between p-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition-all group"
             >
                 <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-8 h-8 rounded-lg bg-teal-500 flex items-center justify-center text-white text-xs font-bold shadow-sm shrink-0 overflow-hidden">
-                        {activeAccount.username.charAt(0).toUpperCase()}
+                    <div className="w-8 h-8 rounded-lg bg-teal-500 flex items-center justify-center text-white text-xs font-bold shadow-sm shrink-0 overflow-hidden border border-slate-200">
+                        {activeAccount.avatar_url ? (
+                            <img src={activeAccount.avatar_url} className="w-full h-full object-cover" />
+                        ) : (
+                            activeAccount.username.charAt(0).toUpperCase()
+                        )}
                     </div>
                     <div className="text-left min-w-0">
                         <p className="text-xs font-bold text-slate-900 truncate">{activeAccount.username}</p>
@@ -47,8 +51,12 @@ export const AccountSwitcher = () => {
                                 className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-slate-50 transition-colors"
                             >
                                 <div className="flex items-center gap-3">
-                                    <div className="w-6 h-6 rounded-md bg-slate-200 text-slate-500 font-bold text-[10px] flex items-center justify-center">
-                                        {acc.username.charAt(0).toUpperCase()}
+                                    <div className="w-6 h-6 rounded-md bg-teal-500 text-white font-bold text-[10px] flex items-center justify-center overflow-hidden border border-slate-100">
+                                        {acc.avatar_url ? (
+                                            <img src={acc.avatar_url} className="w-full h-full object-cover" />
+                                        ) : (
+                                            acc.username.charAt(0).toUpperCase()
+                                        )}
                                     </div>
                                     <div className="text-left">
                                         <p className="text-xs font-bold text-slate-900">{acc.username}</p>
