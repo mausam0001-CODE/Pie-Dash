@@ -93,12 +93,18 @@ serve(async (req) => {
                     // Try to get real insights if it's a professional account
                     if (metaAccountId && !access_token.startsWith('IGQ')) {
                         try {
-                            const insightsResp = await fetch(`https://graph.facebook.com/v18.0/${m.id}/insights?metric=reach,impressions&access_token=${access_token}`)
+                            // Request reach, impressions, and play_count (for Reels)
+                            const insightsResp = await fetch(`https://graph.facebook.com/v18.0/${m.id}/insights?metric=reach,impressions,plays&access_token=${access_token}`)
                             const insights = await insightsResp.json()
                             if (insights.data) {
                                 const reachVal = insights.data.find((i: any) => i.name === 'reach')?.values[0]?.value
+                                const playsVal = insights.data.find((i: any) => i.name === 'plays')?.values[0]?.value
                                 const impVal = insights.data.find((i: any) => i.name === 'impressions')?.values[0]?.value
-                                if (reachVal !== undefined) reach = reachVal
+
+                                // Prefer plays for "Views" if available (common for Reels), otherwise use reach
+                                if (playsVal !== undefined) reach = playsVal
+                                else if (reachVal !== undefined) reach = reachVal
+
                                 if (impVal !== undefined) impressions = impVal
                             }
                         } catch (e) {
