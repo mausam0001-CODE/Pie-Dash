@@ -170,7 +170,14 @@ serve(async (req) => {
                                 created_at: c.timestamp
                             }))
 
-                            await supabase.from('interactions').upsert(interactionsToInsert, { onConflict: 'social_account_id,external_id' })
+                            const { error: interactError } = await supabase.from('interactions').upsert(interactionsToInsert, { onConflict: 'social_account_id,external_id' })
+
+                            // Fallback if external_id doesn't exist
+                            if (interactError && interactError.code === '42703') {
+                                console.log('external_id missing, falling back to simple insert')
+                                const fallbackData = interactionsToInsert.map(({ external_id, ...rest }) => rest)
+                                await supabase.from('interactions').insert(fallbackData)
+                            }
                         }
                     } catch (e) {
                         console.error(`Failed to sync comments for post ${mediaPost.id}:`, e)

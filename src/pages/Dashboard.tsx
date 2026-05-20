@@ -13,7 +13,7 @@ import {
     BarChart, Bar, Cell, PieChart, Pie, RadialBarChart, RadialBar, Legend
 } from 'recharts';
 import { PostDrawer } from '../components/PostDrawer';
-import { PostBuilder } from '../components/PostBuilder';
+import { useUI } from '../context/UIContext';
 
 // ── Platform colour map ────────────────────────────────────────────────
 const PLATFORM_META: Record<string, { color: string; bg: string; icon: any; label: string }> = {
@@ -43,8 +43,8 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 export const Dashboard = () => {
     const { activeAccount, accounts } = useAccountContext();
     const { data: posts = [], isLoading } = usePosts();
+    const { openBuilder } = useUI();
     const [selectedPost, setSelectedPost] = React.useState<any>(null);
-    const [isEditingPost, setIsEditingPost] = React.useState(false);
     const [chartPeriod, setChartPeriod] = React.useState<'7d' | '30d'>('7d');
 
     // ── Derived analytics ────────────────────────────────────────────
@@ -589,13 +589,10 @@ export const Dashboard = () => {
                 <PostDrawer
                     post={selectedPost}
                     onClose={() => setSelectedPost(null)}
-                    onEdit={() => setIsEditingPost(true)}
-                />
-            )}
-            {isEditingPost && selectedPost && (
-                <PostBuilder
-                    onClose={() => { setIsEditingPost(false); setSelectedPost(null); }}
-                    initialReel={selectedPost}
+                    onEdit={(post) => {
+                        setSelectedPost(null);
+                        openBuilder(post);
+                    }}
                 />
             )}
         </div>

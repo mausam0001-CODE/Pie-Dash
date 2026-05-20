@@ -226,9 +226,7 @@ export const PostBuilder = ({ onClose, initialReel }: PostBuilderProps) => {
     };
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden font-sans">
-            {/* Backdrop */}
-            <div className="absolute inset-0 bg-[#0f172a]/80 backdrop-blur-3xl animate-in fade-in duration-700" onClick={handleClose} />
+        <div className="h-full flex flex-col overflow-hidden font-sans animate-in fade-in duration-500">
 
             {/* Toast Container */}
             <div className="fixed top-8 left-1/2 -translate-x-1/2 z-[200] flex flex-col gap-3 w-full max-w-md pointer-events-none">
@@ -267,7 +265,7 @@ export const PostBuilder = ({ onClose, initialReel }: PostBuilderProps) => {
             )}
 
             {/* Main Builder UI */}
-            <div className="relative w-full h-full max-w-[1400px] lg:h-[92vh] lg:rounded-[4rem] bg-[#f7f9fb] shadow-[0_0_100px_rgba(0,0,0,0.2)] flex flex-col overflow-hidden ring-1 ring-white/20 animate-in slide-in-from-bottom-8 duration-700">
+            <div className="relative w-full flex-1 bg-[#f7f9fb] flex flex-col overflow-hidden">
                 {/* Header (Bento Style) */}
                 <div className="p-8 border-b border-slate-200/50 bg-white/50 backdrop-blur-md flex items-center justify-between shrink-0">
                     <div className="flex items-center gap-6">
@@ -300,8 +298,8 @@ export const PostBuilder = ({ onClose, initialReel }: PostBuilderProps) => {
                         ))}
                     </div>
 
-                    <button onClick={handleClose} className="w-12 h-12 flex items-center justify-center rounded-2xl bg-white border border-slate-100 text-slate-400 hover:text-slate-900 hover:rotate-90 transition-all shadow-sm">
-                        <X className="w-6 h-6" />
+                    <button onClick={handleClose} className="w-10 h-10 flex items-center justify-center rounded-xl bg-white border border-slate-100 text-slate-400 hover:text-slate-900 hover:rotate-90 transition-all shadow-sm">
+                        <X className="w-5 h-5" />
                     </button>
                 </div>
 

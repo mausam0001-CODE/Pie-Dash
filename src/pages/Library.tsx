@@ -8,6 +8,7 @@ import { Film, Tag, Folder, X, ExternalLink, Search, ChevronRight, Plus, Loader2
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabase';
 import { useNotification } from '../context/NotificationContext';
+import { useUI } from '../context/UIContext';
 
 // ── Predefined smart folders (tags → groups) ──────────────────────────
 const DEFAULT_SMART_FOLDERS: any[] = [];
@@ -45,7 +46,7 @@ export const Library = () => {
     const { data: posts = [], isLoading } = usePosts(statusFilter);
 
     const [selectedPost, setSelectedPost] = useState<any>(null);
-    const [isBuilderOpen, setIsBuilderOpen] = useState(false);
+    const { openBuilder } = useUI();
     const [activeTag, setActiveTag] = useState<string | null>(null);
     const [activeFolder, setActiveFolder] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
@@ -529,11 +530,11 @@ export const Library = () => {
                 <PostDrawer
                     post={selectedPost}
                     onClose={() => setSelectedPost(null)}
-                    onEdit={() => { setSelectedPost(null); setIsBuilderOpen(true); }}
+                    onEdit={(post) => {
+                        setSelectedPost(null);
+                        openBuilder(post);
+                    }}
                 />
-            )}
-            {isBuilderOpen && (
-                <PostBuilder onClose={() => setIsBuilderOpen(false)} initialReel={selectedPost} />
             )}
         </div>
     );

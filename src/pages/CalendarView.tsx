@@ -17,11 +17,13 @@ import {
     eachDayOfInterval
 } from 'date-fns';
 
+import { useUI } from '../context/UIContext';
+
 export const CalendarView = () => {
     const [currentDate, setCurrentDate] = React.useState(new Date());
     const { data: posts = [], isLoading } = usePosts();
+    const { openBuilder } = useUI();
     const [selectedReel, setSelectedReel] = React.useState<any | null>(null);
-    const [isBuildingPost, setIsBuildingPost] = React.useState(false);
 
     const monthStart = startOfMonth(currentDate);
     const monthEnd = endOfMonth(monthStart);
@@ -57,7 +59,7 @@ export const CalendarView = () => {
                         <button onClick={nextMonth} className="p-2 hover:bg-slate-50 rounded-xl text-slate-500 transition-all"><ChevronRight className="w-5 h-5" /></button>
                     </div>
                     <button
-                        onClick={() => setIsBuildingPost(true)}
+                        onClick={() => openBuilder()}
                         className="bg-teal-500 hover:bg-teal-600 text-white px-5 py-3 rounded-2xl text-xs font-black shadow-lg shadow-teal-500/20 transition-all flex items-center gap-2"
                     >
                         <Plus className="w-4 h-4" /> New Post
@@ -86,7 +88,7 @@ export const CalendarView = () => {
                                             </span>
                                             {isCurrentMonth && (
                                                 <button
-                                                    onClick={() => setIsBuildingPost(true)}
+                                                    onClick={() => openBuilder()}
                                                     className="opacity-0 group-hover:opacity-100 p-1.5 bg-teal-500 text-white rounded-lg hover:bg-teal-600 transition-all shadow-sm"
                                                 >
                                                     <Plus className="w-3.5 h-3.5" />
@@ -122,14 +124,8 @@ export const CalendarView = () => {
                     onClose={() => setSelectedReel(null)}
                     onEdit={(post) => {
                         setSelectedReel(null);
-                        setIsBuildingPost(true);
+                        openBuilder(post);
                     }}
-                />
-            )}
-            {isBuildingPost && (
-                <PostBuilder
-                    onClose={() => setIsBuildingPost(false)}
-                    initialReel={selectedReel}
                 />
             )}
         </div>

@@ -27,11 +27,13 @@ const columns = [
     { id: 'Failed', title: 'Blocked', icon: AlertCircle, color: 'text-rose-500', bg: 'bg-rose-50' },
 ];
 
+import { useUI } from '../context/UIContext';
+
 export const Workflow = () => {
     const { data: posts = [], isLoading } = usePosts();
     const queryClient = useQueryClient();
+    const { openBuilder } = useUI();
     const [selectedPost, setSelectedPost] = useState<any>(null);
-    const [isBuildingPost, setIsBuildingPost] = useState(false);
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
@@ -118,7 +120,7 @@ export const Workflow = () => {
 
                                         {column.id === 'Draft' && (
                                             <button
-                                                onClick={() => setIsBuildingPost(true)}
+                                                onClick={() => openBuilder()}
                                                 className="w-full py-3 md:py-4 rounded-xl md:rounded-2xl border-2 border-dashed border-slate-200 text-slate-400 hover:text-slate-600 hover:bg-white hover:border-slate-300 transition-all flex items-center justify-center gap-2 group shrink-0"
                                             >
                                                 <Plus className="w-3.5 h-3.5 md:w-4 md:h-4 group-hover:scale-110 transition-transform" />
@@ -138,18 +140,9 @@ export const Workflow = () => {
                     post={selectedPost}
                     onClose={() => setSelectedPost(null)}
                     onEdit={(post: any) => {
-                        setIsBuildingPost(true);
-                    }}
-                />
-            )}
-
-            {isBuildingPost && (
-                <PostBuilder
-                    onClose={() => {
-                        setIsBuildingPost(false);
+                        openBuilder(post);
                         setSelectedPost(null);
                     }}
-                    initialReel={selectedPost}
                 />
             )}
         </DndContext>
