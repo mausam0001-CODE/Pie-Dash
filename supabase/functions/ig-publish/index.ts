@@ -108,7 +108,12 @@ serve(async (req) => {
 
         // If it's a video, update status and return early for client-side polling
         if (isVideo) {
-            await supabase.from('posts').update({ status: 'Processing' }).eq('id', postId);
+            // CRITICAL: We MUST save the containerData.id to the database 
+            // so the status bar can find it if the page is refreshed!
+            await supabase.from('posts').update({
+                status: 'Processing',
+                container_id: containerData.id
+            }).eq('id', postId);
 
             return new Response(JSON.stringify({
                 success: true,
