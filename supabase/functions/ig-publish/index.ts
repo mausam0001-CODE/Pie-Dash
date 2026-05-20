@@ -134,16 +134,18 @@ serve(async (req) => {
 
         // 5. For videos: wait for processing to finish
         if (isVideo) {
-            console.log('Waiting for video processing...')
-            for (let i = 0; i < 20; i++) {
-                await new Promise(r => setTimeout(r, 3000));
+            console.log('Waiting for video processing (checking every 10s, up to 5 mins)...')
+            for (let i = 0; i < 30; i++) {
+                await new Promise(r => setTimeout(r, 10000)); // Check every 10 seconds
                 const resp = await fetch(`https://${apiHost}/${v}/${containerData.id}?fields=status_code,status`, {
                     headers: { 'Authorization': `Bearer ${account.access_token}` }
                 });
                 const data = await resp.json();
+                console.log(`Video Status [Check ${i + 1}/30]:`, data.status_code);
+
                 if (data.status_code === 'FINISHED') break;
-                if (data.status_code === 'ERROR') throw new Error(`Video processing failed: ${data.status_code}`);
-                if (i === 19) throw new Error('Video processing timed out');
+                if (data.status_code === 'ERROR') throw new Error(`Video processing failed: ${data.status_code}. Detail: ${data.status || 'unknown'}`);
+                if (i === 29) throw new Error('Video processing timed out after 5 minutes. The Reel might still be processing on Instagram\'s end.');
             }
         }
 
