@@ -18,7 +18,7 @@ export function useAccounts() {
             const { data, error } = await supabase
                 .from('social_accounts')
                 .select('id, platform, username, avatar_url')
-                .order('created_at', { ascending: true });
+                .order('created_at', { ascending: false });
 
             if (error) throw error;
             return data as SocialAccount[];

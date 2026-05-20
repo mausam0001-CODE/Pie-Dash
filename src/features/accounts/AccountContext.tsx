@@ -17,7 +17,7 @@ export const AccountProvider = ({ children }: { children: React.ReactNode }) => 
     );
 
     // MULTI-ACCOUNT IMPROVEMENT: Auto-switch to newly connected accounts
-    const [prevAccountCount, setPrevAccountCount] = useState(accounts.length);
+    const [prevAccountCount, setPrevAccountCount] = useState<number | null>(null);
 
     const switchAccount = (id: string) => {
         setActiveAccountId(id);
@@ -25,22 +25,31 @@ export const AccountProvider = ({ children }: { children: React.ReactNode }) => 
     };
 
     useEffect(() => {
-        // If a new account was just added, switch to it immediately
-        if (accounts.length > prevAccountCount) {
-            // Find the one that wasn't there before
-            // useAccounts orders by created_at desc, so accounts[0] is most recent
+        // Skip logic if accounts are still loading for the very first time
+        if (isLoading) return;
+
+        // If a new account was just added (not the initial load), switch to it
+        if (prevAccountCount !== null && accounts.length > prevAccountCount) {
+            // Since useAccounts now orders by descending, accounts[0] is the newest
             const newestAccount = accounts[0];
             if (newestAccount && newestAccount.id !== activeAccountId) {
                 switchAccount(newestAccount.id);
             }
         }
+
+        // Update the reference count
         setPrevAccountCount(accounts.length);
 
+        // Standard default: if no account is selected but we have accounts, pick the first one
         if (!activeAccountId && accounts.length > 0) {
             setActiveAccountId(accounts[0].id);
         }
-    }, [accounts.length, activeAccountId, prevAccountCount]);
+    }, [accounts, isLoading, activeAccountId, prevAccountCount]);
 
+    // Priority: 
+    // 1. Valid account matching activeAccountId
+    // 2. Previously selected account from localStorage (handled by initial state + find)
+    // 3. Fallback to first account if nothing matches
     const activeAccount = accounts.find(a => a.id === activeAccountId) || accounts[0] || null;
 
     return (
