@@ -6,6 +6,7 @@ export interface AccountMetric {
     id: string;
     social_account_id: string;
     follower_count: number;
+    following_count?: number; // Added for following count support
     month: string;
 }
 
