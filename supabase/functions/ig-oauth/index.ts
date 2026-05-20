@@ -53,15 +53,15 @@ serve(async (req) => {
         // PATH A: Instagram Login (graph.instagram.com) — No Facebook Page
         // ---------------------------------------------------------------
         if (loginMethod === 'ig') {
-            console.log('Using Instagram Login API (no Facebook Page required)')
-            console.log('Exchange Settings:', {
-                clientId: IG_APP_ID,
-                redirectUri: REDIRECT_URI,
-                codePrefix: code.substring(0, 10) + '...'
-            })
+            console.log('Using Instagram Login for Business API (Instagram Use Case)')
+            const v = 'v21.0'
 
-            // 1. Exchange code for short-lived token via Instagram
-            const shortResp = await fetch('https://api.instagram.com/oauth/access_token', {
+            // 1. Exchange code for short-lived token via Graph API (New standard for Instagram Use Case)
+            console.log('Exchanging code for short-lived token via Graph API...')
+            let shortToken = ''
+            let igUserId = ''
+
+            const shortResp = await fetch(`https://graph.facebook.com/${v}/oauth/access_token`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: new URLSearchParams({
@@ -72,21 +72,35 @@ serve(async (req) => {
                     code: code,
                 }).toString()
             })
+
             const shortData = await shortResp.json()
-            console.log('IG Short Token Resp:', JSON.stringify(shortData))
+            console.log('IG Short Token (Graph) Resp:', JSON.stringify(shortData))
 
-            if (shortData.error_type || shortData.error_message || shortData.error) {
-                const errMsg = shortData.error_message || shortData.error?.message || 'Failed to exchange code'
-                throw new Error(`${errMsg} (Check if IG_APP_SECRET matches the Instagram App ID ${IG_APP_ID})`)
+            if (shortData.error) {
+                console.warn('Graph API short-lived exchange failed, trying legacy api.instagram.com...', shortData.error.message)
+                const legacyResp = await fetch('https://api.instagram.com/oauth/access_token', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams({
+                        client_id: IG_APP_ID!,
+                        client_secret: IG_APP_SECRET!,
+                        grant_type: 'authorization_code',
+                        redirect_uri: REDIRECT_URI,
+                        code: code,
+                    }).toString()
+                })
+                const legacyData = await legacyResp.json()
+                console.log('IG Short Token (Legacy) Resp:', JSON.stringify(legacyData))
+                if (legacyData.error || legacyData.error_message) throw new Error(legacyData.error_message || legacyData.error?.message || 'Exchange failed')
+                shortToken = legacyData.access_token
+                igUserId = legacyData.user_id
+            } else {
+                shortToken = shortData.access_token
+                igUserId = shortData.user_id
             }
-            const shortToken = shortData.access_token
-            const igUserId = shortData.user_id
 
-            // 2. Exchange for long-lived token
-            // CRITICAL: Use graph.facebook.com for the exchange to get a Professional/Graph token 
-            // if the app has the "Instagram Use Case" (Business Login)
+            // 2. Exchange for long-lived token via Graph API
             console.log('Exchanging for long-lived token via Graph API...')
-            const v = 'v21.0'
             const longResp = await fetch(
                 `https://graph.facebook.com/${v}/access_token?grant_type=ig_exchange_token&client_secret=${IG_APP_SECRET}&access_token=${shortToken}`
             )
@@ -108,16 +122,28 @@ serve(async (req) => {
 
             console.log(`Final Token Prefix: ${accessToken.substring(0, 8)}... (len: ${accessToken.length})`)
 
-            // 3. Get Instagram profile using graph.instagram.com
+            // 3. Get Instagram profile using Graph API
             const profResp = await fetch(
-                `https://graph.instagram.com/v25.0/me?fields=id,username,profile_picture_url,followers_count&access_token=${accessToken}`
+                `https://graph.facebook.com/${v}/me?fields=id,username,profile_picture_url,followers_count&access_token=${accessToken}`
             )
             const profData = await profResp.json()
-            console.log('IG Profile:', JSON.stringify(profData))
-            if (profData.error) throw new Error(profData.error.message)
-            accountId = profData.id || String(igUserId)
-            username = profData.username || 'instagram_user'
-            avatarUrl = profData.profile_picture_url || ''
+            console.log('IG Profile (Graph):', JSON.stringify(profData))
+
+            if (profData.error) {
+                console.warn('Profile fetch via Graph failed, falling back to graph.instagram.com...', profData.error.message)
+                const fallbackProfResp = await fetch(
+                    `https://graph.instagram.com/${v}/me?fields=id,username,profile_picture_url,followers_count&access_token=${accessToken}`
+                )
+                const fallbackProfData = await fallbackProfResp.json()
+                if (fallbackProfData.error) throw new Error(fallbackProfData.error.message)
+                accountId = fallbackProfData.id || String(igUserId)
+                username = fallbackProfData.username || 'instagram_user'
+                avatarUrl = fallbackProfData.profile_picture_url || ''
+            } else {
+                accountId = profData.id || String(igUserId)
+                username = profData.username || 'instagram_user'
+                avatarUrl = profData.profile_picture_url || ''
+            }
 
             // 4. Save account to DB
             const supabase = createClient(SUPABASE_URL, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '')
