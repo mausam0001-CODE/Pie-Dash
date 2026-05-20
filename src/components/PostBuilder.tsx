@@ -979,44 +979,6 @@ const PublishingOverlay = ({ posts: initialPosts, onClose }: { posts: any[], onC
         if (allFinished && posts.length > 0) {
             setIsComplete(true);
         }
-
-        // --- NEW: Polling logic for Processing posts ---
-        posts.forEach(async (post) => {
-            if (post.status === 'Processing' && post.container_id && !post.isPolling) {
-                post.isPolling = true; // Primitive guard
-                console.log(`Starting client-side poll for container: ${post.container_id}`);
-
-                let finished = false;
-                let attempts = 0;
-                while (!finished && attempts < 60) { // Max 10 mins
-                    attempts++;
-                    await new Promise(r => setTimeout(r, 10000));
-
-                    try {
-                        const { data, error } = await supabase.functions.invoke('ig-publish', {
-                            body: { action: 'check', containerId: post.container_id, postId: post.id }
-                        });
-
-                        if (error) throw error;
-
-                        if (data.status_code === 'FINISHED') {
-                            finished = true;
-                            // Trigger final publish
-                            await supabase.functions.invoke('ig-publish', {
-                                body: { action: 'publish', containerId: post.container_id, postId: post.id }
-                            });
-                        } else if (data.status_code === 'ERROR') {
-                            finished = true;
-                            // The function will update the DB status to Failed during publish if we catch it, 
-                            // but here we might need to manually trigger failure if the check failed.
-                        }
-                    } catch (err) {
-                        console.error('Polling error:', err);
-                        finished = true;
-                    }
-                }
-            }
-        });
     }, [posts]);
 
     const overallProgress = (posts.filter(p => p.status === 'Published').length / posts.length) * 100;

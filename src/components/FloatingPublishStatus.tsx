@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { Loader2, Check, X, Instagram, Globe } from 'lucide-react';
@@ -8,6 +8,7 @@ export const FloatingPublishStatus = () => {
     const { session } = useAuth();
     const { notify } = useNotification();
     const [activePosts, setActivePosts] = useState<any[]>([]);
+    const pollingRefs = useRef<Set<string>>(new Set());
 
     useEffect(() => {
         if (!session?.user?.id) return;
@@ -68,6 +69,58 @@ export const FloatingPublishStatus = () => {
             supabase.removeChannel(channel);
         };
     }, [session?.user?.id, notify]);
+
+    // ── NEW: Polling loop for active posts ───────────────────────────
+    useEffect(() => {
+        activePosts.forEach(async (post) => {
+            // Only start polling if it's Processing and we haven't started yet
+            if (post.status === 'Processing' && post.container_id && !pollingRefs.current.has(post.id)) {
+                pollingRefs.current.add(post.id);
+                console.log(`[Global Polling] Starting poll for post: ${post.title} (${post.id})`);
+
+                let finished = false;
+                let attempts = 0;
+                const maxAttempts = 60; // 10 minutes (10s intervals)
+
+                while (!finished && attempts < maxAttempts) {
+                    attempts++;
+                    await new Promise(r => setTimeout(r, 10000));
+
+                    try {
+                        // 1. Check status
+                        const { data: checkData, error: checkError } = await supabase.functions.invoke('ig-publish', {
+                            body: { action: 'check', containerId: post.container_id, postId: post.id }
+                        });
+
+                        if (checkError) throw checkError;
+
+                        if (checkData.status_code === 'FINISHED') {
+                            finished = true;
+                            console.log(`[Global Polling] Post ${post.id} ready! Triggering publish...`);
+
+                            // 2. Trigger final publish
+                            const { error: publishError } = await supabase.functions.invoke('ig-publish', {
+                                body: { action: 'publish', containerId: post.container_id, postId: post.id }
+                            });
+
+                            if (publishError) throw publishError;
+                        } else if (checkData.status_code === 'ERROR') {
+                            finished = true;
+                            console.error(`[Global Polling] Container error for post ${post.id}`);
+                        }
+                    } catch (err: any) {
+                        console.error(`[Global Polling] Error:`, err);
+                        finished = true;
+                    }
+                }
+
+                // Cleanup ref after loop ends (either success or failure)
+                // Note: The real-time listener will eventually remove the post from activePosts 
+                // when the status in DB changes to Published or Failed.
+                pollingRefs.current.delete(post.id);
+            }
+        });
+    }, [activePosts]);
 
     if (activePosts.length === 0) return null;
 
