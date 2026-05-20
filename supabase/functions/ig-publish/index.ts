@@ -70,17 +70,19 @@ serve(async (req) => {
         // Tokens from "Instagram Login" (modern) often need graph.instagram.com
         // Tokens from "Facebook Login" (legacy) usually need graph.facebook.com
         const getApiHost = (token: string) => {
-            if (token.startsWith('IGQ')) return 'graph.instagram.com'; // Basic Display (not for publishing, but for sync)
-            // Default to facebook.com as it's the standard for professional accounts
+            if (token && token.startsWith('IGQ')) return 'graph.instagram.com';
             return 'graph.facebook.com';
         }
 
-        let apiHost = getApiHost(account.access_token);
+        const apiHost = getApiHost(account.access_token);
+        const tokenDisplay = account.access_token ? `${account.access_token.substring(0, 8)}... (len: ${account.access_token.length})` : 'MISSING';
+        console.log(`Using API Host: ${apiHost} with token prefix: ${tokenDisplay}`);
+
+        const v = 'v21.0';
 
         const createContainer = async (host: string) => {
             const containerBody: Record<string, string> = {
                 caption,
-                access_token: account.access_token,
             }
 
             if (isVideo) {
@@ -90,13 +92,24 @@ serve(async (req) => {
                 containerBody.image_url = mediaUrl
             }
 
-            console.log(`Creating media container on ${host} for IG user:`, igUserId)
-            const resp = await fetch(`https://${host}/v18.0/${igUserId}/media`, {
+            console.log(`Creating media container on ${host} [${v}] for IG user:`, igUserId)
+
+            // PASS TOKEN IN URL for maximum compatibility with code 190 issues
+            const url = `https://${host}/${v}/${igUserId}/media?access_token=${account.access_token}`;
+
+            const resp = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(containerBody)
             })
-            return await resp.json()
+
+            const respText = await resp.text();
+            try {
+                return JSON.parse(respText);
+            } catch (e) {
+                console.error(`Failed to parse IG response as JSON: ${respText.substring(0, 500)}`);
+                throw new Error(`Invalid IG API response: ${respText.substring(0, 100)}`);
+            }
         }
 
         // 4. Create Media Container with Fallback logic
@@ -108,24 +121,27 @@ serve(async (req) => {
             const fallbackData = await createContainer('graph.instagram.com')
             if (!fallbackData.error) {
                 containerData = fallbackData
-                apiHost = 'graph.instagram.com'
                 console.log('Fallback successful! Using graph.instagram.com for this account.')
+            } else {
+                console.error('Fallback also failed:', fallbackData.error);
             }
         }
 
-        console.log('Container response:', containerData)
+        console.log('Final Container response:', containerData)
 
-        if (containerData.error) throw new Error(`IG container error: ${containerData.error.message} (code ${containerData.error.code})`)
+        if (containerData.error) {
+            const msg = containerData.error.error_user_msg || containerData.error.message;
+            throw new Error(`IG container error: ${msg} (code ${containerData.error.code})`)
+        }
         if (!containerData.id) throw new Error('No container ID returned from Instagram')
 
         // 5. For videos: wait for processing to finish
         if (isVideo) {
             console.log('Waiting for video container to process...')
-            // waitForContainer needs to use the same host
             const waitForContainerWithHost = async (containerId: string) => {
                 for (let i = 0; i < 20; i++) {
                     await new Promise(r => setTimeout(r, 3000));
-                    const resp = await fetch(`https://${apiHost}/v18.0/${containerId}?fields=status_code,status&access_token=${account.access_token}`);
+                    const resp = await fetch(`https://${apiHost}/${v}/${containerId}?fields=status_code,status&access_token=${account.access_token}`);
                     const data = await resp.json();
                     console.log(`Container status check ${i + 1}:`, data.status_code);
                     if (data.status_code === 'FINISHED') return;
@@ -139,21 +155,19 @@ serve(async (req) => {
         }
 
         // 6. Publish the container
-        console.log(`Publishing container on ${apiHost}:`, containerData.id)
-        const publishResp = await fetch(`https://${apiHost}/v18.0/${igUserId}/media_publish`, {
+        console.log(`Publishing container:`, containerData.id)
+        const publishUrl = `https://${apiHost}/${v}/${igUserId}/media_publish?access_token=${account.access_token}`;
+        const publishResp = await fetch(publishUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                creation_id: containerData.id,
-                access_token: account.access_token
-            })
+            body: JSON.stringify({ creation_id: containerData.id })
         })
         const publishData = await publishResp.json()
         console.log('Publish response:', publishData)
 
         if (publishData.error) throw new Error(`IG publish error: ${publishData.error.message} (code ${publishData.error.code})`)
 
-        // 6. Update post to Published with the external IG media ID
+        // 7. Update post to Published with the external IG media ID
         await supabase.from('posts').update({
             status: 'Published',
             external_id: publishData.id,
