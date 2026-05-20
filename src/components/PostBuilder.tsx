@@ -192,13 +192,25 @@ export const PostBuilder = ({ onClose, initialReel }: PostBuilderProps) => {
 
             if (publishNow && postIds.length > 0) {
                 setPublishingPosts(posts);
-                setShowPublishingOverlay(true);
+                const promises = postIds.map(async (id) => {
+                    try {
+                        const { data, error } = await supabase.functions.invoke('ig-publish', {
+                            body: { postId: id }
+                        });
+                        if (error) throw error;
+                        return { id, ...data };
+                    } catch (err) {
+                        console.error('Invoke error:', err);
+                        return { id, success: false, error: err };
+                    }
+                });
 
-                for (const id of postIds) {
-                    supabase.functions.invoke('ig-publish', {
-                        body: { postId: id }
-                    }).catch((err: any) => console.error('Silent invoke error:', err));
-                }
+                const results = await Promise.all(promises);
+                // Update publishingPosts with container status if needed
+                setPublishingPosts(current => current.map(p => {
+                    const res = results.find(r => r.id === p.id);
+                    return res ? { ...p, ...res } : p;
+                }));
             } else {
                 addToast(`Successfully scheduled for ${selectedAccounts.length} channel${selectedAccounts.length > 1 ? 's' : ''}!`, 'success');
                 setIsDirty(false);
@@ -967,6 +979,44 @@ const PublishingOverlay = ({ posts: initialPosts, onClose }: { posts: any[], onC
         if (allFinished && posts.length > 0) {
             setIsComplete(true);
         }
+
+        // --- NEW: Polling logic for Processing posts ---
+        posts.forEach(async (post) => {
+            if (post.status === 'Processing' && post.container_id && !post.isPolling) {
+                post.isPolling = true; // Primitive guard
+                console.log(`Starting client-side poll for container: ${post.container_id}`);
+
+                let finished = false;
+                let attempts = 0;
+                while (!finished && attempts < 60) { // Max 10 mins
+                    attempts++;
+                    await new Promise(r => setTimeout(r, 10000));
+
+                    try {
+                        const { data, error } = await supabase.functions.invoke('ig-publish', {
+                            body: { action: 'check', containerId: post.container_id, postId: post.id }
+                        });
+
+                        if (error) throw error;
+
+                        if (data.status_code === 'FINISHED') {
+                            finished = true;
+                            // Trigger final publish
+                            await supabase.functions.invoke('ig-publish', {
+                                body: { action: 'publish', containerId: post.container_id, postId: post.id }
+                            });
+                        } else if (data.status_code === 'ERROR') {
+                            finished = true;
+                            // The function will update the DB status to Failed during publish if we catch it, 
+                            // but here we might need to manually trigger failure if the check failed.
+                        }
+                    } catch (err) {
+                        console.error('Polling error:', err);
+                        finished = true;
+                    }
+                }
+            }
+        });
     }, [posts]);
 
     const overallProgress = (posts.filter(p => p.status === 'Published').length / posts.length) * 100;
