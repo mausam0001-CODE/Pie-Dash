@@ -294,12 +294,23 @@ serve(async (req) => {
                 if (targetPlatform === 'instagram') {
                     const igMetricsResp = await fetch(`https://graph.facebook.com/v25.0/${accountId}?fields=followers_count,follows_count&access_token=${accessToken}`)
                     const igMetrics = await igMetricsResp.json()
-                    await supabase.from('account_metrics').upsert({
+
+                    // Try to upsert with following_count first, fallback to followers only if column doesn't exist
+                    const metricData: any = {
                         social_account_id: savedAccount.id,
                         follower_count: igMetrics.followers_count || 0,
-                        following_count: igMetrics.follows_count || 0,
                         month: new Date().toISOString().substring(0, 7) + '-01'
+                    }
+
+                    const { error: upsertError } = await supabase.from('account_metrics').upsert({
+                        ...metricData,
+                        following_count: igMetrics.follows_count || 0
                     })
+
+                    if (upsertError && upsertError.code === '42703') {
+                        // Fallback if column missing
+                        await supabase.from('account_metrics').upsert(metricData)
+                    }
                     const mediaResp = await fetch(`https://graph.facebook.com/v25.0/${accountId}/media?fields=id,caption,media_type,media_url,thumbnail_url,timestamp,like_count,comments_count,permalink&limit=100&access_token=${accessToken}`)
                     const mediaData = await mediaResp.json()
                     if (mediaData.data) {
