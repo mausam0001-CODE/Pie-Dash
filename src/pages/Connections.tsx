@@ -98,7 +98,8 @@ export const Connections = () => {
             // NEW: Instagram Login — no Facebook Page required!
             // USES THE DEDICATED INSTAGRAM APP ID
             const scope = 'instagram_business_basic,instagram_business_content_publish,instagram_business_manage_messages,instagram_business_manage_comments';
-            oauthUrl = `https://api.instagram.com/oauth/authorize?client_id=${igAppId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}&response_type=code&state=${state}`;
+            // Use www.instagram.com for the new Instagram Login flow as per Meta docs
+            oauthUrl = `https://www.instagram.com/oauth/authorize?client_id=${igAppId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}&response_type=code&state=${state}`;
         } else {
             // LEGACY: Facebook Login — requires a Facebook Page linked to Instagram
             // USES THE STANDARD FACEBOOK APP ID
