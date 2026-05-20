@@ -105,11 +105,14 @@ serve(async (req) => {
 
             // 4. Save account to DB
             const supabase = createClient(SUPABASE_URL, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '')
+
+            // MULTI-ACCOUNT FIX: Check by account_id to allow multiple IG accounts
             const { data: existingAccount } = await supabase
                 .from('social_accounts')
                 .select('id')
                 .eq('user_id', userId)
                 .eq('platform', 'instagram')
+                .eq('account_id', String(accountId))
                 .maybeSingle()
 
             const accountPayload = {
@@ -142,7 +145,7 @@ serve(async (req) => {
                 }
                 // Get recent media
                 const mediaResp = await fetch(
-                    `https://graph.instagram.com/v25.0/me/media?fields=id,caption,media_url,thumbnail_url,timestamp,like_count,comments_count&limit=10&access_token=${accessToken}`
+                    `https://graph.instagram.com/v25.0/me/media?fields=id,caption,media_type,media_url,thumbnail_url,timestamp,like_count,comments_count,permalink&limit=100&access_token=${accessToken}`
                 )
                 const mediaData = await mediaResp.json()
                 if (mediaData.data?.length) {
@@ -153,10 +156,13 @@ serve(async (req) => {
                         title: m.caption?.substring(0, 50) || 'Untitled Post',
                         caption: m.caption || '',
                         media_url: m.media_url || m.thumbnail_url,
+                        media_type: m.media_type,
                         platforms: ['instagram'],
                         status: 'Published',
                         like_count: m.like_count || 0,
+                        comments_count: m.comments_count || 0,
                         scheduled_at: m.timestamp,
+                        permalink: m.permalink,
                         created_at: m.timestamp
                     }))
 
@@ -246,11 +252,14 @@ serve(async (req) => {
 
             // Save to DB
             const supabase = createClient(SUPABASE_URL, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '')
+
+            // MULTI-ACCOUNT FIX: Check by account_id to allow multiple accounts on same platform
             const { data: existingAccount } = await supabase
                 .from('social_accounts')
                 .select('id')
                 .eq('user_id', userId)
                 .eq('platform', targetPlatform)
+                .eq('account_id', String(accountId))
                 .maybeSingle()
 
             const accountPayload = {
@@ -284,7 +293,7 @@ serve(async (req) => {
                             month: new Date().toISOString().substring(0, 7) + '-01'
                         })
                     }
-                    const mediaResp = await fetch(`https://graph.facebook.com/v25.0/${accountId}/media?fields=id,caption,media_url,thumbnail_url,timestamp,like_count,comments_count&limit=10&access_token=${accessToken}`)
+                    const mediaResp = await fetch(`https://graph.facebook.com/v25.0/${accountId}/media?fields=id,caption,media_type,media_url,thumbnail_url,timestamp,like_count,comments_count,permalink&limit=100&access_token=${accessToken}`)
                     const mediaData = await mediaResp.json()
                     if (mediaData.data) {
                         const postsToInsert = mediaData.data.map((m: any) => ({
@@ -294,10 +303,13 @@ serve(async (req) => {
                             title: m.caption?.substring(0, 50) || 'Untitled Post',
                             caption: m.caption || '',
                             media_url: m.media_url || m.thumbnail_url,
+                            media_type: m.media_type,
                             platforms: [targetPlatform],
                             status: 'Published',
                             like_count: m.like_count || 0,
+                            comments_count: m.comments_count || 0,
                             scheduled_at: m.timestamp,
+                            permalink: m.permalink,
                             created_at: m.timestamp
                         }))
 

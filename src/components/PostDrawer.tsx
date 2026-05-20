@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Calendar, Hash, FileText, Smartphone, MessageCircle, Heart, Share2, Trash2, Edit, Instagram, Facebook, Youtube, Globe, ExternalLink } from 'lucide-react';
+import { X, Calendar, Hash, FileText, Smartphone, MessageCircle, Heart, Share2, Trash2, Edit, Instagram, Facebook, Youtube, Globe, ExternalLink, AlertCircle } from 'lucide-react';
 import { usePostMutations } from '../features/posts/usePostMutations';
 
 interface PostDrawerProps {
@@ -34,7 +34,11 @@ export const PostDrawer = ({ post, onClose, onEdit }: PostDrawerProps) => {
         ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
         : post.status === 'Scheduled'
             ? 'bg-teal-50 text-teal-600 border-teal-100'
-            : 'bg-slate-50 text-slate-400 border-slate-100';
+            : post.status === 'Failed'
+                ? 'bg-rose-50 text-rose-600 border-rose-100'
+                : 'bg-slate-50 text-slate-400 border-slate-100';
+
+    const isTokenError = post.error_message?.includes('190') || post.error_message?.toLowerCase().includes('access token');
 
     const getDriveThumbnail = (url: string) => {
         if (!url) return null;
@@ -131,6 +135,38 @@ export const PostDrawer = ({ post, onClose, onEdit }: PostDrawerProps) => {
                             <Smartphone className="w-3.5 h-3.5" /> Mobile Feed Preview
                         </p>
                     </div>
+
+                    {post.status === 'Failed' && (
+                        <div className="bg-rose-50 border border-rose-100 rounded-2xl p-6 space-y-4 animate-in slide-in-from-top-4 duration-500">
+                            <div className="flex items-start gap-3">
+                                <AlertCircle className="w-5 h-5 text-rose-500 mt-0.5 shrink-0" />
+                                <div>
+                                    <h4 className="text-sm font-black text-rose-900 uppercase tracking-tight">Publishing Failed</h4>
+                                    <p className="text-xs font-medium text-rose-600 mt-1 leading-relaxed">
+                                        {post.error_message || 'An unknown error occurred while trying to publish to Instagram.'}
+                                    </p>
+                                </div>
+                            </div>
+                            {isTokenError ? (
+                                <div className="pt-2">
+                                    <button
+                                        onClick={() => window.location.href = '/connections'}
+                                        className="w-full bg-rose-600 text-white py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-rose-700 transition-all shadow-lg shadow-rose-200"
+                                    >
+                                        Reconnect Account
+                                    </button>
+                                    <p className="text-[10px] text-rose-400 text-center mt-3 font-bold">Your Meta access token has expired. A quick reconnect will fix this.</p>
+                                </div>
+                            ) : (
+                                <button
+                                    onClick={() => updatePost.mutate({ id: post.id, updates: { status: 'Draft', error_message: null } })}
+                                    className="w-full bg-slate-900 text-white py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-800 transition-all"
+                                >
+                                    Reset to Draft
+                                </button>
+                            )}
+                        </div>
+                    )}
 
                     <div className="space-y-6 text-sm">
                         <div className="flex items-center justify-between">

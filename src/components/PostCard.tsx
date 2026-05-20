@@ -1,5 +1,6 @@
 import React from 'react';
-import { Share2, Heart, MessageCircle, BarChart2, Calendar, CheckCircle2, Instagram, Facebook, Smartphone, Youtube, Globe } from 'lucide-react';
+import { Share2, Heart, MessageCircle, BarChart2, Calendar, CheckCircle2, Instagram, Facebook, Smartphone, Youtube, Globe, RefreshCcw } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 interface PostCardProps {
     post: any;
@@ -8,6 +9,9 @@ interface PostCardProps {
 }
 
 export const PostCard = ({ post, onClick, mode = 'grid' }: PostCardProps) => {
+    const navigate = useNavigate();
+    const isFailed = post.status?.toLowerCase() === 'failed';
+    const isAuthError = post.error_message?.includes('AUTH_ERROR_190');
     const getDriveThumbnail = (url: string) => {
         if (!url) return null;
         const match = url.match(/[?&]id=([^&]+)/) || url.match(/\/files\/([^?]+)/);
@@ -35,8 +39,8 @@ export const PostCard = ({ post, onClick, mode = 'grid' }: PostCardProps) => {
                 <div className="flex-1 min-w-0 w-full sm:w-auto">
                     <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
                         <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${post.status?.toLowerCase() === 'published' ? 'bg-emerald-50 text-emerald-600' :
-                                post.status?.toLowerCase() === 'failed' ? 'bg-red-50 text-red-600' :
-                                    'bg-orange-50 text-orange-600'
+                            post.status?.toLowerCase() === 'failed' ? 'bg-red-50 text-red-600' :
+                                'bg-orange-50 text-orange-600'
                             }`}>
                             {post.status}
                         </span>
@@ -117,14 +121,28 @@ export const PostCard = ({ post, onClick, mode = 'grid' }: PostCardProps) => {
                 {/* Status Badge */}
                 <div className="absolute top-4 right-4 flex flex-col items-end gap-1">
                     <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest backdrop-blur-md border ${post.status?.toLowerCase() === 'published' ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' :
-                            post.status?.toLowerCase() === 'failed' ? 'bg-red-500/20 text-red-500 border-red-500/30 pt-[5px]' :
-                                'bg-orange-500/20 text-orange-400 border-orange-500/30'
+                        post.status?.toLowerCase() === 'failed' ? 'bg-red-500/20 text-red-500 border-red-500/30 pt-[5px]' :
+                            'bg-orange-500/20 text-orange-400 border-orange-500/30'
                         }`}>
                         {post.status}
                     </span>
-                    {post.status?.toLowerCase() === 'failed' && (
-                        <div className="px-2 py-1 bg-red-500/90 backdrop-blur-md text-white border border-red-500/50 rounded-lg text-[9px] font-bold max-w-[180px] line-clamp-3 text-right shadow-lg leading-tight">
-                            {post.error_message || 'Check Instagram API logs'}
+                    {isFailed && (
+                        <div className="flex flex-col gap-1.5 items-end">
+                            <div className="px-2 py-1 bg-red-500/90 backdrop-blur-md text-white border border-red-500/50 rounded-lg text-[9px] font-bold max-w-[180px] line-clamp-3 text-right shadow-lg leading-tight">
+                                {post.error_message || 'Check Instagram API logs'}
+                            </div>
+                            {isAuthError && (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        navigate('/settings?tab=social');
+                                    }}
+                                    className="bg-white text-red-600 px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest shadow-lg hover:bg-red-50 transition-all flex items-center gap-1.5 border border-red-200"
+                                >
+                                    <RefreshCcw className="w-2.5 h-2.5" />
+                                    Reconnect Account
+                                </button>
+                            )}
                         </div>
                     )}
                 </div>

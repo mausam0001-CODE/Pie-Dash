@@ -16,18 +16,32 @@ export const AccountProvider = ({ children }: { children: React.ReactNode }) => 
         localStorage.getItem('pie_pro_active_account')
     );
 
-    const activeAccount = accounts.find(a => a.id === activeAccountId) || accounts[0] || null;
-
-    useEffect(() => {
-        if (!activeAccountId && accounts.length > 0) {
-            setActiveAccountId(accounts[0].id);
-        }
-    }, [accounts, activeAccountId]);
+    // MULTI-ACCOUNT IMPROVEMENT: Auto-switch to newly connected accounts
+    const [prevAccountCount, setPrevAccountCount] = useState(accounts.length);
 
     const switchAccount = (id: string) => {
         setActiveAccountId(id);
         localStorage.setItem('pie_pro_active_account', id);
     };
+
+    useEffect(() => {
+        // If a new account was just added, switch to it immediately
+        if (accounts.length > prevAccountCount) {
+            // Find the one that wasn't there before
+            // useAccounts orders by created_at desc, so accounts[0] is most recent
+            const newestAccount = accounts[0];
+            if (newestAccount && newestAccount.id !== activeAccountId) {
+                switchAccount(newestAccount.id);
+            }
+        }
+        setPrevAccountCount(accounts.length);
+
+        if (!activeAccountId && accounts.length > 0) {
+            setActiveAccountId(accounts[0].id);
+        }
+    }, [accounts.length, activeAccountId, prevAccountCount]);
+
+    const activeAccount = accounts.find(a => a.id === activeAccountId) || accounts[0] || null;
 
     return (
         <AccountContext.Provider value={{ activeAccount, isLoading, switchAccount, accounts }}>

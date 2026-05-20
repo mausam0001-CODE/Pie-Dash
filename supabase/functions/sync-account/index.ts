@@ -31,20 +31,21 @@ serve(async (req) => {
 
         // 2. Sync Logic
         if (platform === 'instagram') {
-            // Get Follower Count
-            const metricsResponse = await fetch(`https://graph.instagram.com/${metaAccountId}?fields=followers_count&access_token=${access_token}`)
+            // Get Follower/Following Count
+            console.log(`Fetching metrics for account ${metaAccountId}...`)
+            const metricsResponse = await fetch(`https://graph.instagram.com/${metaAccountId}?fields=followers_count,follows_count&access_token=${access_token}`)
             const igMetrics = await metricsResponse.json()
 
             if (igMetrics.error) {
                 console.error('IG Metrics API Error:', igMetrics.error)
-                // We don't fail the whole sync if metrics fail, but we log it
             }
 
-            if (igMetrics.followers_count !== undefined) {
+            if (igMetrics.followers_count !== undefined || igMetrics.follows_count !== undefined) {
                 await supabase.from('account_metrics').upsert({
                     social_account_id: accountId,
                     user_id: user_id,
-                    follower_count: igMetrics.followers_count,
+                    follower_count: igMetrics.followers_count || 0,
+                    following_count: igMetrics.follows_count || 0, // NEW: Track following count
                     month: new Date().toISOString().split('T')[0].substring(0, 7) + '-01'
                 })
             }
@@ -53,7 +54,7 @@ serve(async (req) => {
             console.log(`Syncing IG media for account ${metaAccountId}...`)
 
             // Try Graph API (Professional) first if we have a metaAccountId (which we should for FB login)
-            let mediaUrl = `https://graph.facebook.com/v18.0/${metaAccountId}/media?fields=id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count&limit=50&access_token=${access_token}`
+            let mediaUrl = `https://graph.facebook.com/v18.0/${metaAccountId}/media?fields=id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count&limit=100&access_token=${access_token}`
 
             // If it's a Basic Display token (often starts with IGQ), or if metaAccountId is missing, use Basic API
             if (!metaAccountId || access_token.startsWith('IGQ')) {
@@ -118,6 +119,7 @@ serve(async (req) => {
                         view_count: Math.round(reach),
                         like_count: likes,
                         comments_count: comments,
+                        permalink: m.permalink, // Ensure permalink is synced
                         scheduled_at: m.timestamp,
                         created_at: m.timestamp
                     }

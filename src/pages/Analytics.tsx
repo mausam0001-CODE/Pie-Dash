@@ -37,6 +37,7 @@ export const Analytics = () => {
         return last6Months.map(({ label, date }) => {
             const metricEntry = metrics.find(m => isSameMonth(new Date(m.month), date));
             const followers = metricEntry?.follower_count || 0;
+            const following = metricEntry?.following_count || 0;
 
             // Try to find previous month for badge
             const prevDate = subMonths(date, 1);
@@ -44,7 +45,7 @@ export const Analytics = () => {
             const prevFollowers = prevEntry?.follower_count || followers;
 
             const { pct, up } = momBadge(followers, prevFollowers);
-            return { name: label, followers, momPct: pct, up };
+            return { name: label, followers, following, momPct: pct, up };
         });
     }, [last6Months, metrics]);
 
@@ -105,6 +106,10 @@ export const Analytics = () => {
         {
             label: 'Followers', value: latestMonth.followers.toLocaleString(), icon: Users,
             color: 'text-purple-600', bg: 'bg-purple-50', badge: followerMoM.pct, up: followerMoM.up
+        },
+        {
+            label: 'Following', value: latestMonth.following.toLocaleString(), icon: Users,
+            color: 'text-slate-600', bg: 'bg-slate-50', badge: 'Following', up: true
         },
         {
             label: 'Avg. Engagement', value: aggregates.engagement, icon: TrendingUp,

@@ -126,8 +126,14 @@ serve(async (req) => {
         })
 
     } catch (error: any) {
-        const errorMessage = error instanceof Error ? error.message :
+        let errorMessage = error instanceof Error ? error.message :
             (typeof error === 'string' ? error : JSON.stringify(error));
+
+        // Handle Instagram Auth Expiration (Code 190)
+        if (errorMessage.includes('code 190')) {
+            errorMessage = `AUTH_ERROR_190: Your Instagram connection has expired or was revoked. Please go to Settings > Social Accounts and reconnect your account.`;
+        }
+
         console.error('ig-publish error:', errorMessage)
 
         // Try to mark the post as Failed so the user knows

@@ -138,18 +138,26 @@ export const Settings = () => {
 
     const handleSync = async (id: string) => {
         setSyncingId(id);
-        notify('Sync started...', 'info');
+        const toast = notify('Syncing your latest content...', 'info');
         try {
-            const { error } = await supabase.functions.invoke('sync-account', { body: { accountId: id } });
+            const { data, error } = await supabase.functions.invoke('sync-account', {
+                body: { accountId: id }
+            });
+
             if (error) throw error;
+            if (data?.error) throw new Error(data.detail || data.error.message || 'Sync failed');
 
-            // Invalidate queries to force a refresh on the dashboard and settings
-            queryClient.invalidateQueries({ queryKey: ['posts'] });
-            queryClient.invalidateQueries({ queryKey: ['social_accounts'] });
+            // Force immediate cloud-to-local data refresh
+            await Promise.all([
+                queryClient.invalidateQueries({ queryKey: ['posts'] }),
+                queryClient.invalidateQueries({ queryKey: ['social_accounts'] }),
+                queryClient.invalidateQueries({ queryKey: ['analytics'] })
+            ]);
 
-            notify('Sync completed!', 'success');
+            notify('Account synchronized successfully!', 'success');
         } catch (error: any) {
-            notify(`Sync failed: ${error.message}`, 'error');
+            console.error('Sync Error:', error);
+            notify(`Sync failed: ${error.message || 'Unknown error'}`, 'error');
         } finally {
             setSyncingId(null);
         }

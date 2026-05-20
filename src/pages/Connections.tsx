@@ -132,7 +132,7 @@ export const Connections = () => {
 
     const handleSync = async (id: string) => {
         setSyncingId(id);
-        notify('Sync started...', 'info');
+        notify('Syncing your latest content...', 'info');
         try {
             const { data, error } = await supabase.functions.invoke('sync-account', {
                 body: { accountId: id }
@@ -141,7 +141,14 @@ export const Connections = () => {
             if (error) throw error;
             if (data?.error) throw new Error(data.error);
 
-            notify('Sync completed! Your data is now up to date.', 'success');
+            // Force immediate cloud-to-local data refresh
+            await Promise.all([
+                queryClient.invalidateQueries({ queryKey: ['posts'] }),
+                queryClient.invalidateQueries({ queryKey: ['social_accounts'] }),
+                queryClient.invalidateQueries({ queryKey: ['analytics'] })
+            ]);
+
+            notify('Account synchronized successfully!', 'success');
         } catch (error: any) {
             console.error('Sync error:', error);
             notify(`Sync failed: ${error.message || 'Meta API error'}`, 'error');
