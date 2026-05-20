@@ -70,19 +70,21 @@ export const Analytics = () => {
     }, [timeRange]);
 
     const audienceData = React.useMemo(() => {
-        return chartTimePoints.map(({ label, date, isMonth }) => {
-            const metricEntry = metrics.find(m => {
-                const mDate = new Date(m.month);
-                return isMonth ? isSameMonth(mDate, date) : isAfter(new Date(m.month), subDays(date, 1));
-            });
+        // Sort metrics DESC so we find the latest one easily
+        const sortedMetrics = [...metrics].sort((a, b) => new Date(b.month).getTime() - new Date(a.month).getTime());
+
+        return chartTimePoints.map(({ label, date }) => {
+            // Find the first metric entry that was recorded ON or BEFORE this point's date
+            const metricEntry = sortedMetrics.find(m => new Date(m.month) <= date);
+
             const followers = metricEntry?.follower_count || 0;
             const following = metricEntry?.following_count || 0;
 
             return { name: label, followers, following };
         });
-    }, [chartTimePoints, metrics, timeRange]);
+    }, [chartTimePoints, metrics]);
 
-    const latestPoint = audienceData[audienceData.length - 1] || { followers: 0 };
+    const latestPoint = audienceData[audienceData.length - 1] || { followers: 0, following: 0 };
     const prevPoint = audienceData[audienceData.length - 2] || latestPoint;
     const followerMoM = momBadge(latestPoint.followers, prevPoint.followers);
 
